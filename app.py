@@ -8,18 +8,15 @@ from streamlit_gsheets import GSheetsConnection
 st.set_page_config(page_title="Sistema de Fluxo de Aprovação", layout="wide")
 
 # --- LISTA DE EMAIL DOS 3 APROVADORES OFICIAIS ---
-# ATENÇÃO: Substitua pelos e-mails reais de quem vai aprovar
-APROVADORES = ["jonatan231196@gmail.com", "aprovador2@email.com", "aprovador3@email.com"]
+APROVADORES = ["aprovador1@email.com", "aprovador2@email.com", "aprovador3@email.com"]
 
 # --- CONEXÃO NATIVA COM O GOOGLE SHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Função para ler os dados da planilha atualizados
 def carregar_dados():
     try:
-        # Lê a planilha, tratando a primeira linha como cabeçalho
-        df = conn.read(ttl=0) # ttl=0 garante que não haverá cache, trazendo dados em tempo real
-        return df.dropna(how="all") # Remove linhas totalmente vazias se houverem
+        df = conn.read(ttl=0) # Dados em tempo real
+        return df.dropna(how="all")
     except Exception as e:
         st.error(f"Erro ao conectar com a planilha: {e}")
         return pd.DataFrame()
@@ -76,9 +73,7 @@ if not st.session_state.connected:
     st.link_button("🔑 Efetuar Login com Google", auth_url, type="primary")
     st.stop()
 
-# Carrega a base de dados vinda da planilha do Google
 df_dados = carregar_dados()
-
 user_email = st.session_state.email
 user_name = st.session_state.name
 
@@ -88,7 +83,6 @@ if st.sidebar.button("🚪 Sair"):
         del st.session_state[key]
     st.rerun()
 
-# --- DIVISÃO DE PAPÉIS (REMETENTE VS APROVADOR) ---
 is_aprovador = user_email in APROVADORES
 
 if is_aprovador:
@@ -98,7 +92,7 @@ else:
     tab_novo, tab_status = st.tabs(["📝 Nova Solicitação", "📊 Status dos meus Pedidos"])
     tab_painel = None
 
-# --- ABA: CRIAR FORMULÁRIO (Salva direto na Planilha) ---
+# --- ABA: CRIAR FORMULÁRIO ---
 with tab_novo:
     st.subheader("Formulário de Requisição Padrão")
     with st.form("form_requisicao", clear_on_submit=True):
@@ -110,10 +104,8 @@ with tab_novo:
         
         if enviar:
             if titulo and descricao:
-                # Calcula o próximo ID sequencial baseado nas linhas existentes
                 proximo_id = int(df_dados["ID"].max() + 1) if not df_dados.empty and "ID" in df_dados.columns else 1
                 
-                # Monta a nova linha para anexar no DataFrame
                 nova_linha = pd.DataFrame([{
                     "ID": proximo_id,
                     "Remetente_Nome": user_name,
@@ -124,10 +116,10 @@ with tab_novo:
                     "Voto_Aprovador1": "Pendente",
                     "Voto_Aprovador2": "Pendente",
                     "Voto_Aprovador3": "Pendente",
-                    "Status_Final": "Em análise"
+                    "Status_Final": "Em análise",
+                    "Motivo_Recusa": ""  # Começa vazio
                 }])
                 
-                # Junta o dado novo com a tabela existente e atualiza a planilha inteira
                 df_atualizado = pd.concat([df_dados, nova_linha], ignore_index=True)
                 conn.update(data=df_atualizado)
                 st.success("Solicitação enviada e gravada no Google Sheets com sucesso!")
@@ -135,7 +127,7 @@ with tab_novo:
             else:
                 st.error("Por favor, preencha o Título e a Descrição.")
 
-# --- ABA: VISÃO DO REMETENTE (Lê o status da Planilha) ---
+# --- ABA: VISÃO DO REMETENTE (Acompanhar Status e Comentários) ---
 if not is_aprovador:
     with tab_status:
         st.subheader("Suas solicitações e andamento")
@@ -143,16 +135,23 @@ if not is_aprovador:
             meus_pedidos = df_dados[df_dados["Remetente_Email"] == user_email]
             
             if meus_pedidos.empty:
-                st.write("Você ainda não enviou nenhuma solicitação.")
+                st.write("Você ainda não enviou nenhuma solicitud.");
             else:
                 for _, row in meus_pedidos.iterrows():
-                    with st.expander(f"📋 Chamado #{int(row['ID'])} - {row['Titulo']} [{row['Status_Final']}]"):
+                    status_atual = row['Status_Final']
+                    id_c = int(row['ID'])
+                    
+                    with st.expander(f"📋 Chamado #{id_c} - {row['Titulo']} [{status_atual}]"):
                         st.write(f"**Descrição:** {row['Descricao']}")
                         st.write(f"**Justificativa:** {row['Justificativa']}")
-                        st.markdown("---")
-                        st.write("**Status da Avaliação pelos Gestores:**")
                         
-                        # Mostra o status de cada um dos 3 aprovadores baseado nas colunas da planilha
+                        # Se houver motivo de recusa, exibe em destaque
+                        if status_atual == "Reprovado" and str(row.get("Motivo_Recusa", "")).strip() != "" and str(row.get("Motivo_Recusa", "")) != "nan":
+                            st.error(f"🚨 **Motivo da Reprovação:** {row['Motivo_Recusa']}")
+                            
+                        st.markdown("---")
+                        st.write("**Status detalhado dos avaliadores:**")
+                        
                         for idx, ap_email in enumerate(APROVADORES):
                             voto = row[f"Voto_Aprovador{idx+1}"]
                             if voto == "Pendente":
@@ -164,18 +163,17 @@ if not is_aprovador:
         else:
             st.write("Nenhuma solicitação encontrada no banco de dados.")
 
-# --- ABA: VISÃO DO APROVADOR (Atualiza a Planilha com o Voto) ---
+# --- ABA: VISÃO DO APROVADOR ---
 if is_aprovador and tab_painel:
     with tab_painel:
         st.subheader("Solicitações aguardando seu parecer")
         
-        # Descobre qual coluna pertence ao aprovador logado (1, 2 ou 3)
         num_aprovador = APROVADORES.index(user_email) + 1
         coluna_voto = f"Voto_Aprovador{num_aprovador}"
         
+        # Só mostra pedidos cuja avaliação geral ainda esteja "Em análise" e o voto dele esteja "Pendente"
         if not df_dados.empty and coluna_voto in df_dados.columns:
-            # Filtra apenas linhas onde o voto deste aprovador específico está "Pendente"
-            pendentes = df_dados[df_dados[coluna_voto] == "Pendente"]
+            pendentes = df_dados[(df_dados[coluna_voto] == "Pendente") & (df_dados["Status_Final"] == "Em análise")]
             
             if pendentes.empty:
                 st.success("🎈 Tudo em dia! Nenhuma solicitação pendente para você.")
@@ -187,19 +185,60 @@ if is_aprovador and tab_painel:
                         st.write(f"**Descrição:** {row['Descricao']}")
                         st.write(f"**Justificativa:** {row['Justificativa']}")
                         
-                        col_ap, col_rep, _ = st.columns([1, 1, 4])
+                        # Cria um estado na sessão para controlar se o botão de reprovar foi clicado
+                        if f"recusando_{id_chamado}" not in st.session_state:
+                            st.session_state[f"recusando_{id_chamado}"] = False
                         
-                        # Se clicar em aprovar ou reprovar, localiza a linha exata no dataframe pelo ID e altera a célula
-                        if col_ap.button("👍 Aprovar", key=f"ap_{id_chamado}"):
-                            df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado"
-                            conn.update(data=df_dados)
-                            st.toast("Você APROVOU esta solicitação.")
-                            st.rerun()
+                        if not st.session_state[f"recusando_{id_chamado}"]:
+                            col_ap, col_rep, _ = st.columns([1, 1, 4])
                             
-                        if col_rep.button("👎 Reprovar", key=f"rep_{id_chamado}"):
-                            df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Reprovado"
-                            conn.update(data=df_dados)
-                            st.toast("Você REPROVOU esta solicitação.")
-                            st.rerun()
+                            # AÇÃO: APROVAR
+                            if col_ap.button("👍 Aprovar", key=f"ap_{id_chamado}"):
+                                # Registra o voto positivo provisoriamente no DataFrame local
+                                df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado"
+                                
+                                # LÓGICA DE UNANIMIDADE: Pega a linha atualizada para checar os outros votos
+                                linha_alt = df_dados[df_dados["ID"] == id_chamado].iloc[0]
+                                v1 = linha_alt["Voto_Aprovador1"]
+                                v2 = linha_alt["Voto_Aprovador2"]
+                                v3 = linha_alt["Voto_Aprovador3"]
+                                
+                                # Se todos os 3 derem "Aprovado", finaliza o chamado como Aprovado
+                                if v1 == "Aprovado" and v2 == "Aprovado" and v3 == "Aprovado":
+                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
+                                
+                                conn.update(data=df_dados)
+                                st.toast("Você APROVOU esta solicitação.")
+                                st.rerun()
+                                
+                            # Gatilho para abrir o formulário de recusa
+                            if col_rep.button("👎 Reprovar", key=f"rep_gatilho_{id_chamado}"):
+                                st.session_state[f"recusando_{id_chamado}"] = True
+                                st.rerun()
+                        
+                        # Se o aprovador clicou em Reprovar, exibe a caixa de texto obrigatória
+                        else:
+                            st.markdown("⚠️ **Explique o motivo da recusa abaixo:**")
+                            motivo = st.text_input("Motivo (Obrigatório):", key=f"input_motivo_{id_chamado}")
+                            
+                            col_conf, col_canc = st.columns([2, 8])
+                            
+                            if col_conf.button("Confirmar Reprovação", key=f"conf_rep_{id_chamado}"):
+                                if motivo.strip():
+                                    # LÓGICA DE UNANIMIDADE: Se 1 reprova, o status final vira "Reprovado" imediatamente
+                                    df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Reprovado"
+                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
+                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = f"{user_name}: {motivo}"
+                                    
+                                    conn.update(data=df_dados)
+                                    st.session_state[f"recusando_{id_chamado}"] = False
+                                    st.toast("Solicitação reprovada com sucesso.")
+                                    st.rerun()
+                                else:
+                                    st.error("Você precisa digitar um motivo para rejeitar.")
+                                    
+                            if col_canc.button("Cancelar", key=f"canc_rep_{id_chamado}"):
+                                st.session_state[f"recusando_{id_chamado}"] = False
+                                st.rerun()
         else:
             st.write("Sem conexões pendentes configuradas.")
