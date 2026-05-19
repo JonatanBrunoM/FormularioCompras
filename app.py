@@ -15,8 +15,20 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def carregar_dados():
     try:
-        df = conn.read(ttl=0) # Dados em tempo real
-        return df.dropna(how="all")
+        # Lê a planilha atualizada
+        df = conn.read(ttl=0)
+        df = df.dropna(how="all") # Remove linhas totalmente vazias
+        
+        if not df.empty:
+            # CORREÇÃO AQUI: Força a coluna a ser tratada como Texto (String)
+            if "Motivo_Recusa" in df.columns:
+                df["Motivo_Recusa"] = df["Motivo_Recusa"].astype(str).replace("nan", "")
+            
+            # Garante que o ID seja sempre número inteiro para não dar erro na busca
+            if "ID" in df.columns:
+                df["ID"] = df["ID"].astype(int)
+                
+        return df
     except Exception as e:
         st.error(f"Erro ao conectar com a planilha: {e}")
         return pd.DataFrame()
