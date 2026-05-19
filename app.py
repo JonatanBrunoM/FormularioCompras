@@ -8,7 +8,7 @@ from streamlit_gsheets import GSheetsConnection
 st.set_page_config(page_title="Sistema de Fluxo de Aprovação", layout="wide")
 
 # --- LISTA DE EMAIL DOS 3 APROVADORES OFICIAIS ---
-APROVADORES = ["aprovador1@email.com", "aprovador2@email.com", "aprovador3@email.com"]
+APROVADORES = ["jonatan231196@gmail.com", "aprovador2@email.com", "aprovador3@email.com"]
 
 # --- CONEXÃO NATIVA COM O GOOGLE SHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
