@@ -7,7 +7,7 @@ st.set_page_config(page_title="Sistema de Fluxo de Aprovação", layout="wide")
 
 # --- LISTA DE EMAIL DOS 3 APROVADORES OFICIAIS ---
 # Mude para os e-mails reais depois
-APROVADORES = ["aprovador1@email.com", "aprovador2@email.com", "aprovador3@email.com"]
+APROVADORES = ["jonatan231196@gmail.com", "aprovador2@email.com", "aprovador3@email.com"]
 
 # --- INICIALIZAÇÃO DO BANCO DE DADOS TEMPORÁRIO ---
 if "solicitacoes" not in st.session_state:
