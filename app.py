@@ -12,7 +12,7 @@ st.set_page_config(page_title="Sistema de Fluxo de Aprovação", layout="wide")
 
 # --- LISTA DE EMAIL DOS 3 APROVADORES OFICIAIS ---
 # ATENÇÃO: Substitua pelos e-mails reais que vão testar/aprovar
-APROVADORES = ["jonatan231196@gmail.com", "aprovador2@email.com", "aprovador3@email.com"]
+APROVADORES = ["jonatan231196@gmail.com", "jonatan231196@gmail.com", "jonatan231196@gmail.com"]
 
 # --- FUNÇÃO DISPARADORA DE E-MAIL ---
 def enviar_email(destinatario, assunto, corpo_html):
