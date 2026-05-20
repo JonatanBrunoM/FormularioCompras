@@ -11,7 +11,6 @@ from streamlit_gsheets import GSheetsConnection
 st.set_page_config(page_title="Sistema de Fluxo de Aprovação", layout="wide")
 
 # --- LISTA DE EMAIL DOS 3 APROVADORES OFICIAIS ---
-# ATENÇÃO: Substitua pelos e-mails reais que vão testar/aprovar
 APROVADORES = ["jonatan231196@gmail.com", "jonatan231196@gmail.com", "jonatan231196@gmail.com"]
 
 # --- FUNÇÃO DISPARADORA DE E-MAIL ---
@@ -42,7 +41,7 @@ def enviar_email(destinatario, assunto, corpo_html):
         return True
     except Exception as e:
         st.error(f"🚨 Falha Crítica no Envio de E-mail para {destinatario}:")
-        st.exception(e) # Isso vai cuspir o erro exato do servidor na tela do app
+        st.exception(e)
         return False
 
 # --- CONEXÃO NATIVA COM O GOOGLE SHEETS ---
@@ -101,7 +100,7 @@ if "code" in query_params and not st.session_state.get('connected'):
         st.query_params.clear()
 
 # --- INTERFACE PRINCIPAL ---
-st.title("🔗 Workflow de Approvação Automatizado")
+st.title("Formulário Compras")
 
 if not st.session_state.connected:
     st.warning("🔒 Por favor, faça login com sua conta Google para acessar o sistema.")
@@ -127,8 +126,8 @@ if st.sidebar.button("🚪 Sair"):
 is_aprovador = user_email.lower() in [ap.lower() for ap in APROVADORES]
 
 if is_aprovador:
-    st.info("⚡ Você está logado como um dos **Aprovadores Oficiais**.")
-    tab_painel, tab_novo = st.tabs(["📥 Painel de Aprovações", "📝 Enviar Nova Solicitação"])
+    st.info("Você está logado como um dos **Aprovadores Oficiais**.")
+    tab_painel, tab_novo = st.tabs(["Painel de Aprovações", "📝 Enviar Nova Solicitação"])
 else:
     tab_novo, tab_status = st.tabs(["📝 Nova Solicitação", "📊 Status dos meus Pedidos"])
     tab_painel = None
@@ -141,7 +140,7 @@ with tab_novo:
         descricao = st.text_area("Descrição detalhada da demanda:")
         justificativa = st.text_area("Justificativa / Impacto:")
         
-        enviar = st.form_submit_button("🚀 Enviar para Aprovação", use_container_width=True)
+        enviar = st.form_submit_button("Enviar", use_container_width=True)
         
         if enviar:
             if titulo and descricao:
@@ -173,11 +172,10 @@ with tab_novo:
                 <p><b>Título:</b> {titulo}</p>
                 <p><b>Descrição:</b> {descricao}</p>
                 <br>
-                <p><i>Por favor, acesse o sistema Streamlit para registrar seu voto.</i></p>
+                <p><i>Por favor, acesse o sistema para registrar seu voto.</i></p>
                 """
                 
                 # 3. DISPARO VISUAL COM FEEDBACK NA TELA
-                # Criamos uma barra de progresso visual para você ver o Python trabalhando no e-mail
                 with st.spinner("Enviando notificações para os aprovadores... Por favor, aguarde."):
                     for ap in APROVADORES:
                         sucesso = enviar_email(destinatario=ap, assunto=f"📥 Nova Aprovação Pendente: {titulo}", corpo_html=html_aprovadores)
@@ -188,8 +186,6 @@ with tab_novo:
                 
                 st.success("Solicitação gravada e processo de notificação concluído!")
                 
-                # Removemos o st.rerun() imediato para dar tempo de você ler os toasts/avisos na tela
-                # O usuário pode mudar de aba manualmente ou o app atualiza no próximo clique.
             else:
                 st.error("Por favor, preencha o Título e a Descrição.")
 
