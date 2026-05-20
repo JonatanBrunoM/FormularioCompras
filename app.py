@@ -9,7 +9,7 @@ from google_auth_oauthlib.flow import Flow
 from streamlit_gsheets import GSheetsConnection
 
 # ==============================================================================
-# 1. Configuração Básica da Página e Design Corporativo
+# 1. Configuração Básica da Página e Design Adaptável (Light/Dark Mode)
 # ==============================================================================
 st.set_page_config(
     page_title="Workflow de Aprovações - Hospital Moinhos",
@@ -18,16 +18,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Arquitetura CSS Premium para o App
+# CSS Inteligente: Respeita as variáveis nativas do tema do Streamlit
 st.markdown("""
 <style>
-    :root {
-        --cor-principal: #005691;
-        --cor-secundaria: #008D4C;
-        --cinza-texto: #333333;
-    }
-    
-    /* Desativar completamente interações, botões de zoom e download nas imagens */
+    /* Desativar interações e zoom nas imagens */
     [data-testid="stImage"] {
         pointer-events: none !important;
     }
@@ -35,58 +29,40 @@ st.markdown("""
         display: none !important;
     }
     
-    /* Títulos e Identidade */
-    h1, h2, h3, h4, h5 { color: var(--cor-principal) !important; font-weight: 600 !important; }
-    
-    /* Estilização Geral de Inputs (Garante contraste em qualquer tema) */
-    .stTextInput input, .stTextArea textarea {
-        color: var(--cinza-texto) !important;
-        background-color: #f8f9fa !important;
-        border: 1px solid #ced4da !important;
-        border-radius: 6px !important;
-    }
-    .stTextInput input:focus, .stTextArea textarea:focus {
-        border-color: var(--cor-principal) !important;
-        box-shadow: 0 0 0 0.2rem rgba(0,86,145,0.25) !important;
+    /* Títulos usam a cor primária institucional */
+    h1, h2, h3, h4, h5 { 
+        color: #005691 !important; 
+        font-weight: 600 !important; 
     }
     
-    /* Customização Robusta do Card do Formulário */
+    /* Formulários adaptáveis: usam o fundo e texto do tema atual do Streamlit */
     [data-testid="stForm"] {
         border-radius: 12px !important;
-        border: 1px solid #e9ecef !important;
+        border: 1px solid rgba(128, 128, 128, 0.2) !important;
         padding: 30px !important;
-        background-color: #ffffff !important;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.04) !important;
+        background-color: transparent !important; /* Deixa o Streamlit decidir a cor do fundo */
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
     }
     
-    /* Customização Fina da Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #f8f9fa !important;
-        border-right: 1px solid #dee2e6 !important;
-    }
+    /* Card do Usuário na Sidebar - Transparente com borda sutil */
     .sidebar-user-card {
         padding: 15px;
-        background-color: #ffffff;
         border-radius: 10px;
-        border: 1px solid #e9ecef;
+        border: 1px solid rgba(128, 128, 128, 0.2);
         margin-top: 10px;
     }
     .foto-perfil {
         border-radius: 50%;
-        border: 2px solid var(--cor-principal);
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        border: 2px solid #005691;
     }
     
-    /* Box do Layout de Login */
-    .login-container {
-        max-width: 450px;
-        margin: 0 auto;
-        padding: 35px;
-        background: #ffffff;
-        border-radius: 12px;
-        border: 1px solid #e9ecef;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+    /* Container de Login Centralizado e Sem Fundo Fixo (Evita blocos brancos no tema escuro) */
+    .login-box {
         text-align: center;
+        padding: 30px;
+        border-radius: 12px;
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        margin-top: 50px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -94,7 +70,7 @@ st.markdown("""
 # ==============================================================================
 # 2. Configurações de E-mail e Banco de Dados (Inalterados)
 # ==============================================================================
-APROVADORES = ["jonatan231196@gmail.com", "seu_email_real@gmail.com", "seu_email_real@gmail.com"]
+APROVADORES = ["seu_email_real@gmail.com", "seu_email_real@gmail.com", "seu_email_real@gmail.com"]
 
 def enviar_email(destinatario, assunto, corpo_html):
     remetente = st.secrets.get("SMTP_EMAIL", "")
@@ -170,21 +146,20 @@ if "code" in query_params and not st.session_state.get('connected'):
         st.query_params.clear()
 
 # ==============================================================================
-# 3. Tela de Login Corporativa Clean (Modificada)
+# 3. Tela de Login Corporativa Ajustada e Centralizada
 # ==============================================================================
 if not st.session_state.connected:
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    # Colunas para centralizar perfeitamente o card de login na tela
+    col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     
-    # Criando o container centralizado usando colunas do Streamlit
-    c1, c2, c3 = st.columns([1, 1.8, 1])
-    with c2:
-        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+    with col_l2:
+        st.markdown('<div class="login-box">', unsafe_allow_html=True)
         if os.path.exists("logomoinhos.png"):
-            st.image("logomoinhos.png", width=220)
+            st.image("logomoinhos.png", width=200)
         
-        st.markdown("<h3 style='margin-top: 15px; font-size: 1.4em;'>Workflow de Aprovações</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #6c757d; font-size: 0.95em;'>Acesse o Portal de Governança Institucional</p>", unsafe_allow_html=True)
-        st.markdown("<hr style='border: 0; border-top: 1px solid #eee; margin: 20px 0;'>", unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-top: 15px; font-size: 1.3em;'>Workflow de Aprovações</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #6c757d; font-size: 0.9em;'>Portal de Governança e Alçadas Corporativas</p>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
         
         auth_url = (
             f"https://accounts.google.com/o/oauth2/auth?"
@@ -192,22 +167,25 @@ if not st.session_state.connected:
             f"redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI','')}&"
             f"scope=https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/userinfo.email%20openid&prompt=select_account"
         )
-        st.link_button("🔑 Acessar com Conta Google", auth_url, type="primary", use_container_width=True)
+        
+        # Grid para encolher o botão e não deixá-lo gigante na tela
+        b_col1, b_col2, b_col3 = st.columns([0.5, 2, 0.5])
+        b_col2.link_button("🔑 Entrar com o Google", auth_url, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
 # ==============================================================================
-# 4. Sidebar Refinada (Modificada)
+# 4. Sidebar Inteligente e Fluida
 # ==============================================================================
 st.sidebar.markdown("<h3 style='font-size: 1.2em; margin-bottom: 5px;'>Hospital Moinhos</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='color: #6c757d; font-size: 0.85em; margin-top:-10px;'>Portal de Suprimentos Corporativos</p>", unsafe_allow_html=True)
 
-# Bloco com Card de informações do Usuário conectado
+# Bloco dinâmico do usuário
 st.sidebar.markdown('<div class="sidebar-user-card">', unsafe_allow_html=True)
 if st.session_state.get("picture"):
-    st.sidebar.markdown(f'<img src="{st.session_state.picture}" class="foto-perfil" width="55">', unsafe_allow_html=True)
-st.sidebar.markdown(f"<p style='margin-top:10px; margin-bottom:2px; font-weight:bold; color:#333;'>{st.session_state.name}</p>", unsafe_allow_html=True)
-st.sidebar.markdown(f"<code style='font-size:0.8em; color:#6c757d;'>{st.session_state.email}</code>", unsafe_allow_html=True)
+    st.sidebar.markdown(f'<img src="{st.session_state.picture}" class="foto-perfil" width="50">', unsafe_allow_html=True)
+st.sidebar.markdown(f"<p style='margin-top:8px; margin-bottom:2px; font-weight:bold;'>{st.session_state.name}</p>", unsafe_allow_html=True)
+st.sidebar.markdown(f"<span style='font-size:0.8em; color:#6c757d;'>{st.session_state.email}</span>", unsafe_allow_html=True)
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
@@ -224,17 +202,17 @@ user_email = st.session_state.email
 user_name = st.session_state.name
 is_aprovador = user_email in APROVADORES
 
-# Layout de cabeçalho estável e fixo
-col_header1, col_header2 = st.columns([1, 4])
+# Layout de cabeçalho limpo
+col_header1, col_header2 = st.columns([1, 5])
 if os.path.exists("logomoinhos.png"):
-    col_header1.image("logomoinhos.png", width=160)
+    col_header1.image("logomoinhos.png", width=150)
 
 with col_header2:
     st.title("Central de Aprovações de Compras")
     st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Fluxo de governança e consenso por alçada de aprovação</p>", unsafe_allow_html=True)
 
 # ==============================================================================
-# 6. Fluxos de Alçada (Aprovadores vs Remetentes)
+# 6. Distribuição de Abas por Perfil (Modificado para Aprovadores terem Abas)
 # ==============================================================================
 if is_aprovador:
     st.markdown("---")
@@ -242,11 +220,10 @@ if is_aprovador:
     coluna_voto = f"Voto_Aprovador{num_aprovador}"
     
     if not df_dados.empty and coluna_voto in df_dados.columns:
-        # Separação lógica: Pendentes atuais vs Histórico do Aprovador (Ponto 5)
         pendentes = df_dados[(df_dados[coluna_voto] == "Pendente") & (df_dados["Status_Final"] == "Em análise")]
         historico_aprovador = df_dados[df_dados[coluna_voto].isin(["Aprovado", "Reprovado"])]
         
-        # Métricas rápidas no topo
+        # Métricas rápidas
         m1, m2, m3 = st.columns(3)
         with m1: st.metric("Suas Pendências", len(pendentes))
         with m2: st.metric("Aprovados pelo Fluxo", len(df_dados[df_dados["Status_Final"] == "Aprovado"]))
@@ -254,105 +231,107 @@ if is_aprovador:
         
         st.markdown("---")
         
-        # Seção 1: Pendências
-        st.markdown("### 📥 Solicitações Pendentes de seu Parecer")
-        if pendentes.empty:
-            st.success("🎈 Excelente! Nenhuma solicitação corporativa pendente para você no momento.")
-        else:
-            for _, row in pendentes.iterrows():
-                id_chamado = row["ID"]
-                with st.container(border=True):
-                    st.markdown(f"#### Chamado #{id_chamado} - {row['Titulo']}")
-                    st.markdown(f"**Solicitante:** {row['Remetente_Nome']} (`{row['Remetente_Email']}`)")
-                    
-                    with st.expander("🔍 Visualizar Detalhes da Solicitação", expanded=False):
-                        st.markdown("---")
-                        st.markdown(f"##### 📝 Descrição do Pedido:")
-                        st.write(row['Descricao'])
-                        st.markdown(f"##### 💡 Justificativa Corporativa:")
-                        st.write(row['Justificativa'])
-                        st.markdown("---")
-                    
-                    if f"recusando_{id_chamado}" not in st.session_state:
-                        st.session_state[f"recusando_{id_chamado}"] = False
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    
-                    if not st.session_state[f"recusando_{id_chamado}"]:
-                        col_ap, col_rep, _ = st.columns([2, 2, 6])
+        # Ponto 3: Mudança para sistema de abas também para os Aprovadores
+        tab_pendentes, tab_hist_aprovador = st.tabs(["📥 Minhas Pendências", "📊 Histórico de Decisões"])
+        
+        with tab_pendentes:
+            st.markdown("### Solicitações Pendentes de seu Parecer")
+            if pendentes.empty:
+                st.success("🎈 Excelente! Nenhuma solicitação corporativa pendente para você no momento.")
+            else:
+                for _, row in pendentes.iterrows():
+                    id_chamado = row["ID"]
+                    with st.container(border=True):
+                        st.markdown(f"#### Chamado #{id_chamado} - {row['Titulo']}")
+                        st.markdown(f"**Solicitante:** {row['Remetente_Nome']} (`{row['Remetente_Email']}`)")
                         
-                        if col_ap.button("👍 Aprovar Compra", key=f"ap_{id_chamado}", use_container_width=True):
-                            df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado"
-                            linha_alt = df_dados[df_dados["ID"] == id_chamado].iloc[0]
-                            if linha_alt["Voto_Aprovador1"] == "Aprovado" and linha_alt["Voto_Aprovador2"] == "Aprovado" and linha_alt["Voto_Aprovador3"] == "Aprovado":
-                                df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
-                                
-                                html_sucesso = f"""
-                                <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
-                                    <h3 style='color: #008D4C;'>HOSPITAL MOINHOS DE VENTO</h3>
-                                    <p style='color: #6c757d;'>✅ Chamado #{id_chamado} foi APROVADO!</p>
-                                    <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
-                                    <p>Todos os 3 aprovadores corporativos deram parecer positivo para: <b>{row['Titulo']}</b>.</p>
-                                </div>
-                                """
-                                enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Solicitação Aprovada! - #{id_chamado}", corpo_html=html_sucesso)
-                            
-                            conn.update(data=df_dados)
-                            st.rerun()
-                            
-                        if col_rep.button("👎 Reprovar", key=f"rep_gatilho_{id_chamado}", use_container_width=True):
-                            st.session_state[f"recusando_{id_chamado}"] = True
-                            st.rerun()
-                    else:
-                        st.markdown("⚠️ **Explique o motivo da recusa abaixo:**")
-                        motivo = st.text_input("Motivo da Reprovação (Obrigatório):", key=f"input_motivo_{id_chamado}", placeholder="Descreva as razões técnicas/orçamentárias...")
-                        col_conf, col_canc = st.columns([2, 8])
+                        with st.expander("🔍 Visualizar Detalhes da Solicitação", expanded=False):
+                            st.markdown("---")
+                            st.markdown(f"##### 📝 Descrição do Pedido:")
+                            st.write(row['Descricao'])
+                            st.markdown(f"##### 💡 Justificativa Corporativa:")
+                            st.write(row['Justificativa'])
+                            st.markdown("---")
                         
-                        if col_conf.button("Confirmar Rejeição", key=f"conf_rep_{id_chamado}", use_container_width=True):
-                            if motivo.strip():
-                                df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Reprovado"
-                                df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
-                                df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = f"{user_name}: {motivo}"
+                        if f"recusando_{id_chamado}" not in st.session_state:
+                            st.session_state[f"recusando_{id_chamado}"] = False
+                        
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        
+                        if not st.session_state[f"recusando_{id_chamado}"]:
+                            col_ap, col_rep, _ = st.columns([2, 2, 6])
+                            
+                            if col_ap.button("👍 Aprovar Compra", key=f"ap_{id_chamado}", use_container_width=True):
+                                df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado"
+                                linha_alt = df_dados[df_dados["ID"] == id_chamado].iloc[0]
+                                if linha_alt["Voto_Aprovador1"] == "Aprovado" and linha_alt["Voto_Aprovador2"] == "Aprovado" and linha_alt["Voto_Aprovador3"] == "Aprovado":
+                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
+                                    
+                                    html_sucesso = f"""
+                                    <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
+                                        <h3 style='color: #008D4C;'>HOSPITAL MOINHOS DE VENTO</h3>
+                                        <p style='color: #6c757d;'>✅ Chamado #{id_chamado} foi APROVADO!</p>
+                                        <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
+                                        <p>Todos os 3 aprovadores deram parecer positivo para: <b>{row['Titulo']}</b>.</p>
+                                    </div>
+                                    """
+                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Solicitação Aprovada! - #{id_chamado}", corpo_html=html_sucesso)
                                 
-                                html_rejeicao = f"""
-                                <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
-                                    <h3 style='color: #D93025;'>HOSPITAL MOINHOS DE VENTO</h3>
-                                    <p style='color: #6c757d;'>❌ Sua solicitação #{id_chamado} foi recusada</p>
-                                    <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
-                                    <p>A solicitação <b>{row['Titulo']}</b> foi reprovada no fluxo corporativo.</p>
-                                    <p><b>Motivo:</b> {motivo}</p>
-                                </div>
-                                """
-                                enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Solicitação Recusada - #{id_chamado}", corpo_html=html_rejeicao)
                                 conn.update(data=df_dados)
+                                st.rerun()
+                                
+                            if col_rep.button("👎 Reprovar", key=f"rep_gatilho_{id_chamado}", use_container_width=True):
+                                st.session_state[f"recusando_{id_chamado}"] = True
+                                st.rerun()
+                        else:
+                            st.markdown("⚠️ **Explique o motivo da recusa abaixo:**")
+                            motivo = st.text_input("Motivo da Reprovação (Obrigatório):", key=f"input_motivo_{id_chamado}", placeholder="Descreva as razões técnicas/orçamentárias...")
+                            col_conf, col_canc = st.columns([2, 8])
+                            
+                            if col_conf.button("Confirmar Rejeição", key=f"conf_rep_{id_chamado}", use_container_width=True):
+                                if motivo.strip():
+                                    df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Reprovado"
+                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
+                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = f"{user_name}: {motivo}"
+                                    
+                                    html_rejeicao = f"""
+                                    <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
+                                        <h3 style='color: #D93025;'>HOSPITAL MOINHOS DE VENTO</h3>
+                                        <p style='color: #6c757d;'>❌ Sua solicitação #{id_chamado} foi recusada</p>
+                                        <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
+                                        <p>A solicitação <b>{row['Titulo']}</b> foi reprovada.</p>
+                                        <p><b>Motivo:</b> {motivo}</p>
+                                    </div>
+                                    """
+                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Solicitação Recusada - #{id_chamado}", corpo_html=html_rejeicao)
+                                    conn.update(data=df_dados)
+                                    st.session_state[f"recusando_{id_chamado}"] = False
+                                    st.rerun()
+                                else:
+                                    st.error("O motivo da recusa é obrigatório.")
+                                    
+                            if col_canc.button("Cancelar", key=f"canc_rep_{id_chamado}", use_container_width=True):
                                 st.session_state[f"recusando_{id_chamado}"] = False
                                 st.rerun()
-                            else:
-                                st.error("O motivo da recusa é obrigatório.")
-                                
-                        if col_canc.button("Cancelar", key=f"canc_rep_{id_chamado}", use_container_width=True):
-                            st.session_state[f"recusando_{id_chamado}"] = False
-                            st.rerun()
 
-        # Seção 2: Histórico Próprio do Aprovador (Ponto 5)
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown("### 📊 Histórico de Decisões da Governança")
-        if historico_aprovador.empty:
-            st.info("Você ainda não registrou votos em chamados anteriores neste portal.")
-        else:
-            for _, row in historico_aprovador.iterrows():
-                id_c = int(row['ID'])
-                voto_proprio = row[coluna_voto]
-                status_f = row['Status_Final']
-                
-                cor_voto = "#008D4C" if voto_proprio == "Aprovado" else "#D93025"
-                
-                with st.expander(f"📋 Chamado #{id_c} - {row['Titulo']} (Seu Voto: {voto_proprio} | Status Final: {status_f})"):
-                    st.markdown(f"Seu Parecer: <span style='color:{cor_voto}; font-weight:bold;'>{voto_proprio}</span>", unsafe_allow_html=True)
-                    st.write(f"**Solicitante:** {row['Remetente_Nome']} ({row['Remetente_Email']})")
-                    st.write(f"**Descrição:** {row['Descricao']}")
-                    if row['Motivo_Recusa']:
-                        st.info(f"**Histórico de Justificativas/Recusas:** {row['Motivo_Recusa']}")
+        with tab_hist_aprovador:
+            st.markdown("### Histórico de Decisões da Governança")
+            if historico_aprovador.empty:
+                st.info("Você ainda não registrou votos em chamados anteriores.")
+            else:
+                for _, row in historico_aprovador.iterrows():
+                    id_c = int(row['ID'])
+                    voto_proprio = row[coluna_voto]
+                    status_f = row['Status_Final']
+                    
+                    cor_voto = "#008D4C" if voto_proprio == "Aprovado" else "#D93025"
+                    
+                    with st.expander(f"📋 Chamado #{id_c} - {row['Titulo']} (Seu Voto: {voto_proprio})"):
+                        st.markdown(f"Seu Parecer: <span style='color:{cor_voto}; font-weight:bold;'>{voto_proprio}</span>", unsafe_allow_html=True)
+                        st.write(f"**Solicitante:** {row['Remetente_Nome']} ({row['Remetente_Email']})")
+                        st.write(f"**Descrição:** {row['Descricao']}")
+                        if row['Motivo_Recusa']:
+                            st.info(f"**Justificativa registrada:** {row['Motivo_Recusa']}")
     else:
         st.info("Nenhuma estrutura de dados mapeada.")
 
@@ -405,13 +384,13 @@ else:
                         <p><b>Título:</b> {titulo}</p>
                     </div>
                     """
-                    with st.spinner("Enviando notificações para a governança..."):
+                    with st.spinner("Enviando notificações..."):
                         erros = 0
                         for ap in APROVADORES:
                             sucesso = enviar_email(destinatario=ap, assunto=f"HOSPITAL MOINHOS: Nova Aprovação Pendente - #{titulo}", corpo_html=html_aprovadores)
                             if not sucesso: erros += 1
                         if erros == 0: st.success("Solicitação enviada com sucesso!")
-                        else: st.warning("Gravado, mas houve atraso na notificação por e-mail.")
+                        else: st.warning("Gravado, mas houve atraso na notificação.")
                     st.rerun()
                 else:
                     st.error("Por favor, preencha o Título e a Descrição.")
