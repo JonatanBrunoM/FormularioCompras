@@ -62,7 +62,7 @@ st.markdown("""
 # ==============================================================================
 # 2. Configurações de E-mail e Banco de Dados
 # ==============================================================================
-APROVADORES = ["seu_email_real@gmail.com", "seu_email_real@gmail.com", "seu_email_real@gmail.com"]
+APROVADORES = ["jonatan231196@gmail.com", "seu_email_real@gmail.com", "seu_email_real@gmail.com"]
 
 def enviar_email(destinatario, assunto, corpo_html):
     remetente = st.secrets.get("SMTP_EMAIL", "")
