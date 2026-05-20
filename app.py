@@ -63,7 +63,7 @@ st.markdown("""
         background-color: var(--cor-principal);
     }
 </style>
-""", unsafe_allow_submission=True)
+""", unsafe_allow_html=True)
 
 # ==============================================================================
 # 2. Configurações de E-mail e Banco de Dados (Inalterados)
@@ -153,8 +153,8 @@ else:
 st.sidebar.markdown("---")
 
 if not st.session_state.connected:
-    st.markdown("<h1 style='text-align: center;'>🔗 Workflow de Aprovações</h1>", unsafe_allow_submission=True)
-    st.markdown("<p style='text-align: center; color: #6c757d; font-size: 1.1em;'>Hospital Moinhos de Vento</p>", unsafe_allow_submission=True)
+    st.markdown("<h1 style='text-align: center;'>🔗 Workflow de Aprovações</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #6c757d; font-size: 1.1em;'>Hospital Moinhos de Vento</p>", unsafe_allow_html=True)
     st.warning("🔒 Por favor, faça login com sua conta Google para acessar o sistema.")
     
     col1, col2, col3 = st.columns([1, 2, 1])
