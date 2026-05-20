@@ -145,6 +145,7 @@ with tab_novo:
         
         if enviar:
             if titulo and descricao:
+                # 1. Cria o ID e salva no banco de dados primeiro
                 proximo_id = int(df_dados["ID"].max() + 1) if not df_dados.empty and "ID" in df_dados.columns else 1
                 
                 nova_linha = pd.DataFrame([{
@@ -164,7 +165,7 @@ with tab_novo:
                 df_atualizado = pd.concat([df_dados, nova_linha], ignore_index=True)
                 conn.update(data=df_atualizado)
                 
-                # --- NOTIFICAÇÃO 1: Enviar e-mail para cada um dos 3 aprovadores ---
+                # 2. Prepara o conteúdo do e-mail
                 html_aprovadores = f"""
                 <h3>🔔 Nova Solicitação aguardando Aprovação</h3>
                 <p><b>ID do Chamado:</b> #{proximo_id}</p>
@@ -172,13 +173,23 @@ with tab_novo:
                 <p><b>Título:</b> {titulo}</p>
                 <p><b>Descrição:</b> {descricao}</p>
                 <br>
-                <p><i>Por favor, acesse o sistema Streamlit para registrar seu voto (Aprovar/Reprovar).</i></p>
+                <p><i>Por favor, acesse o sistema Streamlit para registrar seu voto.</i></p>
                 """
-                for ap in APROVADORES:
-                    enviar_email(destinatario=ap, assunto=f"📥 Nova Aprovação Pendente: {titulo}", corpo_html=html_aprovadores)
                 
-                st.success("Solicitação enviada e e-mails de alerta disparados para os gestores!")
-                st.rerun()
+                # 3. DISPARO VISUAL COM FEEDBACK NA TELA
+                # Criamos uma barra de progresso visual para você ver o Python trabalhando no e-mail
+                with st.spinner("Enviando notificações para os aprovadores... Por favor, aguarde."):
+                    for ap in APROVADORES:
+                        sucesso = enviar_email(destinatario=ap, assunto=f"📥 Nova Aprovação Pendente: {titulo}", corpo_html=html_aprovadores)
+                        if sucesso:
+                            st.toast(f"📧 E-mail enviado com sucesso para {ap}!")
+                        else:
+                            st.toast(f"❌ Falha ao tentar enviar para {ap}", icon="⚠️")
+                
+                st.success("Solicitação gravada e processo de notificação concluído!")
+                
+                # Removemos o st.rerun() imediato para dar tempo de você ler os toasts/avisos na tela
+                # O usuário pode mudar de aba manualmente ou o app atualiza no próximo clique.
             else:
                 st.error("Por favor, preencha o Título e a Descrição.")
 
