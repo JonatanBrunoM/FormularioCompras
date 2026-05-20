@@ -41,7 +41,8 @@ def enviar_email(destinatario, assunto, corpo_html):
         server.quit()
         return True
     except Exception as e:
-        st.error(f"Erro ao enviar e-mail para {destinatario}: {e}")
+        st.error(f"🚨 Falha Crítica no Envio de E-mail para {destinatario}:")
+        st.exception(e) # Isso vai cuspir o erro exato do servidor na tela do app
         return False
 
 # --- CONEXÃO NATIVA COM O GOOGLE SHEETS ---
