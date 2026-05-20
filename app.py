@@ -289,14 +289,13 @@ if not is_aprovador:
                     elif status_atual == "Em análise": cor_status = "#005691"
                     
                     with st.expander(f"📋 Chamado #{id_c} - {row['Titulo']} [{status_atual}]"):
-                        st.markdown(f"Status Final: <span style='color: {cor_status}; font-weight: bold;'>{status_atual}</span>", unsafe_allow_submission=True)
-                        st.write(f"**Descrição:** {row['Descricao']}")
+                        st.markdown(f"Status Final: <span style='color: {cor_status}; font-weight: bold;'>{status_atual}</span>", unsafe_allow_html=True)                        st.write(f"**Descrição:** {row['Descricao']}")
                         
                         if status_atual == "Reprovado" and str(row.get("Motivo_Recusa", "")).strip() != "":
-                            st.markdown(f"<div style='background-color: #F8D7DA; padding: 10px; border-radius: 8px; border: 1px solid #F5C6CB; color: #721C24;'>🚨 **Motivo da Reprovação:** {row['Motivo_Recusa']}</div>", unsafe_allow_submission=True)
+                            st.markdown(f"<div style='background-color: #F8D7DA; padding: 10px; border-radius: 8px; border: 1px solid #F5C6CB; color: #721C24;'>🚨 **Motivo da Reprovação:** {row['Motivo_Recusa']}</div>", unsafe_allow_html=True)
                         
                         st.markdown("---")
-                        st.markdown("<b>Linha do tempo dos avaliadores:</b>", unsafe_allow_submission=True)
+                        st.markdown("<b>Linha do tempo dos avaliadores:</b>", unsafe_allow_html=True)
                         
                         # Colunas para os 3 votos (Visual incremental)
                         v1, v2, v3 = st.columns(3)
