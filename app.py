@@ -123,7 +123,7 @@ if st.sidebar.button("🚪 Sair"):
         del st.session_state[key]
     st.rerun()
 
-is_aprovador = user_email in APROVADORES
+is_aprovador = user_email.lower() in [ap.lower() for ap in APROVADORES]
 
 if is_aprovador:
     st.info("⚡ Você está logado como um dos **Aprovadores Oficiais**.")
