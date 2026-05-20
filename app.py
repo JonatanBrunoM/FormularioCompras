@@ -68,7 +68,7 @@ st.markdown("""
 # ==============================================================================
 # 2. Configurações de E-mail e Banco de Dados (Inalterados)
 # ==============================================================================
-APROVADORES = ["seu_email_real@gmail.com", "seu_email_real@gmail.com", "seu_email_real@gmail.com"]
+APROVADORES = ["jonatan231196@gmail.com", "jonatan231196@gmail.com", "jonatan231196@gmail.com"]
 
 def enviar_email(destinatario, assunto, corpo_html):
     remetente = st.secrets.get("SMTP_EMAIL", "")
@@ -185,8 +185,7 @@ is_aprovador = user_email in APROVADORES
 
 # Título Principal limpo
 st.title("Central de Aprovações de Compras")
-st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -10px;'>Fluxo de governança e consenso para o Hospital Moinhos</p>", unsafe_allow_submission=True)
-
+st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -10px;'>Fluxo de governança e consenso para o Hospital Moinhos</p>", unsafe_allow_html=True)
 if is_aprovador:
     # Métricas simples no topo para o aprovador (Melhoria visual)
     st.markdown("---")
@@ -208,16 +207,16 @@ else:
     tab_novo, tab_status = st.tabs(["📝 Nova Solicitação de Compra", "📊 Status e Histórico dos meus Pedidos"])
     tab_painel = None
 
-# --- ABA: CRIAR FORMULÁRIO (Melhoria visual nos campos) ---
+# --- ABA: CRIAR FORMULÁRIO (Corrigido para evitar quebras) ---
 with tab_novo:
     st.markdown("### Formulário de Requisição Padrão")
     st.markdown("Preencha as informações abaixo para iniciar o processo de governança.")
     
     with st.form("form_requisicao", clear_on_submit=True):
-        st.markdown("<h4 style='color: #6c757d;'>Identificação da Demanda</h4>", unsafe_allow_submission=True)
+        st.markdown("<h4 style='color: #6c757d;'>Identificação da Demanda</h4>", unsafe_allow_html=True)
         titulo = st.text_input("Título do Projeto/Solicitação de Compra:", placeholder="Ex: Aquisição de novos desfibriladores - UTI Leste")
         
-        st.markdown("<br><h4 style='color: #6c757d;'>Detalhamento</h4>", unsafe_allow_submission=True)
+        st.markdown("<br><h4 style='color: #6c757d;'>Detalhamento</h4>", unsafe_allow_html=True)
         descricao = st.text_area("Descrição detalhada da demanda (Itens, Quantidades, Especificações):", height=150, placeholder="Digite aqui o memorial descritivo completo...")
         justificativa = st.text_area("Justificativa / Impacto para o Hospital (ROI, Segurança, Necessidade):", height=100, placeholder="Porque esta compra é essencial?")
         
