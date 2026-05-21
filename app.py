@@ -21,48 +21,97 @@ st.set_page_config(
 # CSS Inteligente: Respeita as variáveis nativas do tema do Streamlit
 st.markdown("""
 <style>
-    /* Desativar interações e zoom nas imagens */
+    /* CORREÇÃO GERAL DE TEMA (CLARO/ESCURO):
+       Define as cores base baseadas nas variáveis nativas do tema do Streamlit.
+       Isso mata a "caixa voadora" e os contrastes ruins.
+    */
+    :root {
+        --text-color: var(--streamlit-text-color);
+        --bg-color: var(--streamlit-background-color);
+        --cor-principal: #005691;
+    }
+
+    /* Força o fundo geral a respeitar o tema sem criar bordas fantasmas */
+    [data-testid="stAppViewContainer"] {
+        background-color: var(--bg-color) !important;
+        color: var(--text-color) !important;
+    }
+
+    /* PONTO 1: Borda da Logo Moinhos (logomoinhos.png)
+       Removido o arredondamento e forçado o fundo transparente para não cortar o texto.
+    */
     [data-testid="stImage"] {
+        border-radius: 0px !important; /* Borda reta */
+        background-color: transparent !important; /* Sem fundo que corte o texto */
+        padding: 0 !important;
         pointer-events: none !important;
     }
+    
+    /* PONTO 4 do pedido anterior: Desativar botões de zoom nas imagens */
     [data-testid="stImage"] button {
         display: none !important;
     }
     
     /* Títulos usam a cor primária institucional */
     h1, h2, h3, h4, h5 { 
-        color: #005691 !important; 
+        color: var(--cor-principal) !important; 
         font-weight: 600 !important; 
     }
     
-    /* Formulários adaptáveis: usam o fundo e texto do tema atual do Streamlit */
+    /* PONTO 2: Estilização do Card do Formulário (Mata "caixa voadora" dentro do app)
+       Adaptável: usa o fundo e texto do tema atual do Streamlit com uma borda sutil.
+    */
     [data-testid="stForm"] {
         border-radius: 12px !important;
         border: 1px solid rgba(128, 128, 128, 0.2) !important;
         padding: 30px !important;
-        background-color: transparent !important; /* Deixa o Streamlit decidir a cor do fundo */
+        background-color: transparent !important; /* Sem fundo fixo */
         box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
     }
     
-    /* Card do Usuário na Sidebar - Transparente com borda sutil */
+    /* PONTO 2 e 3 do pedido anterior: Card do Usuário na Sidebar
+       Mata a "caixa voadora" da sidebar usando fundo transparente.
+    */
+    [data-testid="stSidebar"] {
+        background-color: var(--bg-color) !important; /* Mesma cor de fundo do app */
+    }
     .sidebar-user-card {
         padding: 15px;
         border-radius: 10px;
         border: 1px solid rgba(128, 128, 128, 0.2);
         margin-top: 10px;
+        background-color: transparent !important; /* Sem fundo fixo */
     }
     .foto-perfil {
         border-radius: 50%;
         border: 2px solid #005691;
     }
     
-    /* Container de Login Centralizado e Sem Fundo Fixo (Evita blocos brancos no tema escuro) */
+    /* PONTO 3: Tela de Login Corporativa
+       Centralização perfeita e container sem fundo fixo.
+    */
     .login-box {
         text-align: center;
         padding: 30px;
         border-radius: 12px;
         border: 1px solid rgba(128, 128, 128, 0.2);
         margin-top: 50px;
+        background-color: transparent !important; /* Sem fundo fixo */
+    }
+    
+    /*
+       PONTO 3: O Botão de Login
+       Removido bordas, background e focado apenas na escrita Institucional.
+    */
+    .login-box button {
+        background: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        font-weight: bold !important;
+        font-size: 1.1em !important;
+        text-transform: uppercase !important;
+        padding: 0 !important; /* Remove padding que o deixava enorme */
     }
 </style>
 """, unsafe_allow_html=True)
