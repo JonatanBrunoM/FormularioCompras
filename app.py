@@ -48,28 +48,41 @@ st.markdown("""
         display: none !important;
     }
 
-    /* ==========================================
+    # ==========================================
        2. CENTRALIZAÇÃO E ESTILO DO LOGIN
        ========================================== */
-    /* Container do login sem fundo fixo ou bordas quadradas fantasmas */
+    /* Container do login expandido e totalmente centralizado */
     .login-box {
-        text-align: center;
+        text-align: center !important;
         padding: 20px;
         background-color: transparent !important;
-    }
-
-    /* Alinha o conteúdo interno da coluna de login para o centro */
-    [data-testid="column"]:nth-child(2) {
+        width: 100% !important;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: center; /* Alinha filhos horizontalmente no centro */
         justify-content: center;
     }
 
-    /* PONTO 3: Ajuste definitivo do Botão (Alvo na tag 'a' do link_button) */
+    /* Força todas as tags de texto e divs dentro do login a centralizarem */
+    .login-box h3, .login-box p, .login-box div, .login-box span {
+        text-align: center !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    /* Garante que a coluna container (col_l2) use flexbox centralizado e responsivo */
+    [data-testid="column"]:nth-child(2) {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+    }
+
+    /* PONTO 3: Botão de Login responsivo, apenas texto, sem bordas */
     .login-box a {
         background: transparent !important;
-        color: #005691 !important; /* Cor institucional azul */
+        color: #005691 !important;
         border: none !important;
         box-shadow: none !important;
         font-weight: bold !important;
@@ -78,12 +91,14 @@ st.markdown("""
         text-decoration: none !important;
         display: inline-flex !important;
         justify-content: center !important;
-        width: auto !important; /* Faz o botão não ocupar a tela inteira */
-        margin: 0 auto !important;
+        align-items: center !important;
+        width: auto !important;
+        max-width: 100% !important;
+        margin: 20px auto 0 auto !important;
         padding: 10px 0 !important;
+        transition: color 0.2s ease;
     }
     
-    /* Efeito sutil ao passar o mouse por cima do texto do login */
     .login-box a:hover {
         color: #003D66 !important;
         text-decoration: underline !important;
