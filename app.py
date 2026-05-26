@@ -216,7 +216,7 @@ if not st.session_state.connected:
     with col_l2:
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
         if os.path.exists("logomoinhos.png"):
-            st.image("logomoinhos.png", width=200)
+            st.image("logomoinhos.png", width=200, output_format="PNG")
         
         st.markdown("<h3 style='margin-top: 15px; font-size: 1.3em;'>Workflow de Aprovações</h3>", unsafe_allow_html=True)
         st.markdown("<p style='color: #6c757d; font-size: 0.9em;'>Portal de Governança e Alçadas Corporativas</p>", unsafe_allow_html=True)
