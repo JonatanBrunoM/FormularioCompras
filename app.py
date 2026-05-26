@@ -18,100 +18,97 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS Inteligente: Respeita as variáveis nativas do tema do Streamlit
+# CSS Inteligente: Respeita as variáveis nativas do tema do Streamlit e limpa elementos fantasmas
 st.markdown("""
 <style>
-    /* CORREÇÃO GERAL DE TEMA (CLARO/ESCURO):
-       Define as cores base baseadas nas variáveis nativas do tema do Streamlit.
-       Isso mata a "caixa voadora" e os contrastes ruins.
-    */
-    :root {
-        --text-color: var(--streamlit-text-color);
-        --bg-color: var(--streamlit-background-color);
-        --cor-principal: #005691;
-    }
-
-    /* Força o fundo geral a respeitar o tema sem criar bordas fantasmas */
-    [data-testid="stAppViewContainer"] {
-        background-color: var(--bg-color) !important;
-        color: var(--text-color) !important;
-    }
-
-    /* PONTO 1: Borda da Logo Moinhos (logomoinhos.png)
-       Removido o arredondamento e forçado o fundo transparente para não cortar o texto.
-    */
-    [data-testid="stImage"] {
-        border-radius: 0px !important; /* Borda reta */
-        background-color: transparent !important; /* Sem fundo que corte o texto */
-        padding: 0 !important;
-        pointer-events: none !important;
+    /* ==========================================
+       1. LIMPEZA DE CAIXAS VOADORAS E ELEMENTOS FANTASMAS
+       ========================================== */
+    /* Remove as bordas vazias de blocos secundários que geram as linhas horizontais voadoras */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        border: none !important;
+        background-color: transparent !important;
     }
     
-    /* PONTO 4 do pedido anterior: Desativar botões de zoom nas imagens */
+    /* Remove fundos forçados de colunas vazias */
+    [data-testid="column"] {
+        background-color: transparent !important;
+    }
+
+    /* Remove qualquer arredondamento ou fundo residual das imagens (Mata o corte da logo) */
+    [data-testid="stImage"], [data-testid="stImage"] img, [data-testid="stImage"] div {
+        border-radius: 0px !important;
+        background-color: transparent !important;
+        background: transparent !important;
+        border: none !important;
+    }
+    
+    /* Esconde botão de zoom nativo do Streamlit */
     [data-testid="stImage"] button {
         display: none !important;
     }
-    
-    /* Títulos usam a cor primária institucional */
-    h1, h2, h3, h4, h5 { 
-        color: var(--cor-principal) !important; 
-        font-weight: 600 !important; 
+
+    /* ==========================================
+       2. CENTRALIZAÇÃO E ESTILO DO LOGIN
+       ========================================== */
+    /* Container do login sem fundo fixo ou bordas quadradas fantasmas */
+    .login-box {
+        text-align: center;
+        padding: 20px;
+        background-color: transparent !important;
+    }
+
+    /* Alinha o conteúdo interno da coluna de login para o centro */
+    [data-testid="column"]:nth-child(2) {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* PONTO 3: Ajuste definitivo do Botão (Alvo na tag 'a' do link_button) */
+    .login-box a {
+        background: transparent !important;
+        color: #005691 !important; /* Cor institucional azul */
+        border: none !important;
+        box-shadow: none !important;
+        font-weight: bold !important;
+        font-size: 1.2em !important;
+        text-transform: uppercase !important;
+        text-decoration: none !important;
+        display: inline-flex !important;
+        justify-content: center !important;
+        width: auto !important; /* Faz o botão não ocupar a tela inteira */
+        margin: 0 auto !important;
+        padding: 10px 0 !important;
     }
     
-    /* PONTO 2: Estilização do Card do Formulário (Mata "caixa voadora" dentro do app)
-       Adaptável: usa o fundo e texto do tema atual do Streamlit com uma borda sutil.
-    */
-    [data-testid="stForm"] {
-        border-radius: 12px !important;
-        border: 1px solid rgba(128, 128, 128, 0.2) !important;
-        padding: 30px !important;
-        background-color: transparent !important; /* Sem fundo fixo */
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+    /* Efeito sutil ao passar o mouse por cima do texto do login */
+    .login-box a:hover {
+        color: #003D66 !important;
+        text-decoration: underline !important;
     }
-    
-    /* PONTO 2 e 3 do pedido anterior: Card do Usuário na Sidebar
-       Mata a "caixa voadora" da sidebar usando fundo transparente.
-    */
-    [data-testid="stSidebar"] {
-        background-color: var(--bg-color) !important; /* Mesma cor de fundo do app */
-    }
+
+    /* ==========================================
+       3. SIDEBAR E COMPONENTES INTERNOS
+       ========================================== */
+    /* Card de usuário na sidebar limpo e sem caixas cinzas */
     .sidebar-user-card {
-        padding: 15px;
-        border-radius: 10px;
+        padding: 12px;
+        border-radius: 8px;
         border: 1px solid rgba(128, 128, 128, 0.2);
-        margin-top: 10px;
-        background-color: transparent !important; /* Sem fundo fixo */
+        background-color: transparent !important;
     }
+    
     .foto-perfil {
         border-radius: 50%;
         border: 2px solid #005691;
     }
-    
-    /* PONTO 3: Tela de Login Corporativa
-       Centralização perfeita e container sem fundo fixo.
-    */
-    .login-box {
-        text-align: center;
-        padding: 30px;
-        border-radius: 12px;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        margin-top: 50px;
-        background-color: transparent !important; /* Sem fundo fixo */
-    }
-    
-    /*
-       PONTO 3: O Botão de Login
-       Removido bordas, background e focado apenas na escrita Institucional.
-    */
-    .login-box button {
-        background: none !important;
-        border: none !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        font-weight: bold !important;
-        font-size: 1.1em !important;
-        text-transform: uppercase !important;
-        padding: 0 !important; /* Remove padding que o deixava enorme */
+
+    /* Títulos e textos padrão */
+    h1, h2, h3, h4, h5 { 
+        color: #005691 !important; 
+        font-weight: 600 !important; 
     }
 </style>
 """, unsafe_allow_html=True)
