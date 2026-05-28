@@ -274,16 +274,26 @@ st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
-    # Apaga os cookies do navegador
-    cookies.remove("moinhos_user_email")
-    cookies.remove("moinhos_user_name")
-    cookies.remove("moinhos_user_picture")
+    # Proteção para garantir que a limpeza de cookies não trave o app se o controlador falhar
+    try:
+        # Sobrescreve com valor vazio e expira o cookie imediatamente (Garante a limpeza no navegador)
+        cookies.set("moinhos_user_email", "", max_age=0)
+        cookies.set("moinhos_user_name", "", max_age=0)
+        cookies.set("moinhos_user_picture", "", max_age=0)
+        
+        # Remove da estrutura interna do componente
+        cookies.remove("moinhos_user_email")
+        cookies.remove("moinhos_user_name")
+        cookies.remove("moinhos_user_picture")
+    except Exception:
+        # Se o componente falhar ao remover no Python, o max_age=0 acima já resolveu no navegador
+        pass
     
-    # Limpa a sessão do Streamlit
+    # Limpa completamente a sessão atual do Streamlit
     for key in list(st.session_state.keys()):
         del st.session_state[key]
+        
     st.rerun()
-
 # ==============================================================================
 # 5. Interface Principal (Com Logos Estáticas)
 # ==============================================================================
