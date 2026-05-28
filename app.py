@@ -56,17 +56,24 @@ st.markdown("""
         text-align: center !important;
         margin: 0 auto !important;
         width: 100% !important;
-        max-width: 450px; /* Limita a largura do bloco de login para ficar elegante */
+        max-width: 450px;
     }
 
-    /* Força centralização absoluta de qualquer elemento interno do Streamlit */
-    .login-box > div, .login-box [data-testid="stMarkdown"] {
+    /* Força centralização apenas se o elemento estiver estritamente dentro da tela de login principal */
+    [data-testid="stMainInterface"] .login-box > div, 
+    [data-testid="stMainInterface"] .login-box [data-testid="stMarkdown"] {
         display: flex !important;
         justify-content: center !important;
         text-align: center !important;
     }
 
-    /* PONTO 3: Botão de Login apenas texto e centralizado */
+    /* RESET CRÍTICO: Garante que a Sidebar ignore qualquer comportamento voador do loginbox */
+    [data-testid="stSidebar"] div, [data-testid="stSidebar"] span {
+        text-align: left !important;
+        display: block !important;
+    }
+
+    /* Botão de Login apenas texto e centralizado */
     .login-box a {
         background: transparent !important;
         color: #005691 !important;
@@ -255,20 +262,30 @@ if not st.session_state.connected:
 # ==============================================================================
 # 4. Sidebar Inteligente e Fluida
 # ==============================================================================
-st.sidebar.markdown("<h3 style='font-size: 1.2em; margin-bottom: 5px;'>Hospital Moinhos</h3>", unsafe_allow_html=True)
-st.sidebar.markdown("<p style='color: #6c757d; font-size: 0.85em; margin-top:-10px;'>Portal de Suprimentos Corporativos</p>", unsafe_allow_html=True)
+st.sidebar.markdown("<h3 style='font-size: 1.2em; margin-bottom: 5px; color: #005691;'>Hospital Moinhos</h3>", unsafe_allow_html=True)
+st.sidebar.markdown("<p style='color: #6c757d; font-size: 0.85em; margin-top:-10px; margin-bottom: 15px;'>Portal de Suprimentos Corporativos</p>", unsafe_allow_html=True)
 
-# Bloco dinâmico do usuário
-st.sidebar.markdown('<div class="sidebar-user-card">', unsafe_allow_html=True)
-if st.session_state.get("picture"):
-    st.sidebar.markdown(f'<img src="{st.session_state.picture}" class="foto-perfil" width="50">', unsafe_allow_html=True)
-st.sidebar.markdown(f"<p style='margin-top:8px; margin-bottom:2px; font-weight:bold;'>{st.session_state.name}</p>", unsafe_allow_html=True)
-st.sidebar.markdown(f"<span style='font-size:0.8em; color:#6c757d;'>{st.session_state.email}</span>", unsafe_allow_html=True)
-st.sidebar.markdown('</div>', unsafe_allow_html=True)
+# Estrutura HTML elegante para o perfil do usuário (Garante alinhamento e previne quebra de link da imagem)
+avatar_html = f"""
+<div class="sidebar-user-card" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px;">
+    <img src="{st.session_state.get('picture', '')}" 
+         onerror="this.onerror=null; this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png';" 
+         style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #005691;">
+    <div style="display: flex; flex-direction: column; overflow: hidden; text-align: left;">
+        <span style="font-weight: bold; color: #31333F; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: left;">
+            {st.session_state.get('name', 'Usuário')}
+        </span>
+        <span style="font-size: 0.8em; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: left;">
+            {st.session_state.get('email', '')}
+        </span>
+    </div>
+</div>
+"""
+st.sidebar.markdown(avatar_html, unsafe_allow_html=True)
 
 st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
-    # Proteção simples: apenas invalida o cookie principal passando uma chave única para evitar o erro de duplicação
+    # Proteção simples: invalida os cookies passando uma chave única para evitar erro de duplicação
     try:
         cookie_manager.set(cookie="moinhos_user_email", val="", key="logout_email")
         cookie_manager.set(cookie="moinhos_user_name", val="", key="logout_name")
