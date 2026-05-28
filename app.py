@@ -199,14 +199,14 @@ if not st.session_state.connected:
     with col_l2:
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
         
-        # Centralização da imagem via HTML estruturado
+        # Centralização da imagem usando sub-colunas nativas do Streamlit
         if os.path.exists("logomoinhos.png"):
-            st.markdown('<div style="display: flex; justify-content: center; margin-bottom: 15px;"><img src="app/static/logomoinhos.png" width="200"></div>', unsafe_allow_html=True)
-            # Nota técnica: Se a linha acima não carregar a imagem local por conta do caminho do Streamlit, use a linha debaixo:
-            # st.image("logomoinhos.png", width=200)
+            img_col1, img_col2, img_col3 = st.columns([1, 2, 1])
+            with img_col2:
+                st.image("logomoinhos.png", use_container_width=True)
         
-        # Textos convertidos para HTML puro garantindo alinhamento centralizado e responsivo
-        st.markdown("<h3 style='text-align: center; margin-top: 15px; font-size: 1.3em; color: #005691; font-weight: 600;'>Workflow de Aprovações</h3>", unsafe_allow_html=True)
+        # Textos em HTML puro garantindo o alinhamento centralizado
+        st.markdown("<h3 style='text-align: center; margin-top: 20px; font-size: 1.3em; color: #005691; font-weight: 600;'>Workflow de Aprovações</h3>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #6c757d; font-size: 0.9em; margin-top: -5px;'>Portal de Governança e Alçadas Corporativas</p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
