@@ -391,7 +391,12 @@ if is_aprovador:
                             st.write(row['Descricao'])
                             st.markdown("##### 💡 Justificativa Corporativa:")
                             st.write(row['Justificativa'])
-                            st.markdown("---")
+    
+    # Exibe o botão de anexo se ele existir na nova coluna
+    if "Link_Anexo" in row and row["Link_Anexo"] != "Nenhum arquivo anexado":
+        st.markdown("##### 📎 Documentação Adjunta:")
+        st.link_button("📂 Abrir Anexo no Google Drive", row["Link_Anexo"], use_container_width=True)
+    st.markdown("---")
                         
                         if f"recusando_{id_chamado}" not in st.session_state:
                             st.session_state[f"recusando_{id_chamado}"] = False
@@ -523,13 +528,15 @@ else:
                             if not link_drive_arquivo:
                                 link_drive_arquivo = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}/{arquivo_anexo.name}"
                     
+                    # Gravando os dados estruturados na planilha (com a nova coluna Link_Anexo)
                     nova_linha = pd.DataFrame([{
                         "ID": proximo_id,
                         "Remetente_Nome": user_name,
                         "Remetente_Email": user_email,
                         "Titulo": f"[{cc_selecionado}] {titulo}",
-                        "Descricao": f"Setor: {cc_selecionado}\nObs: {observacoes_tecnicas}\n🔗 Link do Anexo no Drive: {link_drive_arquivo}\n\nDescrição detalhada:\n{descricao}",
+                        "Descricao": descricao, # Limpo, sem o link misturado aqui
                         "Justificativa": justificativa,
+                        "Link_Anexo": link_drive_arquivo, # <--- GRAVAÇÃO DIRETA NA NOVA COLUNA
                         "Voto_Aprovador1": "Pendente",
                         "Voto_Aprovador2": "Pendente",
                         "Voto_Aprovador3": "Pendente",
