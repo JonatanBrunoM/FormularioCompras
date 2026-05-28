@@ -4,13 +4,15 @@ import pandas as pd
 import smtplib
 import os
 import extra_streamlit_components as stx
+import datetime
+import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from google_auth_oauthlib.flow import Flow
 from streamlit_gsheets import GSheetsConnection
 
 # ==============================================================================
-# 1. Configuração Básica da Página e Design Adaptável (Light/Dark Mode)
+# 1. Configuração Básica da Página e Design Adaptável
 # ==============================================================================
 st.set_page_config(
     page_title="Workflow de Aprovações - Hospital Moinhos",
@@ -19,24 +21,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS Inteligente: Respeita as variáveis nativas do tema do Streamlit e limpa elementos fantasmas
+# CSS Inteligente: Limpa caixas voadoras e força comportamento padrão na sidebar
 st.markdown("""
 <style>
     /* ==========================================
        1. LIMPEZA DE CAIXAS VOADORAS E ELEMENTOS FANTASMAS
        ========================================== */
-    /* Remove as bordas vazias de blocos secundários que geram as linhas horizontais voadoras */
     [data-testid="stVerticalBlockBorderWrapper"] {
         border: none !important;
         background-color: transparent !important;
     }
     
-    /* Remove fundos forçados de colunas vazias */
     [data-testid="column"] {
         background-color: transparent !important;
     }
 
-    /* Remove qualquer arredondamento ou fundo residual das imagens (Mata o corte da logo) */
     [data-testid="stImage"], [data-testid="stImage"] img, [data-testid="stImage"] div {
         border-radius: 0px !important;
         background-color: transparent !important;
@@ -44,7 +43,6 @@ st.markdown("""
         border: none !important;
     }
     
-    /* Esconde botão de zoom nativo do Streamlit */
     [data-testid="stImage"] button {
         display: none !important;
     }
@@ -59,7 +57,6 @@ st.markdown("""
         max-width: 450px;
     }
 
-    /* Força centralização apenas se o elemento estiver estritamente dentro da tela de login principal */
     [data-testid="stMainInterface"] .login-box > div, 
     [data-testid="stMainInterface"] .login-box [data-testid="stMarkdown"] {
         display: flex !important;
@@ -67,13 +64,12 @@ st.markdown("""
         text-align: center !important;
     }
 
-    /* RESET CRÍTICO: Garante que a Sidebar ignore qualquer comportamento voador do loginbox */
-    [data-testid="stSidebar"] div, [data-testid="stSidebar"] span {
+    /* RESET CRÍTICO DA SIDEBAR: Mata qualquer herança de centralização do loginbox */
+    [data-testid="stSidebar"] div, [data-testid="stSidebar"] span, [data-testid="stSidebar"] p {
         text-align: left !important;
         display: block !important;
     }
 
-    /* Botão de Login apenas texto e centralizado */
     .login-box a {
         background: transparent !important;
         color: #005691 !important;
@@ -98,7 +94,6 @@ st.markdown("""
     /* ==========================================
        3. SIDEBAR E COMPONENTES INTERNOS
        ========================================== */
-    /* Card de usuário na sidebar limpo e sem caixas cinzas */
     .sidebar-user-card {
         padding: 12px;
         border-radius: 8px;
@@ -111,7 +106,6 @@ st.markdown("""
         border: 2px solid #005691;
     }
 
-    /* Títulos e textos padrão */
     h1, h2, h3, h4, h5 { 
         color: #005691 !important; 
         font-weight: 600 !important; 
@@ -120,7 +114,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. Configurações de E-mail e Banco de Dados (Inalterados)
+# 2. Configurações de E-mail e Banco de Dados
 # ==============================================================================
 APROVADORES = ["jonatan231196@gmail.com", "seu_email_real@gmail.com", "seu_email_real@gmail.com"]
 
@@ -160,24 +154,32 @@ def carregar_dados():
         st.error(f"Erro ao conectar com a planilha: {e}")
         return pd.DataFrame()
 
-# --- LOGIN GOOGLE E GERENCIAMENTO DE COOKIES (ATUALIZADO) ---
-# Instancia o gerenciador diretamente (a própria biblioteca já cuida do ciclo de vida dele)
+# --- LOGIN GOOGLE E GERENCIAMENTO DE COOKIES (ATUALIZADO E PROTEGIDO) ---
 cookie_manager = stx.CookieManager()
 
 if "connected" not in st.session_state:
     st.session_state.connected = False
+if "cookies_carregados" not in st.session_state:
+    st.session_state.cookies_carregados = False
 
-# Lê os cookies gravados no navegador de forma instantânea
+# Resgata cookies de forma segura
 cookie_email = cookie_manager.get(cookie="moinhos_user_email")
 cookie_name = cookie_manager.get(cookie="moinhos_user_name")
 cookie_picture = cookie_manager.get(cookie="moinhos_user_picture")
 
-# Se o cookie existir e o usuário não estiver marcado como conectado, loga direto!
+# Fluxo de Autenticação via Cookies (Auto-Login)
 if cookie_email and not st.session_state.connected:
     st.session_state.connected = True
     st.session_state.email = cookie_email
     st.session_state.name = cookie_name
     st.session_state.picture = cookie_picture
+    st.session_state.cookies_carregados = True
+    st.rerun()
+
+if cookie_email is None and not st.session_state.cookies_carregados:
+    time.sleep(0.2)
+    st.session_state.cookies_carregados = True
+    st.rerun()
 
 client_config = {
     "web": {
@@ -204,16 +206,12 @@ if "code" in query_params and not st.session_state.get('connected'):
             headers={"Authorization": f"Bearer {credentials.token}"}
         ).json()
         
-        # Salva na sessão temporária do Streamlit
         st.session_state.connected = True
         st.session_state.name = user_info_service.get("name")
         st.session_state.email = user_info_service.get("email")
         st.session_state.picture = user_info_service.get("picture")
         
-        # GRAVA OS COOKIES POR 30 DIAS USANDO A NOVA BIBLIOTECA
-        import datetime
         validade = datetime.datetime.now() + datetime.timedelta(days=30)
-        
         cookie_manager.set(cookie="moinhos_user_email", val=st.session_state.email, expires_at=validade)
         cookie_manager.set(cookie="moinhos_user_name", val=st.session_state.name, expires_at=validade)
         cookie_manager.set(cookie="moinhos_user_picture", val=st.session_state.picture, expires_at=validade)
@@ -227,19 +225,16 @@ if "code" in query_params and not st.session_state.get('connected'):
 # 3. Tela de Login Corporativa Ajustada e Centralizada
 # ==============================================================================
 if not st.session_state.connected:
-    # Colunas para centralizar perfeitamente o card de login na tela
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     
     with col_l2:
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
         
-        # Centralização da imagem usando sub-colunas nativas do Streamlit
         if os.path.exists("logomoinhos.png"):
             img_col1, img_col2, img_col3 = st.columns([1, 2, 1])
             with img_col2:
                 st.image("logomoinhos.png", use_container_width=True)
         
-        # Textos em HTML puro garantindo o alinhamento centralizado
         st.markdown("<h3 style='text-align: center; margin-top: 20px; font-size: 1.3em; color: #005691; font-weight: 600;'>Workflow de Aprovações</h3>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #6c757d; font-size: 0.9em; margin-top: -5px;'>Portal de Governança e Alçadas Corporativas</p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
@@ -251,7 +246,6 @@ if not st.session_state.connected:
             f"scope=https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/userinfo.email%20openid&prompt=select_account"
         )
         
-        # Grid do botão mantido para controle de proporção
         b_col1, b_col2, b_col3 = st.columns([0.5, 2, 0.5])
         with b_col2:
             st.link_button("🔑 Entrar com o Google", auth_url, use_container_width=True)
@@ -265,18 +259,22 @@ if not st.session_state.connected:
 st.sidebar.markdown("<h3 style='font-size: 1.2em; margin-bottom: 5px; color: #005691;'>Hospital Moinhos</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='color: #6c757d; font-size: 0.85em; margin-top:-10px; margin-bottom: 15px;'>Portal de Suprimentos Corporativos</p>", unsafe_allow_html=True)
 
-# Estrutura HTML elegante para o perfil do usuário (Garante alinhamento e previne quebra de link da imagem)
+# Captura de variáveis protegida contra concorrência assíncrona
+user_name = st.session_state.get('name') or 'Usuário'
+user_email = st.session_state.get('email') or ''
+user_picture = st.session_state.get('picture') or 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+
 avatar_html = f"""
 <div class="sidebar-user-card" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px;">
-    <img src="{st.session_state.get('picture', '')}" 
+    <img src="{user_picture}" 
          onerror="this.onerror=null; this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png';" 
          style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #005691;">
     <div style="display: flex; flex-direction: column; overflow: hidden; text-align: left;">
         <span style="font-weight: bold; color: #31333F; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: left;">
-            {st.session_state.get('name', 'Usuário')}
+            {user_name}
         </span>
         <span style="font-size: 0.8em; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: left;">
-            {st.session_state.get('email', '')}
+            {user_email}
         </span>
     </div>
 </div>
@@ -285,7 +283,6 @@ st.sidebar.markdown(avatar_html, unsafe_allow_html=True)
 
 st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
-    # Proteção simples: invalida os cookies passando uma chave única para evitar erro de duplicação
     try:
         cookie_manager.set(cookie="moinhos_user_email", val="", key="logout_email")
         cookie_manager.set(cookie="moinhos_user_name", val="", key="logout_name")
@@ -293,17 +290,18 @@ if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
     except Exception:
         pass
     
-    # Limpa completamente o estado da sessão atual do Streamlit
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-        
     st.rerun()
+
 # ==============================================================================
-# 5. Interface Principal (Com Logos Estáticas)
+# 5. Interface Principal (Leituras com Fallbacks de Segurança)
 # ==============================================================================
 df_dados = carregar_dados()
-user_email = st.session_state.email
-user_name = st.session_state.name
+
+# Proteção crítica: evita falha na atribuição caso o estado mude no milissegundo do reload
+user_email = st.session_state.get('email', '')
+user_name = st.session_state.get('name', 'Usuário')
 is_aprovador = user_email in APROVADORES
 
 # Layout de cabeçalho limpo
@@ -316,7 +314,7 @@ with col_header2:
     st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Fluxo de governança e consenso por alçada de aprovação</p>", unsafe_allow_html=True)
 
 # ==============================================================================
-# 6. Distribuição de Abas por Perfil (Modificado para Aprovadores terem Abas)
+# 6. Distribuição de Abas por Perfil
 # ==============================================================================
 if is_aprovador:
     st.markdown("---")
@@ -327,7 +325,6 @@ if is_aprovador:
         pendentes = df_dados[(df_dados[coluna_voto] == "Pendente") & (df_dados["Status_Final"] == "Em análise")]
         historico_aprovador = df_dados[df_dados[coluna_voto].isin(["Aprovado", "Reprovado"])]
         
-        # Métricas rápidas
         m1, m2, m3 = st.columns(3)
         with m1: st.metric("Suas Pendências", len(pendentes))
         with m2: st.metric("Aprovados pelo Fluxo", len(df_dados[df_dados["Status_Final"] == "Aprovado"]))
@@ -335,7 +332,6 @@ if is_aprovador:
         
         st.markdown("---")
         
-        # Ponto 3: Mudança para sistema de abas também para os Aprovadores
         tab_pendentes, tab_hist_aprovador = st.tabs(["📥 Minhas Pendências", "📊 Histórico de Decisões"])
         
         with tab_pendentes:
@@ -351,9 +347,9 @@ if is_aprovador:
                         
                         with st.expander("🔍 Visualizar Detalhes da Solicitação", expanded=False):
                             st.markdown("---")
-                            st.markdown(f"##### 📝 Descrição do Pedido:")
+                            st.markdown("##### 📝 Descrição do Pedido:")
                             st.write(row['Descricao'])
-                            st.markdown(f"##### 💡 Justificativa Corporativa:")
+                            st.markdown("##### 💡 Justificativa Corporativa:")
                             st.write(row['Justificativa'])
                             st.markdown("---")
                         
@@ -426,8 +422,6 @@ if is_aprovador:
                 for _, row in historico_aprovador.iterrows():
                     id_c = int(row['ID'])
                     voto_proprio = row[coluna_voto]
-                    status_f = row['Status_Final']
-                    
                     cor_voto = "#008D4C" if voto_proprio == "Aprovado" else "#D93025"
                     
                     with st.expander(f"📋 Chamado #{id_c} - {row['Titulo']} (Seu Voto: {voto_proprio})"):
@@ -440,7 +434,6 @@ if is_aprovador:
         st.info("Nenhuma estrutura de dados mapeada.")
 
 else:
-    # Interface Tradicional para o Colaborador solicitante
     st.markdown("---")
     tab_novo, tab_status = st.tabs(["📝 Nova Solicitação de Compra", "📊 Status e Histórico dos meus Pedidos"])
     
