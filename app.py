@@ -154,11 +154,8 @@ def carregar_dados():
         return pd.DataFrame()
 
 # --- LOGIN GOOGLE E GERENCIAMENTO DE COOKIES (ATUALIZADO) ---
-@st.cache_resource
-def obter_gerenciador_cookies():
-    return stx.CookieManager()
-
-cookie_manager = obter_gerenciador_cookies()
+# Instancia o gerenciador diretamente (a própria biblioteca já cuida do ciclo de vida dele)
+cookie_manager = stx.CookieManager()
 
 if "connected" not in st.session_state:
     st.session_state.connected = False
