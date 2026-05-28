@@ -4,3 +4,4 @@ google-auth-oauthlib
 pandas
 st-gsheets-connection
 extra-streamlit-components
+google-api-python-client google-auth-httplib2 google-auth-oauthlib
