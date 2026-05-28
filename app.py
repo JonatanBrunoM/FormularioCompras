@@ -632,7 +632,7 @@ else:
                 else:
                     st.error("Por favor, preencha o Título e a Descrição.")
 
-    with tab_status:
+with tab_status:
     st.markdown("### Seus Pedidos e Andamento")
     if not df_dados.empty and "Remetente_Email" in df_dados.columns:
         meus_pedidos = df_dados[df_dados["Remetente_Email"] == user_email]
