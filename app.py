@@ -48,38 +48,24 @@ st.markdown("""
         display: none !important;
     }
 
-    # ==========================================
+    /* ==========================================
        2. CENTRALIZAÇÃO E ESTILO DO LOGIN
        ========================================== */
-    /* Container do login expandido e totalmente centralizado */
     .login-box {
         text-align: center !important;
-        padding: 20px;
-        background-color: transparent !important;
+        margin: 0 auto !important;
         width: 100% !important;
-        display: flex;
-        flex-direction: column;
-        align-items: center; /* Alinha filhos horizontalmente no centro */
-        justify-content: center;
+        max-width: 450px; /* Limita a largura do bloco de login para ficar elegante */
     }
 
-    /* Força todas as tags de texto e divs dentro do login a centralizarem */
-    .login-box h3, .login-box p, .login-box div, .login-box span {
-        text-align: center !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-    }
-
-    /* Garante que a coluna container (col_l2) use flexbox centralizado e responsivo */
-    [data-testid="column"]:nth-child(2) {
+    /* Força centralização absoluta de qualquer elemento interno do Streamlit */
+    .login-box > div, .login-box [data-testid="stMarkdown"] {
         display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
         justify-content: center !important;
-        width: 100% !important;
+        text-align: center !important;
     }
 
-    /* PONTO 3: Botão de Login responsivo, apenas texto, sem bordas */
+    /* PONTO 3: Botão de Login apenas texto e centralizado */
     .login-box a {
         background: transparent !important;
         color: #005691 !important;
@@ -92,11 +78,8 @@ st.markdown("""
         display: inline-flex !important;
         justify-content: center !important;
         align-items: center !important;
-        width: auto !important;
-        max-width: 100% !important;
         margin: 20px auto 0 auto !important;
         padding: 10px 0 !important;
-        transition: color 0.2s ease;
     }
     
     .login-box a:hover {
@@ -215,11 +198,16 @@ if not st.session_state.connected:
     
     with col_l2:
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
-        if os.path.exists("logomoinhos.png"):
-            st.image("logomoinhos.png", width=200, output_format="PNG")
         
-        st.markdown("<h3 style='margin-top: 15px; font-size: 1.3em;'>Workflow de Aprovações</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #6c757d; font-size: 0.9em;'>Portal de Governança e Alçadas Corporativas</p>", unsafe_allow_html=True)
+        # Centralização da imagem via HTML estruturado
+        if os.path.exists("logomoinhos.png"):
+            st.markdown('<div style="display: flex; justify-content: center; margin-bottom: 15px;"><img src="app/static/logomoinhos.png" width="200"></div>', unsafe_allow_html=True)
+            # Nota técnica: Se a linha acima não carregar a imagem local por conta do caminho do Streamlit, use a linha debaixo:
+            # st.image("logomoinhos.png", width=200)
+        
+        # Textos convertidos para HTML puro garantindo alinhamento centralizado e responsivo
+        st.markdown("<h3 style='text-align: center; margin-top: 15px; font-size: 1.3em; color: #005691; font-weight: 600;'>Workflow de Aprovações</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #6c757d; font-size: 0.9em; margin-top: -5px;'>Portal de Governança e Alçadas Corporativas</p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
         auth_url = (
@@ -229,9 +217,11 @@ if not st.session_state.connected:
             f"scope=https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/userinfo.email%20openid&prompt=select_account"
         )
         
-        # Grid para encolher o botão e não deixá-lo gigante na tela
+        # Grid do botão mantido para controle de proporção
         b_col1, b_col2, b_col3 = st.columns([0.5, 2, 0.5])
-        b_col2.link_button("🔑 Entrar com o Google", auth_url, use_container_width=True)
+        with b_col2:
+            st.link_button("🔑 Entrar com o Google", auth_url, use_container_width=True)
+            
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
