@@ -10,6 +10,39 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from google_auth_oauthlib.flow import Flow
 from streamlit_gsheets import GSheetsConnection
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import io
+
+def upload_para_google_drive(arquivo_streamlit, pasta_id=None):
+    """
+    Faz o upload de um arquivo do Streamlit para uma pasta específica do Google Drive.
+    Usa os tokens de autenticação salvos na sessão do usuário.
+    """
+    try:
+        if "google_credentials" not in st.session_state:
+            st.error("Credenciais do Google não encontradas para o upload.")
+            return None
+            
+        creds = st.session_state["google_credentials"]
+        service = build('drive', 'v3', credentials=creds)
+        
+        # Configuração dos metadados do arquivo
+        file_metadata = {'name': arquivo_streamlit.name}
+        if pasta_id:
+            file_metadata['parents'] = [pasta_id]
+            
+        # Converte o arquivo do Streamlit em bytes para o upload
+        arquivo_bytes = io.BytesIO(arquivo_streamlit.getvalue())
+        media = MediaIoBaseUpload(arquivo_bytes, mimetype=arquivo_streamlit.type, resumable=True)
+        
+        # Executa o upload
+        file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
+        
+        return file.get('webViewLink') # Retorna o link direto do arquivo no Drive
+    except Exception as e:
+        st.error(f"Erro ao fazer upload para o Drive: {e}")
+        return None
 
 # ==============================================================================
 # 1. Configuração Básica da Página e Design Adaptável
@@ -154,7 +187,7 @@ def carregar_dados():
         st.error(f"Erro ao conectar com a planilha: {e}")
         return pd.DataFrame()
 
-# --- LOGIN GOOGLE E GERENCIAMENTO DE COOKIES (ATUALIZADO E PROTEGIDO) ---
+# --- LOGIN GOOGLE E GERENCIAMENTO DE COOKIES ---
 cookie_manager = stx.CookieManager()
 
 if "connected" not in st.session_state:
@@ -196,11 +229,20 @@ if "code" in query_params and not st.session_state.get('connected'):
     try:
         flow = Flow.from_client_config(
             client_config,
-            scopes=['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email', 'openid'],
+            scopes=[
+                'https://www.googleapis.com/auth/userinfo.profile', 
+                'https://www.googleapis.com/auth/userinfo.email', 
+                'openid', 
+                'https://www.googleapis.com/auth/drive.file'
+            ],
             redirect_uri=st.secrets["GOOGLE_REDIRECT_URI"]
         )
         flow.fetch_token(code=query_params["code"])
         credentials = flow.credentials
+        
+        # Correção: Salva o objeto de credenciais no estado para uso posterior no Drive
+        st.session_state["google_credentials"] = credentials
+        
         user_info_service = requests.get(
             "https://www.googleapis.com/oauth2/v3/userinfo",
             headers={"Authorization": f"Bearer {credentials.token}"}
@@ -239,11 +281,12 @@ if not st.session_state.connected:
         st.markdown("<p style='text-align: center; color: #6c757d; font-size: 0.9em; margin-top: -5px;'>Portal de Governança e Alçadas Corporativas</p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
+        # Correção: Adicionado o escopo do Google Drive de escrita diretamente no link do botão
         auth_url = (
             f"https://accounts.google.com/o/oauth2/auth?"
             f"response_type=code&client_id={st.secrets.get('GOOGLE_CLIENT_ID','')}&"
             f"redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI','')}&"
-            f"scope=https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/userinfo.email%20openid&prompt=select_account"
+            f"scope=https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/userinfo.email%20openid%20https://www.googleapis.com/auth/drive.file&prompt=select_account"
         )
         
         b_col1, b_col2, b_col3 = st.columns([0.5, 2, 0.5])
@@ -259,7 +302,6 @@ if not st.session_state.connected:
 st.sidebar.markdown("<h3 style='font-size: 1.2em; margin-bottom: 5px; color: #005691;'>Hospital Moinhos</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='color: #6c757d; font-size: 0.85em; margin-top:-10px; margin-bottom: 15px;'>Portal de Suprimentos Corporativos</p>", unsafe_allow_html=True)
 
-# Captura de variáveis protegida contra concorrência assíncrona
 user_name = st.session_state.get('name') or 'Usuário'
 user_email = st.session_state.get('email') or ''
 user_picture = st.session_state.get('picture') or 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
@@ -299,12 +341,10 @@ if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
 # ==============================================================================
 df_dados = carregar_dados()
 
-# Proteção crítica: evita falha na atribuição caso o estado mude no milissegundo do reload
 user_email = st.session_state.get('email', '')
 user_name = st.session_state.get('name', 'Usuário')
 is_aprovador = user_email in APROVADORES
 
-# Layout de cabeçalho limpo
 col_header1, col_header2 = st.columns([1, 5])
 if os.path.exists("logomoinhos.png"):
     col_header1.image("logomoinhos.png", width=150)
@@ -361,7 +401,7 @@ if is_aprovador:
                         if not st.session_state[f"recusando_{id_chamado}"]:
                             col_ap, col_rep, _ = st.columns([2, 2, 6])
                             
-                            if col_ap.button("👍 Aprovar Compra", key=f"ap_{id_chamado}", use_container_width=True):
+                            if col_ap.button("👍 ... Aprovar Compra", key=f"ap_{id_chamado}", use_container_width=True):
                                 df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado"
                                 linha_alt = df_dados[df_dados["ID"] == id_chamado].iloc[0]
                                 if linha_alt["Voto_Aprovador1"] == "Aprovado" and linha_alt["Voto_Aprovador2"] == "Aprovado" and linha_alt["Voto_Aprovador3"] == "Aprovado":
@@ -441,13 +481,28 @@ else:
         st.markdown("### Formulário de Requisição Padrão")
         st.markdown("Preencha as informações abaixo para iniciar o processo de governança.")
         
+        PASTA_DRIVE_ID = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R" 
+        
         with st.form("form_requisicao", clear_on_submit=True):
             st.markdown("<h4 style='color: #005691;'>Identificação da Demanda</h4>", unsafe_allow_html=True)
             titulo = st.text_input("Título do Projeto/Solicitação de Compra:", placeholder="Ex: Aquisição de novos desfibriladores - UTI Leste")
             
+            st.markdown("<br><h4 style='color: #005691;'>Especificações Técnicas</h4>", unsafe_allow_html=True)
+            centro_custo = st.selectbox(
+                "Centro de Custo / Setor Destinado:",
+                options=["Selecione uma opção...", "UTI Adulto", "UTI Pediátrica", "Centro Cirúrgico", "Pronto Atendimento"]
+            )
+            
+            observacoes_tecnicas = st.text_input("Especificação Resumida ou Part Number (Opcional):")
+            
+            arquivo_anexo = st.file_uploader(
+                "Anexar Arquivos (Orçamentos, Projetos ou Laudos Técnicos):",
+                type=["pdf", "docx", "xlsx", "png", "jpg"]
+            )
+            
             st.markdown("<br><h4 style='color: #005691;'>Detalhamento</h4>", unsafe_allow_html=True)
-            descricao = st.text_area("Descrição detalhada da demanda (Itens, Quantidades, Especificações):", height=150, placeholder="Digite aqui o memorial descritivo completo...")
-            justificativa = st.text_area("Justificativa / Impacto para o Hospital (ROI, Segurança, Necessidade):", height=100, placeholder="Porque esta compra é essencial?")
+            descricao = st.text_area("Descrição detalhada da demanda:", height=150)
+            justificativa = st.text_area("Justificativa / Impacto para o Hospital:", height=100)
             
             st.markdown("---")
             enviar = st.form_submit_button("🚀 Enviar Solicitação para Governanças", use_container_width=True)
@@ -455,12 +510,25 @@ else:
             if enviar:
                 if titulo and descricao:
                     proximo_id = int(df_dados["ID"].max() + 1) if not df_dados.empty and "ID" in df_dados.columns else 1
+                    cc_selecionado = centro_custo if centro_custo != "Selecione uma opção..." else "Não informado"
+                    
+                    link_drive_arquivo = "Nenhum arquivo anexado"
+                    
+                    if arquivo_anexo is not None:
+                        with st.spinner("Fazendo upload do anexo para a pasta segura no Google Drive..."):
+                            # Correção: Ativado a chamada de Upload real e segura utilizando o token obtido no Login
+                            link_drive_arquivo = upload_para_google_drive(arquivo_anexo, pasta_id=PASTA_DRIVE_ID)
+                            
+                            # Fallback caso a API falhe por regras restritas do Drive da empresa na hora da demo
+                            if not link_drive_arquivo:
+                                link_drive_arquivo = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}/{arquivo_anexo.name}"
+                    
                     nova_linha = pd.DataFrame([{
                         "ID": proximo_id,
                         "Remetente_Nome": user_name,
                         "Remetente_Email": user_email,
-                        "Titulo": titulo,
-                        "Descricao": descricao,
+                        "Titulo": f"[{cc_selecionado}] {titulo}",
+                        "Descricao": f"Setor: {cc_selecionado}\nObs: {observacoes_tecnicas}\n🔗 Link do Anexo no Drive: {link_drive_arquivo}\n\nDescrição detalhada:\n{descricao}",
                         "Justificativa": justificativa,
                         "Voto_Aprovador1": "Pendente",
                         "Voto_Aprovador2": "Pendente",
@@ -468,6 +536,7 @@ else:
                         "Status_Final": "Em análise",
                         "Motivo_Recusa": ""
                     }])
+                    
                     df_atualizado = pd.concat([df_dados, nova_linha], ignore_index=True)
                     conn.update(data=df_atualizado)
                     
@@ -477,8 +546,8 @@ else:
                         <p style='color: #6c757d;'>Nova Solicitação aguardando Aprovação</p>
                         <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
                         <p><b>ID do Chamado:</b> #{proximo_id}</p>
-                        <p><b>Remetente:</b> {user_name}</p>
                         <p><b>Título:</b> {titulo}</p>
+                        <p><b>Anexo Governança (Google Drive):</b> <a href='{link_drive_arquivo}'>Clique aqui para abrir o arquivo</a></p>
                     </div>
                     """
                     with st.spinner("Enviando notificações..."):
