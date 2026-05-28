@@ -3,5 +3,4 @@ requests
 google-auth-oauthlib
 pandas
 st-gsheets-connection
-streamlit-cookies-controller
 extra-streamlit-components
