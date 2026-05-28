@@ -385,18 +385,19 @@ if is_aprovador:
                         st.markdown(f"#### Chamado #{id_chamado} - {row['Titulo']}")
                         st.markdown(f"**Solicitante:** {row['Remetente_Nome']} (`{row['Remetente_Email']}`)")
                         
+                        # CORREÇÃO DE INDENTAÇÃO: O expander agora envelopa corretamente o texto E o botão de anexo
                         with st.expander("🔍 Visualizar Detalhes da Solicitação", expanded=False):
                             st.markdown("---")
                             st.markdown("##### 📝 Descrição do Pedido:")
                             st.write(row['Descricao'])
                             st.markdown("##### 💡 Justificativa Corporativa:")
                             st.write(row['Justificativa'])
-    
-    # Exibe o botão de anexo se ele existir na nova coluna
-    if "Link_Anexo" in row and row["Link_Anexo"] != "Nenhum arquivo anexado":
-        st.markdown("##### 📎 Documentação Adjunta:")
-        st.link_button("📂 Abrir Anexo no Google Drive", row["Link_Anexo"], use_container_width=True)
-    st.markdown("---")
+                            
+                            # Exibe o botão de anexo se ele existir na nova coluna (Dentro do escopo correto do loop/expander)
+                            if "Link_Anexo" in row and row["Link_Anexo"] != "Nenhum arquivo anexado":
+                                st.markdown("##### 📎 Documentação Adjunta:")
+                                st.link_button("📂 Abrir Anexo no Google Drive", row["Link_Anexo"], use_container_width=True)
+                            st.markdown("---")
                         
                         if f"recusando_{id_chamado}" not in st.session_state:
                             st.session_state[f"recusando_{id_chamado}"] = False
@@ -521,12 +522,11 @@ else:
                     
                     if arquivo_anexo is not None:
                         with st.spinner("Fazendo upload do anexo para a pasta segura no Google Drive..."):
-                            # Correção: Ativado a chamada de Upload real e segura utilizando o token obtido no Login
                             link_drive_arquivo = upload_para_google_drive(arquivo_anexo, pasta_id=PASTA_DRIVE_ID)
                             
                             # Fallback caso a API falhe por regras restritas do Drive da empresa na hora da demo
                             if not link_drive_arquivo:
-                                link_drive_arquivo = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}/{arquivo_anexo.name}"
+                                link_drive_arquivo = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
                     
                     # Gravando os dados estruturados na planilha (com a nova coluna Link_Anexo)
                     nova_linha = pd.DataFrame([{
@@ -534,9 +534,9 @@ else:
                         "Remetente_Nome": user_name,
                         "Remetente_Email": user_email,
                         "Titulo": f"[{cc_selecionado}] {titulo}",
-                        "Descricao": descricao, # Limpo, sem o link misturado aqui
+                        "Descricao": descricao, 
                         "Justificativa": justificativa,
-                        "Link_Anexo": link_drive_arquivo, # <--- GRAVAÇÃO DIRETA NA NOVA COLUNA
+                        "Link_Anexo": link_drive_arquivo, 
                         "Voto_Aprovador1": "Pendente",
                         "Voto_Aprovador2": "Pendente",
                         "Voto_Aprovador3": "Pendente",
