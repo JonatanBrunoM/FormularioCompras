@@ -633,43 +633,64 @@ else:
                     st.error("Por favor, preencha o Título e a Descrição.")
 
     with tab_status:
-        st.markdown("### Seus Pedidos e Andamento")
-        if not df_dados.empty and "Remetente_Email" in df_dados.columns:
-            meus_pedidos = df_dados[df_dados["Remetente_Email"] == user_email]
-            if meus_pedidos.empty:
-                st.info("Você ainda não enviou nenhuma solicitação.")
-            else:
-                for _, row in meus_pedidos.iterrows():
-                    status_atual = row['Status_Final']
-                    id_c = int(row['ID'])
-                    
-                    cor_status = "#495057"
-                    if status_atual == "Aprovado": cor_status = "#008D4C"
-                    elif status_atual == "Reprovado": cor_status = "#D93025"
-                    elif status_atual == "Em análise": cor_status = "#005691"
-                    
-                    with st.expander(f"📋 Chamado #{id_c} - {row['Titulo']} [{status_atual}]"):
-                        st.markdown(f"Status Final: <span style='color: {cor_status}; font-weight: bold;'>{status_atual}</span>", unsafe_allow_html=True)
-                        st.write(f"**Descrição:** {row['Descricao']}")
-                        
-                        if status_atual == "Reprovado" and str(row.get("Motivo_Recusa", "")).strip() != "":
-                            st.markdown(f"<div style='background-color: #F8D7DA; padding: 10px; border-radius: 8px; border: 1px solid #F5C6CB; color: #721C24;'>🚨 **Motivo da Reprovação:** {row['Motivo_Recusa']}</div>", unsafe_allow_html=True)
-                        
-                        st.markdown("---")
-                        st.markdown("<b>Linha do tempo dos avaliadores:</b>", unsafe_allow_html=True)
-                        
-                        v1, v2, v3 = st.columns(3)
-                        for idx, ap_col in enumerate([v1, v2, v3]):
-                            ap_email = APROVADORES[idx]
-                            voto = row[f"Voto_Aprovador{idx+1}"]
-                            with ap_col:
-                                if voto == "Pendente": 
-                                    st.caption(f"⏳ **Em análise**\n`{ap_email}`")
-                                elif voto == "Aprovado": 
-                                    st.success(f"✅ **Aprovado**\n`{ap_email}`")
-                                elif voto == "Aprovado com ressalva":
-                                    st.warning(f"⚠️ **Com Ressalva**\n`{ap_email}`")
-                                else: 
-                                    st.error(f"❌ **Reprovado**\n`{ap_email}`")
+    st.markdown("### Seus Pedidos e Andamento")
+    if not df_dados.empty and "Remetente_Email" in df_dados.columns:
+        meus_pedidos = df_dados[df_dados["Remetente_Email"] == user_email]
+        if meus_pedidos.empty:
+            st.info("Você ainda não enviou nenhuma solicitação.")
         else:
-            st.info("Nenhuma solicitação encontrada.")
+            for _, row in meus_pedidos.iterrows():
+                status_atual = row['Status_Final']
+                id_c = int(row['ID'])
+                
+                # Definição de cores dos status principais
+                cor_status = "#495057"
+                if status_atual == "Aprovado": cor_status = "#008D4C"
+                elif status_atual == "Aprovado com ressalva": cor_status = "#E6A23C" # Adicionado cor para ressalva
+                elif status_atual == "Reprovado": cor_status = "#D93025"
+                elif status_atual == "Em análise": cor_status = "#005691"
+                
+                with st.expander(f"📋 Chamado #{id_c} - {row['Titulo']} [{status_atual}]"):
+                    st.markdown(f"Status Final: <span style='color: {cor_status}; font-weight: bold;'>{status_atual}</span>", unsafe_allow_html=True)
+                    st.write(f"**Descrição:** {row['Descricao']}")
+                    
+                    if status_atual == "Reprovado" and str(row.get("Motivo_Recusa", "")).strip() != "":
+                        st.markdown(f"<div style='background-color: #F8D7DA; padding: 10px; border-radius: 8px; border: 1px solid #F5C6CB; color: #721C24;'>🚨 **Motivo da Reprovação:** {row['Motivo_Recusa']}</div>", unsafe_allow_html=True)
+                    
+                    st.markdown("---")
+                    st.markdown("<b>Linha do tempo dos avaliadores:</b>", unsafe_allow_html=True)
+                    
+                    # Colunas com os pareceres de cada um dos 3 aprovadores
+                    v1, v2, v3 = st.columns(3)
+                    for idx, ap_col in enumerate([v1, v2, v3]):
+                        ap_email = APROVADORES[idx]
+                        voto = row[f"Voto_Aprovador{idx+1}"]
+                        with ap_col:
+                            if voto == "Pendente": 
+                                st.caption(f"⏳ **Em análise**\n`{ap_email}`")
+                            elif voto == "Aprovado": 
+                                st.success(f"✅ **Aprovado**\n`{ap_email}`")
+                            elif voto == "Aprovado com ressalva":
+                                st.warning(f"⚠️ **Com Ressalva**\n`{ap_email}`")
+                            else: 
+                                st.error(f"❌ **Reprovado**\n`{ap_email}`")
+                    
+                    # --- O BLOCO DO HISTÓRICO ENTRA EXATAMENTE AQUI (DENTRO DO EXPANDER) ---
+                    historico_notas = str(row.get("Motivo_Recusa", "")).strip()
+                    
+                    if historico_notas and historico_notas.lower() not in ["nan", "none", ""]:
+                        st.markdown("---")
+                        st.markdown("##### 📋 Histórico de Apontamentos da Governança")
+                        
+                        # Quebra as notas caso haja mais de um registro
+                        notas_separadas = historico_notas.split(" | ")
+                        for nota in notas_separadas:
+                            if "Reprovação" in nota:
+                                st.error(f"🔴 {nota}")
+                            elif "Ressalva" in nota:
+                                st.warning(f"🟡 {nota}")
+                            else:
+                                st.info(f"ℹ️ {nota}")
+                                
+    else:
+        st.info("Nenhuma solicitação encontrada.")
