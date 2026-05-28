@@ -7,6 +7,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from google_auth_oauthlib.flow import Flow
 from streamlit_gsheets import GSheetsConnection
+from streamlit_cookies_controller import CookieController
 
 # ==============================================================================
 # 1. Configuração Básica da Página e Design Adaptável (Light/Dark Mode)
@@ -152,9 +153,24 @@ def carregar_dados():
         st.error(f"Erro ao conectar com a planilha: {e}")
         return pd.DataFrame()
 
-# --- LOGIN GOOGLE ---
+# --- LOGIN GOOGLE E GERENCIAMENTO DE COOKIES ---
+# Inicializa o controlador de cookies
+cookies = CookieController()
+
 if "connected" not in st.session_state:
     st.session_state.connected = False
+
+# Tenta recuperar o e-mail e nome salvos nos cookies do navegador
+cookie_email = cookies.get("moinhos_user_email")
+cookie_name = cookies.get("moinhos_user_name")
+cookie_picture = cookies.get("moinhos_user_picture")
+
+# Se o cookie existir e o usuário não estiver marcado como conectado no st.session_state, reconecta automaticamente
+if cookie_email and not st.session_state.connected:
+    st.session_state.connected = True
+    st.session_state.email = cookie_email
+    st.session_state.name = cookie_name
+    st.session_state.picture = cookie_picture
 
 client_config = {
     "web": {
@@ -180,10 +196,18 @@ if "code" in query_params and not st.session_state.get('connected'):
             "https://www.googleapis.com/oauth2/v3/userinfo",
             headers={"Authorization": f"Bearer {credentials.token}"}
         ).json()
+        
+        # Salva na sessão do Streamlit (para uso imediato)
         st.session_state.connected = True
         st.session_state.name = user_info_service.get("name")
         st.session_state.email = user_info_service.get("email")
         st.session_state.picture = user_info_service.get("picture")
+        
+        # SALVA NOS COOKIES DO NAVEGADOR (Para persistir por 30 dias se fechar a aba)
+        cookies.set("moinhos_user_email", st.session_state.email, max_age=2592000) # 2592000 segundos = 30 dias
+        cookies.set("moinhos_user_name", st.session_state.name, max_age=2592000)
+        cookies.set("moinhos_user_picture", st.session_state.picture, max_age=2592000)
+        
         st.query_params.clear()
         st.rerun()
     except Exception:
@@ -241,6 +265,12 @@ st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
+    # Apaga os cookies do navegador
+    cookies.remove("moinhos_user_email")
+    cookies.remove("moinhos_user_name")
+    cookies.remove("moinhos_user_picture")
+    
+    # Limpa a sessão do Streamlit
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.rerun()
