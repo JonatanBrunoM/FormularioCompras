@@ -3,11 +3,11 @@ import requests
 import pandas as pd
 import smtplib
 import os
+import extra_streamlit_components as stx
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from google_auth_oauthlib.flow import Flow
 from streamlit_gsheets import GSheetsConnection
-from streamlit_cookies_controller import CookieController
 
 # ==============================================================================
 # 1. Configuração Básica da Página e Design Adaptável (Light/Dark Mode)
@@ -153,28 +153,22 @@ def carregar_dados():
         st.error(f"Erro ao conectar com a planilha: {e}")
         return pd.DataFrame()
 
-# --- LOGIN GOOGLE E GERENCIAMENTO DE COOKIES ---
-# Inicializa o controlador de cookies
-cookies = CookieController()
+# --- LOGIN GOOGLE E GERENCIAMENTO DE COOKIES (ATUALIZADO) ---
+@st.cache_resource
+def obter_gerenciador_cookies():
+    return stx.CookieManager()
+
+cookie_manager = obter_gerenciador_cookies()
 
 if "connected" not in st.session_state:
     st.session_state.connected = False
 
-# Proteção contra inicialização assíncrona dos cookies
-cookie_email = None
-cookie_name = None
-cookie_picture = None
+# Lê os cookies gravados no navegador de forma instantânea
+cookie_email = cookie_manager.get(cookie="moinhos_user_email")
+cookie_name = cookie_manager.get(cookie="moinhos_user_name")
+cookie_picture = cookie_manager.get(cookie="moinhos_user_picture")
 
-try:
-    # Tenta recuperar os valores; se o componente ainda não carregou, não quebra o app
-    cookie_email = cookies.get("moinhos_user_email")
-    cookie_name = cookies.get("moinhos_user_name")
-    cookie_picture = cookies.get("moinhos_user_picture")
-except Exception:
-    # Se falhar porque ainda está inicializando, abafamos o erro para tentar no próximo ciclo
-    pass
-
-# Se o cookie existir e o usuário não estiver marcado como conectado no st.session_state, reconecta automaticamente
+# Se o cookie existir e o usuário não estiver marcado como conectado, loga direto!
 if cookie_email and not st.session_state.connected:
     st.session_state.connected = True
     st.session_state.email = cookie_email
@@ -206,16 +200,19 @@ if "code" in query_params and not st.session_state.get('connected'):
             headers={"Authorization": f"Bearer {credentials.token}"}
         ).json()
         
-        # Salva na sessão do Streamlit (para uso imediato)
+        # Salva na sessão temporária do Streamlit
         st.session_state.connected = True
         st.session_state.name = user_info_service.get("name")
         st.session_state.email = user_info_service.get("email")
         st.session_state.picture = user_info_service.get("picture")
         
-        # SALVA NOS COOKIES DO NAVEGADOR (Para persistir por 30 dias se fechar a aba)
-        cookies.set("moinhos_user_email", st.session_state.email, max_age=2592000) # 2592000 segundos = 30 dias
-        cookies.set("moinhos_user_name", st.session_state.name, max_age=2592000)
-        cookies.set("moinhos_user_picture", st.session_state.picture, max_age=2592000)
+        # GRAVA OS COOKIES POR 30 DIAS USANDO A NOVA BIBLIOTECA
+        import datetime
+        validade = datetime.datetime.now() + datetime.timedelta(days=30)
+        
+        cookie_manager.set(cookie="moinhos_user_email", val=st.session_state.email, expires_at=validade)
+        cookie_manager.set(cookie="moinhos_user_name", val=st.session_state.name, expires_at=validade)
+        cookie_manager.set(cookie="moinhos_user_picture", val=st.session_state.picture, expires_at=validade)
         
         st.query_params.clear()
         st.rerun()
@@ -274,22 +271,12 @@ st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
-    # Proteção para garantir que a limpeza de cookies não trave o app se o controlador falhar
-    try:
-        # Sobrescreve com valor vazio e expira o cookie imediatamente (Garante a limpeza no navegador)
-        cookies.set("moinhos_user_email", "", max_age=0)
-        cookies.set("moinhos_user_name", "", max_age=0)
-        cookies.set("moinhos_user_picture", "", max_age=0)
-        
-        # Remove da estrutura interna do componente
-        cookies.remove("moinhos_user_email")
-        cookies.remove("moinhos_user_name")
-        cookies.remove("moinhos_user_picture")
-    except Exception:
-        # Se o componente falhar ao remover no Python, o max_age=0 acima já resolveu no navegador
-        pass
+    # Deleta os cookies usando a nova biblioteca de forma limpa
+    cookie_manager.delete(cookie="moinhos_user_email")
+    cookie_manager.delete(cookie="moinhos_user_name")
+    cookie_manager.delete(cookie="moinhos_user_picture")
     
-    # Limpa completamente a sessão atual do Streamlit
+    # Limpa o estado interno do Streamlit
     for key in list(st.session_state.keys()):
         del st.session_state[key]
         
