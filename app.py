@@ -160,10 +160,19 @@ cookies = CookieController()
 if "connected" not in st.session_state:
     st.session_state.connected = False
 
-# Tenta recuperar o e-mail e nome salvos nos cookies do navegador
-cookie_email = cookies.get("moinhos_user_email")
-cookie_name = cookies.get("moinhos_user_name")
-cookie_picture = cookies.get("moinhos_user_picture")
+# Proteção contra inicialização assíncrona dos cookies
+cookie_email = None
+cookie_name = None
+cookie_picture = None
+
+try:
+    # Tenta recuperar os valores; se o componente ainda não carregou, não quebra o app
+    cookie_email = cookies.get("moinhos_user_email")
+    cookie_name = cookies.get("moinhos_user_name")
+    cookie_picture = cookies.get("moinhos_user_picture")
+except Exception:
+    # Se falhar porque ainda está inicializando, abafamos o erro para tentar no próximo ciclo
+    pass
 
 # Se o cookie existir e o usuário não estiver marcado como conectado no st.session_state, reconecta automaticamente
 if cookie_email and not st.session_state.connected:
