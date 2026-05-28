@@ -268,12 +268,15 @@ st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
-    # Deleta os cookies usando a nova biblioteca de forma limpa
-    cookie_manager.delete(cookie="moinhos_user_email")
-    cookie_manager.delete(cookie="moinhos_user_name")
-    cookie_manager.delete(cookie="moinhos_user_picture")
+    # Proteção simples: apenas invalida o cookie principal passando uma chave única para evitar o erro de duplicação
+    try:
+        cookie_manager.set(cookie="moinhos_user_email", val="", key="logout_email")
+        cookie_manager.set(cookie="moinhos_user_name", val="", key="logout_name")
+        cookie_manager.set(cookie="moinhos_user_picture", val="", key="logout_picture")
+    except Exception:
+        pass
     
-    # Limpa o estado interno do Streamlit
+    # Limpa completamente o estado da sessão atual do Streamlit
     for key in list(st.session_state.keys()):
         del st.session_state[key]
         
