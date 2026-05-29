@@ -412,7 +412,7 @@ if is_aprovador:
                         
                         st.markdown("<br>", unsafe_allow_html=True)
                         
-                        # --- CONDIÇÃO PRINCIPAL: SE NÃO ESTIVER RESSALVANDO NEM RECUSANDO (Linha ~571)
+                        # --- CONTROLE DOS BOTÕES DE AÇÃO (Aprovar / Ressalva / Reprovar) ---
                         if not st.session_state[f"recusando_{id_chamado}"] and not st.session_state[f"ressalvando_{id_chamado}"]:
                             col_ap, col_res, col_rep = st.columns([2.5, 3.2, 2.3])
                             
