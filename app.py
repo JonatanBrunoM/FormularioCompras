@@ -149,7 +149,7 @@ st.markdown("""
 # ==============================================================================
 # 2. Configurações de E-mail e Banco de Dados
 # ==============================================================================
-APROVADORES = ["jonatan231196@gmail.com", "debora.bairros@hmv.org.br", "sandro.carmo@hmv.org.br"]
+APROVADORES = ["jonatan231196@gmail.com", "seu_email_real@gmail.com", "seu_email_real@gmail.com"]
 
 def enviar_email(destinatario, assunto, corpo_html):
     remetente = st.secrets.get("SMTP_EMAIL", "")
@@ -352,7 +352,7 @@ with col_header2:
     st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Fluxo de governança e consenso por alçada de aprovação</p>", unsafe_allow_html=True)
 
 # ==============================================================================
-# 6. Distribuição de Abas por Perfil (Substituir da Linha 525 até o Final)
+# 6. Distribuição de Abas por Perfil
 # ==============================================================================
 if is_aprovador:
     st.markdown("---")
@@ -370,7 +370,6 @@ if is_aprovador:
         
         st.markdown("---")
         
-        # Criação das Abas Oficiais do Aprovador
         tab_pendentes, tab_hist_aprovador, tab_logs, tab_indicadores = st.tabs([
             "📥 Minhas Pendências", 
             "📊 Histórico de Decisões",
@@ -378,9 +377,6 @@ if is_aprovador:
             "📈 Indicadores de Governança"
         ])
         
-        # ----------------------------------------------------------------------
-        # ABA 1: MINHAS PENDÊNCIAS
-        # ----------------------------------------------------------------------
         with tab_pendentes:
             st.markdown("### Solicitações Pendentes de seu Parecer")
             if pendentes.empty:
@@ -412,12 +408,13 @@ if is_aprovador:
                         
                         st.markdown("<br>", unsafe_allow_html=True)
                         
-                        # --- CONTROLE DOS BOTÕES DE AÇÃO (Aprovar / Ressalva / Reprovar) ---
+                        # --- FLUXO PRINCIPAL: EXIBIÇÃO DOS BOTÕES ---
                         if not st.session_state[f"recusando_{id_chamado}"] and not st.session_state[f"ressalvando_{id_chamado}"]:
                             col_ap, col_res, col_rep = st.columns([2.5, 3.2, 2.3])
                             
                             if col_ap.button("👍 Aprovar", key=f"ap_{id_chamado}", use_container_width=True):
                                 df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado"
+                                
                                 timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
                                 nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
                                 nova_nota = f" | {timestamp_atual} - {user_name} aprovou a solicitação."
@@ -430,194 +427,19 @@ if is_aprovador:
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0] + f" | {timestamp_atual} - Sistema: Chamado finalizado com Aprovação Total."
                                     
-                                    html_email = f"<div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'><h3 style='color: #008D4C;'>HOSPITAL MOINHOS DE VENTO</h3><p>O chamado <b>#{id_chamado} - {row['Titulo']}</b> foi totalmente APROVADO.</p></div>"
-                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Solicitação Aprovada! - #{id_chamado}", corpo_html=html_email)
-                                else:
-                                    html_email = f"<div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'><h3 style='color: #005691;'>HOSPITAL MOINHOS DE VENTO</h3><p>O aprovador <b>{user_name}</b> votou a favor do chamado #{id_chamado}.</p></div>"
-                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Novo voto registrado no Chamado #{id_chamado}", corpo_html=html_email)
-                                
-                                conn.update(data=df_dados)
-                                st.rerun()
-                                
-                            if col_res.button("⚠️ Aprovar c/ Ressalva", key=f"res_gatilho_{id_chamado}", use_container_width=True):
-                                st.session_state[f"ressalvando_{id_chamado}"] = True
-                                st.rerun()
-                                
-                            if col_rep.button("👎 Reprovar", key=f"rep_gatilho_{id_chamado}", use_container_width=True):
-                                st.session_state[f"recusando_{id_chamado}"] = True
-                                st.rerun()
-                        
-                        # --- MODAL DE CONFIRMAÇÃO DE RESSALVA ---
-                        elif st.session_state[f"ressalvando_{id_chamado}"]:
-                            st.markdown("⚠️ **Descreva a ressalva técnica ou financeira proposta abaixo:**")
-                            ressalva_texto = st.text_input("Ressalva (Obrigatório):", key=f"input_res_{id_chamado}")
-                            col_conf_res, col_canc_res = st.columns([3, 7])
-                            
-                            if col_conf_res.button("Confirmar Ressalva", key=f"conf_res_{id_chamado}", use_container_width=True):
-                                if ressalva_texto.strip():
-                                    df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado com ressalva"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado com ressalva"
-                                    timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-                                    nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
-                                    nova_nota = f" | {timestamp_atual} - {user_name} inseriu uma Ressalva: {ressalva_texto}"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
-                                    
-                                    html_ressalva = f"<div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'><h3 style='color: #E6A23C;'>HOSPITAL MOINHOS DE VENTO</h3><p>O chamado #{id_chamado} recebeu ressalvas de {user_name}: <i>{ressalva_texto}</i></p></div>"
-                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Ressalva aplicada ao Chamado #{id_chamado}", corpo_html=html_ressalva)
-                                    
-                                    conn.update(data=df_dados)
-                                    st.session_state[f"ressalvando_{id_chamado}"] = False
-                                    st.rerun()
-                                    
-                            if col_canc_res.button("Cancelar", key=f"canc_res_{id_chamado}", use_container_width=True):
-                                st.session_state[f"ressalvando_{id_chamado}"] = False
-                                st.rerun()
-
-                        # --- MODAL DE CONFIRMAÇÃO DE REPROVAÇÃO ---
-                        elif st.session_state[f"recusando_{id_chamado}"]:
-                            st.markdown("❌ **Explique o motivo da recusa abaixo:**")
-                            motivo = st.text_input("Motivo da Reprovação (Obrigatório):", key=f"input_motivo_{id_chamado}")
-                            col_conf, col_canc = st.columns([3, 7])
-                            
-                            if col_conf.button("Confirmar Rejeição", key=f"conf_rep_{id_chamado}", use_container_width=True):
-                                if motivo.strip():
-                                    df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Reprovado"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
-                                    timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-                                    nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
-                                    nova_nota = f" | {timestamp_atual} - {user_name} REPROVOU o chamado. Motivo: {motivo}"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
-                                    
-                                    html_reprovado = f"<div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'><h3 style='color: #D93025;'>HOSPITAL MOINHOS DE VENTO</h3><p>O chamado #{id_chamado} foi reprovado por {user_name}. Motivo: {motivo}</p></div>"
-                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Solicitação Recusada - #{id_chamado}", corpo_html=html_reprovado)
-                                    
-                                    conn.update(data=df_dados)
-                                    st.session_state[f"recusando_{id_chamado}"] = False
-                                    st.rerun()
-                                    
-                            if col_canc.button("Cancelar", key=f"canc_rep_{id_chamado}", use_container_width=True):
-                                st.session_state[f"recusando_{id_chamado}"] = False
-                                st.rerun()
-
-        # ----------------------------------------------------------------------
-        # ABA 2: HISTÓRICO DE DECISÕES
-        # ----------------------------------------------------------------------
-        with tab_hist_aprovador:
-            st.markdown("### Histórico Avançado de Decisões")
-            if historico_aprovador.empty:
-                st.info("Você ainda não registrou votos em chamados anteriores.")
-            else:
-                for _, row in historico_aprovador.iterrows():
-                    id_c = int(row['ID'])
-                    voto_proprio = row[coluna_voto]
-                    status_final = row['Status_Final']
-                    cor_voto = "#008D4C" if voto_proprio == "Aprovado" else "#D93025" if voto_proprio == "Reprovado" else "#E6A23C"
-                    
-                    with st.expander(f"📋 Chamado #{id_c} - {row['Titulo']} (Seu Voto: {voto_proprio} | Final: {status_final})"):
-                        col1, col2 = st.columns([6, 4])
-                        with col1:
-                            st.markdown(f"**Seu Parecer:** <span style='color:{cor_voto}; font-weight:bold;'>{voto_proprio}</span>", unsafe_allow_html=True)
-                            st.write(f"**Solicitante:** {row['Remetente_Nome']} ({row['Remetente_Email']})")
-                            st.write(f"**Descrição:** {row['Descricao']}")
-                        with col2:
-                            st.markdown("**Status das Alçadas:**")
-                            for idx in range(3):
-                                v_status = row[f"Voto_Aprovador{idx+1}"]
-                                icon = "✅" if v_status == "Aprovado" else "❌" if v_status == "Reprovado" else "⚠️" if v_status == "Aprovado com ressalva" else "⏳"
-                                st.markdown(f"{icon} Aprovador {idx+1}: `{v_status}`")
-
-        # ----------------------------------------------------------------------
-        # ABA 3: LOG DE ATIVIDADES
-        # ----------------------------------------------------------------------
-        with tab_logs:
-            st.markdown("### 📜 Log Geral de Atividades e Auditoria")
-            for _, row in df_dados.iterrows():
-                id_c = int(row['ID'])
-                status_c = row['Status_Final']
-                with st.expander(f"📜 Trilha do Chamado #{id_c} - {row['Titulo']} (Status: {status_c})"):
-                    st.write(row.get("Motivo_Recusa", "Sem notas de auditoria registradas."))
-
-        # ----------------------------------------------------------------------
-        # ABA 4: INDICADORES
-        # ----------------------------------------------------------------------
-        with tab_indicadores:
-            st.markdown("### 📈 Indicadores de Governança")
-            st.metric("Total de Chamados na Base", len(df_dados))
-            st.success("Métricas e gráficos adicionais de SLAs podem ser injetados aqui.")
-
-# ==============================================================================
-# INTERFACE DO SOLICITANTE COMUM (Controle do bloco Condicional principal 'else')
-# ==============================================================================
-else:
-    st.markdown("---")
-    st.subheader("📝 Nova Solicitação de Compra")
-    st.markdown("Utilize o portal abaixo para abrir uma nova requisição de suprimentos estratégicos.")
-    
-    with st.form("form_solicitacao", clear_on_submit=True):
-        titulo = st.text_input("Título do Chamado (Curto e objetivo):")
-        descricao = st.text_area("Descrição do Pedido (Especificações técnicas):")
-        justificativa = st.text_area("Justificativa Corporativa (Retorno ou Necessidade):")
-        arquivo = st.file_uploader("Anexar Documentação/Cotações (Opcional):", type=["pdf", "docx", "xlsx", "png", "jpg"])
-        
-        submetido = st.form_submit_button("🚀 Enviar para Conselho de Aprovação")
-        if submetido:
-            if titulo.strip() and descricao.strip() and justificativa.strip():
-                # Aqui entra a sua lógica de upload pro drive e gravação no sheets
-                st.success("✨ Solicitação registrada com sucesso no ecossistema de governança!")
-            else:
-                st.error("❌ Por favor, preencha todos os campos obrigatórios do formulário.")
-                        
-                        # ==============================================================================
-                        # CORRIGIDO: FLUXO PRINCIPAL DE PARECERES E NOTIFICAÇÕES POR E-MAIL
-                        # ==============================================================================
-                        if not st.session_state[f"recusando_{id_chamado}"] and not st.session_state[f"ressalvando_{id_chamado}"]:
-                            col_ap, col_res, col_rep = st.columns([2.5, 3.2, 2.3])
-                            
-                            # --- BOTÃO APROVAR ---
-                            if col_ap.button("👍 Aprovar", key=f"ap_{id_chamado}", use_container_width=True):
-                                # 1. Atualiza o voto do usuário atual localmente
-                                df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado"
-                                
-                                timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-                                nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
-                                nova_nota = f" | {timestamp_atual} - {user_name} aprovou a solicitação."
-                                df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
-                                
-                                # Re-coleta todos os votos da linha atualizada para checar o panorama geral
-                                linha_alt = df_dados[df_dados["ID"] == id_chamado].iloc[0]
-                                votos = [linha_alt["Voto_Aprovador1"], linha_alt["Voto_Aprovador2"], linha_alt["Voto_Aprovador3"]]
-                                
-                                # CONDICIONAL INTELIGENTE DE E-MAIL:
-                                if votos.count("Aprovado") == 3:
-                                    # Cenário A: Todos aprovaram, encerra o chamado
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0] + f" | {timestamp_atual} - Sistema: Chamado finalizado com Aprovação Total."
-                                    
-                                    html_email = f"""
+                                    html_sucesso = f"""
                                     <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
                                         <h3 style='color: #008D4C;'>HOSPITAL MOINHOS DE VENTO</h3>
-                                        <p style='color: #333333; font-size: 1.1em;'><b>✅ Solicitação Totalmente APROVADA!</b></p>
+                                        <p style='color: #6c757d;'>✅ Chamado #{id_chamado} foi APROVADO!</p>
                                         <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
-                                        <p>O chamado <b>#{id_chamado} - {row['Titulo']}</b> recebeu o parecer positivo de todas as alçadas de auditoria e foi liberado.</p>
+                                        <p>Todos os 3 aprovadores deram parecer positivo total para: <b>{row['Titulo']}</b>.</p>
                                     </div>
                                     """
-                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Solicitação Aprovada! - #{id_chamado}", corpo_html=html_email)
-                                else:
-                                    # Cenário B: Aprovação intermediária (ainda faltam votos)
-                                    html_email = f"""
-                                    <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
-                                        <h3 style='color: #005691;'>HOSPITAL MOINHOS DE VENTO</h3>
-                                        <p style='color: #333333;'><b>⏳ Atualização do Processo - Chamado #{id_chamado}</b></p>
-                                        <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
-                                        <p>O aprovador <b>{user_name}</b> votou a favor da sua solicitação: <i>{row['Titulo']}</i>.</p>
-                                        <p>O chamado segue em análise aguardando o parecer dos demais membros do comitê.</p>
-                                    </div>
-                                    """
-                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Novo voto registrado no Chamado #{id_chamado}", corpo_html=html_email)
+                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Solicitação Aprovada! - #{id_chamado}", corpo_html=html_sucesso)
                                 
                                 conn.update(data=df_dados)
                                 st.rerun()
-                                
+                            
                             if col_res.button("⚠️ Aprovar c/ Ressalva", key=f"res_gatilho_{id_chamado}", use_container_width=True):
                                 st.session_state[f"ressalvando_{id_chamado}"] = True
                                 st.rerun()
@@ -625,8 +447,7 @@ else:
                             if col_rep.button("👎 Reprovar", key=f"rep_gatilho_{id_chamado}", use_container_width=True):
                                 st.session_state[f"recusando_{id_chamado}"] = True
                                 st.rerun()
-                                
-                        # --- MODAL DE CONFIRMAÇÃO DE RESSALVA ---
+                        
                         elif st.session_state[f"ressalvando_{id_chamado}"]:
                             st.markdown("⚠️ **Descreva a ressalva técnica ou financeira proposta abaixo:**")
                             ressalva_texto = st.text_input("Ressalva (Obrigatório):", key=f"input_res_{id_chamado}")
@@ -642,18 +463,6 @@ else:
                                     nova_nota = f" | {timestamp_atual} - {user_name} inseriu uma Ressalva: {ressalva_texto}"
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
                                     
-                                    # ADICIONADO: Disparo de e-mail notificando a ressalva aplicada
-                                    html_ressalva = f"""
-                                    <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
-                                        <h3 style='color: #E6A23C;'>HOSPITAL MOINHOS DE VENTO</h3>
-                                        <p style='color: #333333;'><b>⚠️ Solicitação Aprovada com Ressalvas - Chamado #{id_chamado}</b></p>
-                                        <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
-                                        <p>A sua solicitação <b>{row['Titulo']}</b> recebeu um parecer condicional por parte de <b>{user_name}</b>.</p>
-                                        <p><b>Ressalva apresentada:</b> <br><i style='color: #555555;'>"{ressalva_texto}"</i></p>
-                                    </div>
-                                    """
-                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Ressalva aplicada ao Chamado #{id_chamado}", corpo_html=html_ressalva)
-                                    
                                     conn.update(data=df_dados)
                                     st.session_state[f"ressalvando_{id_chamado}"] = False
                                     st.rerun()
@@ -662,7 +471,6 @@ else:
                                 st.session_state[f"ressalvando_{id_chamado}"] = False
                                 st.rerun()
 
-                        # --- MODAL DE CONFIRMAÇÃO DE REPROVAÇÃO ---
                         elif st.session_state[f"recusando_{id_chamado}"]:
                             st.markdown("❌ **Explique o motivo da recusa abaixo:**")
                             motivo = st.text_input("Motivo da Reprovação (Obrigatório):", key=f"input_motivo_{id_chamado}")
@@ -678,24 +486,11 @@ else:
                                     nova_nota = f" | {timestamp_atual} - {user_name} REPROVOU o chamado. Motivo: {motivo}"
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
                                     
-                                    # ADICIONADO: Disparo de e-mail notificando a reprovação imediata
-                                    html_reprovado = f"""
-                                    <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
-                                        <h3 style='color: #D93025;'>HOSPITAL MOINHOS DE VENTO</h3>
-                                        <p style='color: #333333;'><b>❌ Solicitação REPROVADA - Chamado #{id_chamado}</b></p>
-                                        <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
-                                        <p>Lamentamos informar que a sua solicitação de compra <b>{row['Titulo']}</b> foi recusada por <b>{user_name}</b>.</p>
-                                        <p><b>Justificativa da Recusa:</b> <br><i style='color: #555555;'>"{motivo}"</i></p>
-                                    </div>
-                                    """
-                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"HOSPITAL MOINHOS: Solicitação Recusada - #{id_chamado}", corpo_html=html_reprovado)
-                                    
                                     conn.update(data=df_dados)
                                     st.session_state[f"recusando_{id_chamado}"] = False
                                     st.rerun()
                                     
                             if col_canc.button("Cancelar", key=f"canc_rep_{id_chamado}", use_container_width=True):
-                                id_chamado = row["ID"]
                                 st.session_state[f"recusando_{id_chamado}"] = False
                                 st.rerun()
 
