@@ -33,7 +33,7 @@ def upload_para_google_drive(arquivo_streamlit, pasta_id=None):
             file_metadata['parents'] = [pasta_id]
             
         # Converte o arquivo do Streamlit em bytes para o upload
-        arquivo_bytes = io.BytesIO(arquivo_streamlit.getvalue())
+        arquivo_bytes = ioBytesIO(arquivo_streamlit.getvalue())
         media = MediaIoBaseUpload(arquivo_bytes, mimetype=arquivo_streamlit.type, resumable=True)
         
         # Executa o upload
@@ -370,7 +370,6 @@ if is_aprovador:
         
         st.markdown("---")
         
-        # Criação das Novas Abas com foco analítico no Aprovador
         tab_pendentes, tab_hist_aprovador, tab_logs, tab_indicadores = st.tabs([
             "📥 Minhas Pendências", 
             "📊 Histórico de Decisões",
@@ -415,11 +414,17 @@ if is_aprovador:
                             if col_ap.button("👍 Aprovar", key=f"ap_{id_chamado}", use_container_width=True):
                                 df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado"
                                 
+                                timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+                                nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
+                                nova_nota = f" | {timestamp_atual} - {user_name} aprovou a solicitação."
+                                df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
+                                
                                 linha_alt = df_dados[df_dados["ID"] == id_chamado].iloc[0]
                                 votos = [linha_alt["Voto_Aprovador1"], linha_alt["Voto_Aprovador2"], linha_alt["Voto_Aprovador3"]]
                                 
                                 if votos.count("Aprovado") == 3:
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
+                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0] + f" | {timestamp_atual} - Sistema: Chamado finalizado com Aprovação Total."
                                     
                                     html_sucesso = f"""
                                     <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
@@ -452,9 +457,10 @@ if is_aprovador:
                                     df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado com ressalva"
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado com ressalva"
                                     
+                                    timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
                                     nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
-                                    nova_nota = f" | {user_name} (Ressalva): {ressalva_texto}" if nota_atual else f"{user_name} (Ressalva): {ressalva_texto}"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nova_nota
+                                    nova_nota = f" | {timestamp_atual} - {user_name} inseriu uma Ressalva: {ressalva_texto}"
+                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
                                     
                                     conn.update(data=df_dados)
                                     st.session_state[f"ressalvando_{id_chamado}"] = False
@@ -474,9 +480,10 @@ if is_aprovador:
                                     df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Reprovado"
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
                                     
+                                    timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
                                     nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
-                                    nova_nota = f" | {user_name} (Reprovação): {motivo}" if nota_atual else f"{user_name} (Reprovação): {motivo}"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nova_nota
+                                    nova_nota = f" | {timestamp_atual} - {user_name} REPROVOU o chamado. Motivo: {motivo}"
+                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
                                     
                                     conn.update(data=df_dados)
                                     st.session_state[f"recusando_{id_chamado}"] = False
@@ -518,28 +525,42 @@ if is_aprovador:
 
         with tab_logs:
             st.markdown("### 📜 Log Geral de Atividades e Auditoria")
-            st.markdown("Trilha de auditoria em tempo real de todas as notas, ressalvas e intervenções registradas no sistema.")
+            st.markdown("Trilha de auditoria completa em dropdown. Cada chamado exibe o histórico cronológico de interações desde a sua abertura.")
             
-            logs_encontrados = False
-            for _, row in df_dados.iterrows():
-                historico_notas = str(row.get("Motivo_Recusa", "")).strip()
-                if historico_notas and historico_notas.lower() not in ["nan", "none", ""]:
-                    logs_encontrados = True
+            if df_dados.empty:
+                st.info("Nenhum chamado registrado para gerar logs.")
+            else:
+                for _, row in df_dados.iterrows():
                     id_c = int(row['ID'])
+                    titulo_c = row['Titulo']
+                    status_final = row['Status_Final']
+                    historico_notas = str(row.get("Motivo_Recusa", "")).strip()
                     
-                    with st.container(border=True):
-                        st.markdown(f"🔗 **Chamado #{id_c} - {row['Titulo']}**")
-                        notas_separadas = historico_notas.split(" | ")
-                        for nota in notas_separadas:
-                            if "Reprovação" in nota:
-                                st.error(f"🔴 Log de Rejeição: {nota}")
-                            elif "Ressalva" in nota:
-                                st.warning(f"🟡 Log de Ressalva: {nota}")
-                            else:
-                                st.info(f"ℹ️ Intervenção: {nota}")
-            
-            if not logs_encontrados:
-                st.info("Nenhum log ou histórico de anotações foi registrado nas planilhas até o momento.")
+                    # Cria o dropdown idêntico ao histórico para cada chamado existente
+                    with st.expander(f"📜 Logs do Chamado #{id_c} - {titulo_c} (Status: {status_final})"):
+                        st.markdown(f"**Resumo das Configurações do Chamado:**")
+                        st.write(f"• **Solicitante Original:** {row['Remetente_Nome']} (`{row['Remetente_Email']}`)")
+                        st.write(f"• **Situação das Alçadas:** A1: `{row['Voto_Aprovador1']}` | A2: `{row['Voto_Aprovador2']}` | A3: `{row['Voto_Aprovador3']}`")
+                        st.markdown("---")
+                        st.markdown("**Linha do Tempo de Eventos:**")
+                        
+                        # Processa e exibe a trilha de auditoria completa
+                        if historico_notas and historico_notas.lower() not in ["nan", "none", ""]:
+                            notas_separadas = historico_notas.split(" | ")
+                            for nota in notas_separadas:
+                                if not nota.strip():
+                                    continue
+                                if "REPROVOU" in nota or "Sistema: Chamado finalizado com Reprovação" in nota:
+                                    st.error(f"🔴 {nota}")
+                                elif "Ressalva" in nota or "Aprovado com ressalva" in nota:
+                                    st.warning(f"🟡 {nota}")
+                                elif "abriu a solicitação" in nota or "Solicitação Criada" in nota:
+                                    st.success(f"🟢 {nota}")
+                                else:
+                                    st.info(f"ℹ️ {nota}")
+                        else:
+                            # Caso retroativo (chamados antigos criados sem a string de log de criação)
+                            st.caption("ℹ️ Chamado aguardando ações ou criado antes da implementação da trilha de tempo real.")
 
         with tab_indicadores:
             st.markdown("### 📈 Painel Analítico de Governança")
@@ -547,7 +568,6 @@ if is_aprovador:
             if df_dados.empty:
                 st.info("Dados insuficientes para gerar indicadores gráficos.")
             else:
-                # Layout de KPIs Gerais para os Aprovadores
                 kpi1, kpi2, kpi3, kpi4 = st.columns(4)
                 total_chamados = len(df_dados)
                 finalizados_ap = len(df_dados[df_dados["Status_Final"] == "Aprovado"])
@@ -575,7 +595,6 @@ if is_aprovador:
                     voto_counts.columns = ["Seu Parecer", "Quantidade"]
                     st.bar_chart(data=voto_counts, x="Seu Parecer", y="Quantidade", use_container_width=True)
                     
-                # Simulação Inteligente de Evolução Mensal baseada em volumes existentes
                 st.markdown("##### 📅 Volume de Chamados em Andamento no Fluxo")
                 df_dados['Mês'] = datetime.datetime.now().strftime("%m/%Y")
                 mes_counts = df_dados["Mês"].value_counts().reset_index()
@@ -631,6 +650,10 @@ else:
                             if not link_drive_arquivo:
                                 link_drive_arquivo = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
                     
+                    # Gera o carimbo de data e hora de criação do log
+                    timestamp_criacao = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+                    log_inicial = f"{timestamp_criacao} - {user_name} ({user_email}) abriu a solicitação de compra."
+                    
                     nova_linha = pd.DataFrame([{
                         "ID": proximo_id,
                         "Remetente_Nome": user_name,
@@ -643,7 +666,7 @@ else:
                         "Voto_Aprovador2": "Pendente",
                         "Voto_Aprovador3": "Pendente",
                         "Status_Final": "Em análise",
-                        "Motivo_Recusa": ""
+                        "Motivo_Recusa": log_inicial
                     }])
                     
                     df_dados = pd.concat([df_dados, nova_linha], ignore_index=True)
@@ -694,7 +717,7 @@ else:
                             st.markdown("##### 📋 Histórico de Apontamentos da Governança")
                             notas_separadas = historico_notas.split(" | ")
                             for nota in notas_separadas:
-                                if "Reprovação" in nota: st.error(f"🔴 {nota}")
+                                if "REPROVOU" in nota: st.error(f"🔴 {nota}")
                                 elif "Ressalva" in nota: st.warning(f"🟡 {nota}")
                                 else: st.info(f"ℹ️ {nota}")
         else:
