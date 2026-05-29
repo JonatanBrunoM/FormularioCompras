@@ -32,8 +32,8 @@ def upload_para_google_drive(arquivo_streamlit, pasta_id=None):
         if pasta_id:
             file_metadata['parents'] = [pasta_id]
             
-        # Converte o arquivo do Streamlit em bytes para o upload
-        arquivo_bytes = ioBytesIO(arquivo_streamlit.getvalue())
+        # CORRIGIDO: Adicionado o ponto correto em io.BytesIO
+        arquivo_bytes = io.BytesIO(arquivo_streamlit.getvalue())
         media = MediaIoBaseUpload(arquivo_bytes, mimetype=arquivo_streamlit.type, resumable=True)
         
         # Executa o upload
@@ -396,8 +396,9 @@ if is_aprovador:
                             st.write(row['Justificativa'])
                             
                             if "Link_Anexo" in row and row["Link_Anexo"] != "Nenhum arquivo anexado":
+                                document_icon = "📂"
                                 st.markdown("##### 📎 Documentação Adjunta:")
-                                st.link_button("📂 Abrir Anexo no Google Drive", row["Link_Anexo"], use_container_width=True)
+                                st.link_button(f"{document_icon} Abrir Anexo no Google Drive", row["Link_Anexo"], use_container_width=True)
                             st.markdown("---")
                         
                         if f"recusando_{id_chamado}" not in st.session_state:
@@ -536,7 +537,6 @@ if is_aprovador:
                     status_final = row['Status_Final']
                     historico_notas = str(row.get("Motivo_Recusa", "")).strip()
                     
-                    # Cria o dropdown idêntico ao histórico para cada chamado existente
                     with st.expander(f"📜 Logs do Chamado #{id_c} - {titulo_c} (Status: {status_final})"):
                         st.markdown(f"**Resumo das Configurações do Chamado:**")
                         st.write(f"• **Solicitante Original:** {row['Remetente_Nome']} (`{row['Remetente_Email']}`)")
@@ -544,7 +544,6 @@ if is_aprovador:
                         st.markdown("---")
                         st.markdown("**Linha do Tempo de Eventos:**")
                         
-                        # Processa e exibe a trilha de auditoria completa
                         if historico_notas and historico_notas.lower() not in ["nan", "none", ""]:
                             notas_separadas = historico_notas.split(" | ")
                             for nota in notas_separadas:
@@ -559,7 +558,6 @@ if is_aprovador:
                                 else:
                                     st.info(f"ℹ️ {nota}")
                         else:
-                            # Caso retroativo (chamados antigos criados sem a string de log de criação)
                             st.caption("ℹ️ Chamado aguardando ações ou criado antes da implementação da trilha de tempo real.")
 
         with tab_indicadores:
