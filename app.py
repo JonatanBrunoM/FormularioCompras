@@ -268,8 +268,8 @@ if not st.session_state.connected:
             with img_col2:
                 st.image("logomoinhos.png", use_container_width=True)
         
-        st.markdown("<h3 style='text-align: center; margin-top: 20px; font-size: 1.3em; color: #005691; font-weight: 600;'>Workflow de Aprovações</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #6c757d; font-size: 0.9em; margin-top: -5px;'>Portal de Governança e Alçadas Corporativas</p>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; margin-top: 20px; font-size: 1.3em; color: #005691; font-weight: 600;'>CAPROQ</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #6c757d; font-size: 0.9em; margin-top: -5px;'>Solicitação de Padronização de Produtos Químicos</p>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
         auth_url = (
@@ -289,8 +289,8 @@ if not st.session_state.connected:
 # ==============================================================================
 # 6. Configurações da sidebar    
 # ==============================================================================
-st.sidebar.markdown("<h3 style='font-size: 1.2em; margin-bottom: 5px; color: #005691;'>Hospital Moinhos</h3>", unsafe_allow_html=True)
-st.sidebar.markdown("<p style='color: #6c757d; font-size: 0.85em; margin-top:-10px; margin-bottom: 15px;'>Portal de Suprimentos Corporativos</p>", unsafe_allow_html=True)
+st.sidebar.markdown("<h3 style='font-size: 1.2em; margin-bottom: 5px; color: #005691;'>Hospital Moinhos de Vento</h3>", unsafe_allow_html=True)
+st.sidebar.markdown("<p style='color: #6c757d; font-size: 0.85em; margin-top:-10px; margin-bottom: 15px;'>Formulário - CAPROQ</p>", unsafe_allow_html=True)
 
 user_name = st.session_state.get('name') or 'Usuário'
 user_email = st.session_state.get('email') or ''
@@ -314,7 +314,7 @@ avatar_html = f"""
 st.sidebar.markdown(avatar_html, unsafe_allow_html=True)
 
 st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
+if st.sidebar.button("Sair do Sistema", use_container_width=True):
     try:
         cookie_manager.set(cookie="moinhos_user_email", val="", key="logout_email")
         cookie_manager.set(cookie="moinhos_user_name", val="", key="logout_name")
@@ -340,8 +340,8 @@ if os.path.exists("logomoinhos.png"):
     col_header1.image("logomoinhos.png", width=150)
 
 with col_header2:
-    st.title("Central de Aprovações de Compras")
-    st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Fluxo de governança e consenso por alçada de aprovação</p>", unsafe_allow_html=True)
+    st.title("Central de aprovações - CAPROQ")
+    st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Área do aprovador</p>", unsafe_allow_html=True)
 
 # ==============================================================================
 # 8. Distribuição de abas por Perfil
@@ -363,14 +363,14 @@ if is_aprovador:
         st.markdown("---")
         
         tab_pendentes, tab_hist_aprovador, tab_logs, tab_indicadores = st.tabs([
-            "Minhas Pendências", 
-            "Histórico de Decisões",
-            "Log de Atividades",
-            "Indicadores de Governança"
+            "Minhas pendências", 
+            "Histórico de decisões",
+            "Log de atividades",
+            "Indicadores"
         ])
         
         with tab_pendentes:
-            st.markdown("### Solicitações Pendentes de seu Parecer")
+            st.markdown("### Solicitações pendentes de seu parecer")
             if pendentes.empty:
                 st.success("Nenhuma solicitação pendente para você no momento.")
             else:
@@ -380,17 +380,17 @@ if is_aprovador:
                         st.markdown(f"#### Chamado #{id_chamado} - {row['Titulo']}")
                         st.markdown(f"**Solicitante:** {row['Remetente_Nome']} (`{row['Remetente_Email']}`)")
                         
-                        with st.expander("🔍 Visualizar Detalhes da Solicitação", expanded=False):
+                        with st.expander("🔍 Visualizar detalhes da solicitação", expanded=False):
                             st.markdown("---")
-                            st.markdown("##### 📝 Descrição do Pedido:")
+                            st.markdown("##### 📝 Descrição do pedido:")
                             st.write(row['Descricao'])
-                            st.markdown("##### 💡 Justificativa Corporativa:")
+                            st.markdown("##### 💡 Justificativa:")
                             st.write(row['Justificativa'])
                             
                             if "Link_Anexo" in row and row["Link_Anexo"] != "Nenhum arquivo anexado":
                                 document_icon = "📂"
-                                st.markdown("##### 📎 Documentação Adjunta:")
-                                st.link_button(f"{document_icon} Abrir Anexo no Google Drive", row["Link_Anexo"], use_container_width=True)
+                                st.markdown("##### 📎 Documentação adjunta:")
+                                st.link_button(f"{document_icon} Abrir anexo no Google Drive", row["Link_Anexo"], use_container_width=True)
                             st.markdown("---")
                         
                         if f"recusando_{id_chamado}" not in st.session_state:
@@ -417,7 +417,7 @@ if is_aprovador:
                                 
                                 if votos.count("Aprovado") == 3:
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0] + f" | {timestamp_atual} - Sistema: Chamado finalizado com Aprovação Total."
+                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0] + f" | {timestamp_atual} - Sistema: Chamado finalizado com aprovação total."
                                     
                                     html_sucesso = f"""
                                     <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
@@ -468,7 +468,7 @@ if is_aprovador:
                             motivo = st.text_input("Motivo da Reprovação (Obrigatório):", key=f"input_motivo_{id_chamado}")
                             col_conf, col_canc = st.columns([3, 7])
                             
-                            if col_conf.button("Confirmar Rejeição", key=f"conf_rep_{id_chamado}", use_container_width=True):
+                            if col_conf.button("Confirmar rejeição", key=f"conf_rep_{id_chamado}", use_container_width=True):
                                 if motivo.strip():
                                     df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Reprovado"
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
@@ -487,8 +487,8 @@ if is_aprovador:
                                 st.rerun()
 
         with tab_hist_aprovador:
-            st.markdown("### Histórico Avançado de Decisões")
-            st.markdown("Visualize as suas decisões anteriores combinadas com a posição atual do painel de governança.")
+            st.markdown("### Histórico avançado de decisões")
+            st.markdown("Visualize as suas decisões anteriores combinadas com a posição atual do painel.")
             
             if historico_aprovador.empty:
                 st.info("Você ainda não registrou votos em chamados anteriores.")
@@ -517,8 +517,8 @@ if is_aprovador:
                                 st.markdown(f"{icon} Aprovador {idx+1}: `{v_status}`")
 
         with tab_logs:
-            st.markdown("### 📜 Log Geral de Atividades e Auditoria")
-            st.markdown("Trilha de auditoria completa em dropdown. Cada chamado exibe o histórico cronológico de interações desde a sua abertura.")
+            st.markdown("### Log geral de atividades")
+            st.markdown("Histórico completo de movimentações dos chamados.")
             
             if df_dados.empty:
                 st.info("Nenhum chamado registrado para gerar logs.")
@@ -529,12 +529,12 @@ if is_aprovador:
                     status_final = row['Status_Final']
                     historico_notas = str(row.get("Motivo_Recusa", "")).strip()
                     
-                    with st.expander(f"📜 Logs do Chamado #{id_c} - {titulo_c} (Status: {status_final})"):
-                        st.markdown(f"**Resumo das Configurações do Chamado:**")
-                        st.write(f"• **Solicitante Original:** {row['Remetente_Nome']} (`{row['Remetente_Email']}`)")
-                        st.write(f"• **Situação das Alçadas:** A1: `{row['Voto_Aprovador1']}` | A2: `{row['Voto_Aprovador2']}` | A3: `{row['Voto_Aprovador3']}`")
+                    with st.expander(f"📜 Logs do chamado #{id_c} - {titulo_c} (Status: {status_final})"):
+                        st.markdown(f"**Resumo das configurações do chamado:**")
+                        st.write(f"• **Solicitante original:** {row['Remetente_Nome']} (`{row['Remetente_Email']}`)")
+                        st.write(f"• **Situação das aprovações:** A1: `{row['Voto_Aprovador1']}` | A2: `{row['Voto_Aprovador2']}` | A3: `{row['Voto_Aprovador3']}`")
                         st.markdown("---")
-                        st.markdown("**Linha do Tempo de Eventos:**")
+                        st.markdown("**Linha do tempo de eventos:**")
                         
                         if historico_notas and historico_notas.lower() not in ["nan", "none", ""]:
                             notas_separadas = historico_notas.split(" | ")
@@ -553,7 +553,7 @@ if is_aprovador:
                             st.caption("ℹ️ Chamado aguardando ações ou criado antes da implementação da trilha de tempo real.")
 
         with tab_indicadores:
-            st.markdown("### 📈 Painel Analítico de Governança")
+            st.markdown("### Painel analítico")
             
             if df_dados.empty:
                 st.info("Dados insuficientes para gerar indicadores gráficos.")
@@ -595,17 +595,17 @@ if is_aprovador:
 
 else:
     st.markdown("---")
-    tab_novo, tab_status = st.tabs(["📝 Nova Solicitação de Compra", "📊 Status e Histórico dos meus Pedidos"])
+    tab_novo, tab_status = st.tabs(["Nova solicitação de compra", "Status e histórico dos meus pedidos"])
     
     with tab_novo:
-        st.markdown("### Formulário de Requisição Padrão")
-        st.markdown("Preencha as informações abaixo para iniciar o processo de governança.")
+        st.markdown("### Formulário de requisição padrão")
+        st.markdown("Preencha as informações abaixo para iniciar o processo.")
         
         PASTA_DRIVE_ID = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R" 
         
         with st.form("form_requisicao", clear_on_submit=True):
-            st.markdown("<h4 style='color: #005691;'>Identificação da Demanda</h4>", unsafe_allow_html=True)
-            titulo = st.text_input("Título do Projeto/Solicitação de Compra:", placeholder="Ex: Aquisição de novos desfibriladores - UTI Leste")
+            st.markdown("<h4 style='color: #005691;'>Identificação da demanda</h4>", unsafe_allow_html=True)
+            titulo = st.text_input("Título do projeto/solicitação de compra:", placeholder="Ex: Aquisição de novos desfibriladores - UTI Leste")
             
             st.markdown("<br><h4 style='color: #005691;'>Especificações Técnicas</h4>", unsafe_allow_html=True)
             centro_custo = st.selectbox(
@@ -625,7 +625,7 @@ else:
             justificativa = st.text_area("Justificativa / Impacto para o Hospital:", height=100)
             
             st.markdown("---")
-            enviar = st.form_submit_button("🚀 Enviar Solicitação para Governanças", use_container_width=True)
+            enviar = st.form_submit_button("Enviar Solicitação para Governanças", use_container_width=True)
             
             if enviar:
                 if titulo and descricao:
