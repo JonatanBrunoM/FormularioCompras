@@ -14,6 +14,9 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import io
 
+# ==============================================================================
+# 1. Configuração upload de arquivos
+# ==============================================================================
 def upload_para_google_drive(arquivo_streamlit, pasta_id=None):
     """
     Faz o upload de um arquivo do Streamlit para uma pasta específica do Google Drive.
@@ -27,25 +30,22 @@ def upload_para_google_drive(arquivo_streamlit, pasta_id=None):
         creds = st.session_state["google_credentials"]
         service = build('drive', 'v3', credentials=creds)
         
-        # Configuração dos metadados do arquivo
         file_metadata = {'name': arquivo_streamlit.name}
         if pasta_id:
             file_metadata['parents'] = [pasta_id]
             
-        # CORRIGIDO: Adicionado o ponto correto em io.BytesIO
         arquivo_bytes = io.BytesIO(arquivo_streamlit.getvalue())
         media = MediaIoBaseUpload(arquivo_bytes, mimetype=arquivo_streamlit.type, resumable=True)
         
-        # Executa o upload
         file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
         
-        return file.get('webViewLink') # Retorna o link direto do arquivo no Drive
+        return file.get('webViewLink')
     except Exception as e:
         st.error(f"Erro ao fazer upload para o Drive: {e}")
         return None
 
 # ==============================================================================
-# 1. Configuração Básica da Página e Design Adaptável
+# 2. Configuração front-end da página                
 # ==============================================================================
 st.set_page_config(
     page_title="Workflow de Aprovações - Hospital Moinhos",
@@ -54,12 +54,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS Inteligente: Limpa caixas voadoras e força comportamento padrão na sidebar
 st.markdown("""
 <style>
-    /* ==========================================
-       1. LIMPEZA DE CAIXAS VOADORAS E ELEMENTOS FANTASMAS
-       ========================================== */
     [data-testid="stVerticalBlockBorderWrapper"] {
         border: none !important;
         background-color: transparent !important;
@@ -80,9 +76,6 @@ st.markdown("""
         display: none !important;
     }
 
-    /* ==========================================
-       2. CENTRALIZAÇÃO E ESTILO DO LOGIN
-       ========================================== */
     .login-box {
         text-align: center !important;
         margin: 0 auto !important;
@@ -97,7 +90,6 @@ st.markdown("""
         text-align: center !important;
     }
 
-    /* RESET CRÍTICO DA SIDEBAR: Mata qualquer herança de centralização do loginbox */
     [data-testid="stSidebar"] div, [data-testid="stSidebar"] span, [data-testid="stSidebar"] p {
         text-align: left !important;
         display: block !important;
@@ -125,7 +117,7 @@ st.markdown("""
     }
 
     /* ==========================================
-       3. SIDEBAR E COMPONENTES INTERNOS
+        2.1 SIDEBAR E COMPONENTES INTERNOS
        ========================================== */
     .sidebar-user-card {
         padding: 12px;
@@ -147,7 +139,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. Configurações de E-mail e Banco de Dados
+# 3. Configurações de E-mail e Banco de Dados
 # ==============================================================================
 APROVADORES = ["jonatan231196@gmail.com", "debora.bairros@hmv.org.br", "sandro.carmo@hmv.org.br"]
 
@@ -187,7 +179,9 @@ def carregar_dados():
         st.error(f"Erro ao conectar com a planilha: {e}")
         return pd.DataFrame()
 
-# --- LOGIN GOOGLE E GERENCIAMENTO DE COOKIES ---
+# ==============================================================================
+# 4. Configurações de login Google          
+# ==============================================================================
 cookie_manager = stx.CookieManager()
 
 if "connected" not in st.session_state:
@@ -195,12 +189,10 @@ if "connected" not in st.session_state:
 if "cookies_carregados" not in st.session_state:
     st.session_state.cookies_carregados = False
 
-# Resgata cookies de forma segura
 cookie_email = cookie_manager.get(cookie="moinhos_user_email")
 cookie_name = cookie_manager.get(cookie="moinhos_user_name")
 cookie_picture = cookie_manager.get(cookie="moinhos_user_picture")
 
-# Fluxo de Autenticação via Cookies (Auto-Login)
 if cookie_email and not st.session_state.connected:
     st.session_state.connected = True
     st.session_state.email = cookie_email
@@ -263,7 +255,7 @@ if "code" in query_params and not st.session_state.get('connected'):
         st.query_params.clear()
 
 # ==============================================================================
-# 3. Tela de Login Corporativa Ajustada e Centralizada
+# 5. Confirgurações tela de Login                     
 # ==============================================================================
 if not st.session_state.connected:
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
@@ -289,13 +281,13 @@ if not st.session_state.connected:
         
         b_col1, b_col2, b_col3 = st.columns([0.5, 2, 0.5])
         with b_col2:
-            st.link_button("🔑 Entrar com o Google", auth_url, use_container_width=True)
+            st.link_button("Entrar com o Google", auth_url, use_container_width=True)
             
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
 # ==============================================================================
-# 4. Sidebar Inteligente e Fluida
+# 6. Configurações da sidebar    
 # ==============================================================================
 st.sidebar.markdown("<h3 style='font-size: 1.2em; margin-bottom: 5px; color: #005691;'>Hospital Moinhos</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='color: #6c757d; font-size: 0.85em; margin-top:-10px; margin-bottom: 15px;'>Portal de Suprimentos Corporativos</p>", unsafe_allow_html=True)
@@ -335,7 +327,7 @@ if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
     st.rerun()
 
 # ==============================================================================
-# 5. Interface Principal (Leituras com Fallbacks de Segurança)
+# 7. Interface principal (leituras com fallbacks de segurança)
 # ==============================================================================
 df_dados = carregar_dados()
 
@@ -352,7 +344,7 @@ with col_header2:
     st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Fluxo de governança e consenso por alçada de aprovação</p>", unsafe_allow_html=True)
 
 # ==============================================================================
-# 6. Distribuição de Abas por Perfil
+# 8. Distribuição de abas por Perfil
 # ==============================================================================
 if is_aprovador:
     st.markdown("---")
@@ -371,16 +363,16 @@ if is_aprovador:
         st.markdown("---")
         
         tab_pendentes, tab_hist_aprovador, tab_logs, tab_indicadores = st.tabs([
-            "📥 Minhas Pendências", 
-            "📊 Histórico de Decisões",
-            "📜 Log de Atividades",
-            "📈 Indicadores de Governança"
+            "Minhas Pendências", 
+            "Histórico de Decisões",
+            "Log de Atividades",
+            "Indicadores de Governança"
         ])
         
         with tab_pendentes:
             st.markdown("### Solicitações Pendentes de seu Parecer")
             if pendentes.empty:
-                st.success("🎈 Excelente! Nenhuma solicitação corporativa pendente para você no momento.")
+                st.success("Nenhuma solicitação pendente para você no momento.")
             else:
                 for _, row in pendentes.iterrows():
                     id_chamado = row["ID"]
@@ -408,7 +400,7 @@ if is_aprovador:
                         
                         st.markdown("<br>", unsafe_allow_html=True)
                         
-                        # --- FLUXO PRINCIPAL: EXIBIÇÃO DOS BOTÕES ---
+                        # --- EXIBIÇÃO DOS BOTÕES ---
                         if not st.session_state[f"recusando_{id_chamado}"] and not st.session_state[f"ressalvando_{id_chamado}"]:
                             col_ap, col_res, col_rep = st.columns([2.5, 3.2, 2.3])
                             
