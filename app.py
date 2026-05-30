@@ -48,7 +48,7 @@ def upload_para_google_drive(arquivo_streamlit, pasta_id=None):
 # 2. Configuração front-end da página                
 # ==============================================================================
 st.set_page_config(
-    page_title="Workflow de Aprovações - Hospital Moinhos",
+    page_title="Solicitação de Padronização de Produtos Químicos - CAPROQ",
     page_icon="logomini.png",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -340,8 +340,8 @@ if os.path.exists("logomoinhos.png"):
     col_header1.image("logomoinhos.png", width=150)
 
 with col_header2:
-    st.title("Central de aprovações - CAPROQ")
-    st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Área do aprovador</p>", unsafe_allow_html=True)
+    st.title("Solicitação de Padronização de Produtos Químicos - CAPROQ")
+    st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Fluxo de envio de solicitações para aprovação.</p>", unsafe_allow_html=True)
 
 # ==============================================================================
 # 8. Distribuição de abas por Perfil
@@ -625,7 +625,7 @@ else:
             justificativa = st.text_area("Justificativa / Impacto para o Hospital:", height=100)
             
             st.markdown("---")
-            enviar = st.form_submit_button("Enviar Solicitação para Governanças", use_container_width=True)
+            enviar = st.form_submit_button("Enviar solicitação", use_container_width=True)
             
             if enviar:
                 if titulo and descricao:
@@ -665,10 +665,10 @@ else:
                     time.sleep(1)
                     st.rerun()
                 else:
-                    st.error("Por favor, preencha o Título e a Descrição do chamado.")
+                    st.error("Por favor, preencha o título e a descrição da solicitação.")
 
     with tab_status:
-        st.markdown("### Seus Pedidos e Andamento")
+        st.markdown("### Seus pedidos e andamento")
         if not df_dados.empty and "Remetente_Email" in df_dados.columns:
             meus_pedidos = df_dados[df_dados["Remetente_Email"] == user_email]
             if meus_pedidos.empty:
