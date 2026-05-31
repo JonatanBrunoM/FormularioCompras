@@ -791,6 +791,9 @@ else:
                     # ==============================================================================
                     # 9. Disparo de e-mails para os aprovadores
                     # ==============================================================================
+                    desc_resumida = respostas_formulario.get("Descrição completa do produto", "")[:60] + "..."
+                    fabricante_resumido = respostas_formulario.get("Fabricante/fornecedor", "Não Informado")
+                    
                     html_novo_chamado = f"""
                     <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
                         <h3 style='color: #005691;'>HOSPITAL MOINHOS DE VENTO</h3>
@@ -798,7 +801,8 @@ else:
                         <p style='color: #2b2b2b;'>Um novo chamado de padronização foi aberto e aguarda a sua avaliação técnica.</p>
                         <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
                         <p><b>Chamado:</b> #{proximo_id}</p>
-                        <p><b>Título/Setor:</b> [{cc_selecionado}] {titulo}</p>
+                        <p><b>Produto:</b> {desc_resumida}</p>
+                        <p><b>Fabricante/Fornecedor:</b> {fabricante_resumido}</p>
                         <p><b>Solicitante:</b> {user_name} ({user_email})</p>
                         <br>
                         <p style='color: #6c757d; font-size: 0.9em;'>Acesse o painel interno para registrar o seu parecer.</p>
@@ -816,8 +820,6 @@ else:
                     st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
                     time.sleep(1)
                     st.rerun()
-                else:
-                    st.error("Por favor, preencha o título e a descrição da solicitação.")
 
     with tab_status:
         st.markdown("### Seus pedidos e andamento")
