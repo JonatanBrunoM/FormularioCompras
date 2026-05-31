@@ -699,38 +699,36 @@ else:
                     respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "SIM", "NÃO"], key=campo["id"])
     
             # --- SEÇÃO EXCLUSIVA DE ANEXOS ---
-            # --- SEÇÃO EXCLUSIVA DE ANEXOS ---
             st.markdown("<br><h4 style='color: #005691;'>📎 Arquivos e Documentações</h4>", unsafe_allow_html=True)
             st.markdown("---")
             
-            # Colunas D e E
+            # Os 3 campos ficam visíveis direto na tela
             arquivos_gerais = st.file_uploader("Arquivos anexados (Registro ANVISA, Laudo Técnico, Ficha Técnica, Fabricante):", accept_multiple_files=True)
             fds_obrigatorio = st.file_uploader("Anexar FDS (Obrigatório) *")
-            
-            # --- CORREÇÃO AQUI: Criamos uma caixinha de seleção dedicada para os estudos dentro dos anexos
-            pergunta_estudos = st.checkbox("Desejo anexar arquivos de estudos científicos e de custo-efetividade")
-            
-            arquivo_estudos = None
-            if pergunta_estudos:
-                arquivo_estudos = st.file_uploader("Anexo arquivo de estudos científicos e de custo-efetividade. *")
+            arquivo_estudos = st.file_uploader("Anexo arquivo de estudos científicos e de custo-efetividade:")
     
             st.markdown("---")
             enviar = st.form_submit_button("Enviar solicitação", use_container_width=True)
             
             if enviar:
-                # 1. Validação dinâmica de campos de texto vazios
-                campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario[campo["label"]]]
+            # 1. Validação dinâmica de campos de texto vazios
+            campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario[campo["label"]]]
+            
+            # 2. Validação do anexo obrigatório FDS
+            if not fds_obrigatorio:
+                campos_vazios.append("Anexar FDS")
+            
+            # 3. VALIDAÇÃO CONDICIONAL: Se respondeu SIM na pergunta de estudos, exige o arquivo
+            pergunta_estudos_label = "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo."
+            resposta_estudos = respostas_formulario.get(pergunta_estudos_label, "")
+            
+            if resposta_estudos == "SIM" and not arquivo_estudos:
+                campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade (Obrigatório quando a resposta for SIM)")
                 
-                # 2. Validação dos anexos obrigatórios estruturais
-                if not fds_obrigatorio:
-                    campos_vazios.append("Anexar FDS")
-                if possui_estudos == "SIM" and not arquivo_estudos:
-                    campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade.")
-                    
-                if campos_vazios:
-                    st.error(f"❌ Por favor, preencha ou anexe os seguintes campos obrigatórios:\n" + "\n".join([f"• {c}" for c in campos_vazios]))
-                else:
-                    with st.spinner("Processando anexos e enviando para o Google Drive..."):
+            if campos_vazios:
+                st.error(f"❌ Por favor, preencha ou anexe os seguintes campos obrigatórios:\n" + "\n".join([f"• {c}" for c in campos_vazios]))
+            else:
+                with st.spinner("Processando anexos e enviando para o Google Drive..."):
                         # Cálculo automático do próximo ID incremental
                         proximo_id = int(df_dados["ID"].max() + 1) if not df_dados.empty and "ID" in df_dados.columns else 1
                         
