@@ -711,19 +711,19 @@ else:
             enviar = st.form_submit_button("Enviar solicitação", use_container_width=True)
             
             if enviar:
-            # 1. Validação dinâmica de campos de texto vazios
-            campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario[campo["label"]]]
-            
-            # 2. Validação do anexo obrigatório FDS
-            if not fds_obrigatorio:
-                campos_vazios.append("Anexar FDS")
-            
-            # 3. VALIDAÇÃO CONDICIONAL: Se respondeu SIM na pergunta de estudos, exige o arquivo
-            pergunta_estudos_label = "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo."
-            resposta_estudos = respostas_formulario.get(pergunta_estudos_label, "")
-            
-            if resposta_estudos == "SIM" and not arquivo_estudos:
-                campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade (Obrigatório quando a resposta for SIM)")
+                # 1. Validação dinâmica de campos de texto vazios
+                campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario[campo["label"]]]
+                
+                # 2. Validação do anexo obrigatório FDS
+                if not fds_obrigatorio:
+                    campos_vazios.append("Anexar FDS")
+                
+                # 3. VALIDAÇÃO CONDICIONAL: Se respondeu SIM na pergunta de estudos, exige o arquivo
+                pergunta_estudos_label = "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo."
+                resposta_estudos = respostas_formulario.get(pergunta_estudos_label, "")
+                
+                if resposta_estudos == "SIM" and not arquivo_estudos:
+                    campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade (Obrigatório quando a resposta for SIM)")
                 
             if campos_vazios:
                 st.error(f"❌ Por favor, preencha ou anexe os seguintes campos obrigatórios:\n" + "\n".join([f"• {c}" for c in campos_vazios]))
