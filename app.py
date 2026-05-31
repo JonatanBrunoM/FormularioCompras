@@ -14,6 +14,9 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import io
 
+if "form_count" not in st.session_state:
+    st.session_state["form_count"] = 0
+    
 # ==============================================================================
 # 1. Configuração upload de arquivos
 # ==============================================================================
@@ -676,7 +679,7 @@ else:
         respostas_formulario["Carimbo de data/hora"] = timestamp_criacao
         respostas_formulario["Endereço de e-mail"] = user_email
     
-        with st.form("form_requisicao", clear_on_submit=False):
+        with st.form(key=f"form_requisicao_{st.session_state['form_count']}", clear_on_submit=False):
             secao_atual = ""
             
             # Renderização automática das seções e perguntas
@@ -816,6 +819,8 @@ else:
                         st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
                         st.balloons()
                         time.sleep(1)
+
+                        st.session_state["form_count"] += 1
                     
                         st.rerun()
 
