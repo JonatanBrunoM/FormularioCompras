@@ -636,11 +636,11 @@ else:
     st.markdown("---")
     tab_novo, tab_status = st.tabs(["Nova solicitação de compra", "Status e histórico dos meus pedidos"])
     
-        with tab_novo:
-            st.markdown("### Formulário de requisição padrão")
-            st.markdown("Preencha as informações abaixo para iniciar o processo.")
+    with tab_novo:
+        st.markdown("### Formulário de requisição padrão")
+        st.markdown("Preencha as informações abaixo para iniciar o processo.")
     
-            PASTA_DRIVE_ID = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R" 
+        PASTA_DRIVE_ID = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R" 
     
         # --- CONFIGURAÇÃO DINÂMICA DOS CAMPOS (Mapeamento do Sheets) ---
         CONFIG_CAMPOS = [
