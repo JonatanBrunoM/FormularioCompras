@@ -711,52 +711,53 @@ else:
             enviar = st.form_submit_button("Enviar solicitação", use_container_width=True)
             
             if enviar:
-                # 1. Validação dinâmica de campos de texto vazios
-                campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario[campo["label"]]]
-                
-                # 2. Validação do anexo obrigatório FDS
-                if not fds_obrigatorio:
-                    campos_vazios.append("Anexar FDS")
-                
-                # 3. VALIDAÇÃO CONDICIONAL: Se respondeu SIM na pergunta de estudos, exige o arquivo
-                pergunta_estudos_label = "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo."
-                resposta_estudos = respostas_formulario.get(pergunta_estudos_label, "")
-                
-                if resposta_estudos == "SIM" and not arquivo_estudos:
-                    campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade (Obrigatório quando a resposta for SIM)")
-                
+            # 1. Validação dinâmica de campos de texto vazios
+            campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario[campo["label"]]]
+            
+            # 2. Validação do anexo obrigatório FDS
+            if not fds_obrigatorio:
+                campos_vazios.append("Anexar FDS")
+            
+            # 3. VALIDAÇÃO CONDICIONAL: Se respondeu SIM na pergunta de estudos, exige o arquivo
+            pergunta_estudos_label = "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo."
+            resposta_estudos = respostas_formulario.get(pergunta_estudos_label, "")
+            
+            if resposta_estudos == "SIM" and not arquivo_estudos:
+                campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade (Obrigatório quando a resposta for SIM)")
+            
+            # --- Correção de Alinhamento aqui:
             if campos_vazios:
                 st.error(f"❌ Por favor, preencha ou anexe os seguintes campos obrigatórios:\n" + "\n".join([f"• {c}" for c in campos_vazios]))
             else:
                 with st.spinner("Processando anexos e enviando para o Google Drive..."):
-                        # Cálculo automático do próximo ID incremental
-                        proximo_id = int(df_dados["ID"].max() + 1) if not df_dados.empty and "ID" in df_dados.columns else 1
+                    # Cálculo automático do próximo ID incremental
+                    proximo_id = int(df_dados["ID"].max() + 1) if not df_dados.empty and "ID" in df_dados.columns else 1
+                    
+                    # Upload 1: FDS Obrigatório
+                    link_fds = upload_para_google_drive(fds_obrigatorio, pasta_id=PASTA_DRIVE_ID)
+                    if not link_fds:
+                        link_fds = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
                         
-                        # Upload 1: FDS Obrigatório
-                        link_fds = upload_para_google_drive(fds_obrigatorio, pasta_id=PASTA_DRIVE_ID)
-                        if not link_fds:
-                            link_fds = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
-                            
-                        # Upload 2: Estudos Científicos (Se selecionado)
-                        link_estudos = "Não aplicável"
-                        if possui_estudos == "SIM" and arquivo_estudos:
-                            link_estudos = upload_para_google_drive(arquivo_estudos, pasta_id=PASTA_DRIVE_ID)
-                            if not link_estudos:
-                                link_estudos = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
-                        
-                        # Upload 3: Múltiplos Arquivos Gerais
-                        links_gerais = []
-                        if arquivos_gerais:
-                            for arq in arquivos_gerais:
-                                lnk = upload_para_google_drive(arq, pasta_id=PASTA_DRIVE_ID)
-                                if lnk:
-                                    links_gerais.append(lnk)
-                        link_gerais_str = ", ".join(links_gerais) if links_gerais else "Nenhum arquivo adicional"
-    
-                        # Vincula os links resultantes diretamente às chaves/colunas corretas do dicionário
-                        respostas_formulario["Arquivos anexados"] = link_gerais_str
-                        respostas_formulario["Anexar FDS"] = link_fds
-                        respostas_formulario["Anexo arquivo de estudos científicos e de custo-efetividade."] = link_estudos
+                    # Upload 2: Estudos Científicos (Se selecionado)
+                    link_estudos = "Não aplicável"
+                    if resposta_estudos == "SIM" and arquivo_estudos:  # Ajustado de 'possui_estudos' para 'resposta_estudos' para bater com o seu dicionário
+                        link_estudos = upload_para_google_drive(arquivo_estudos, pasta_id=PASTA_DRIVE_ID)
+                        if not link_estudos:
+                            link_estudos = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
+                    
+                    # Upload 3: Múltiplos Arquivos Gerais
+                    links_gerais = []
+                    if arquivos_gerais:
+                        for arq in arquivos_gerais:
+                            lnk = upload_para_google_drive(arq, pasta_id=PASTA_DRIVE_ID)
+                            if lnk:
+                                links_gerais.append(lnk)
+                    link_gerais_str = ", ".join(links_gerais) if links_gerais else "Nenhum arquivo adicional"
+
+                    # Vincula os links resultantes diretamente às chaves/colunas corretas do dicionário
+                    respostas_formulario["Arquivos anexados"] = link_gerais_str
+                    respostas_formulario["Anexar FDS"] = link_fds
+                    respostas_formulario["Anexo arquivo de estudos científicos e de custo-efetividade."] = link_estudos
     
                         # Geração do log e metadados estruturais do sistema
                         log_inicial = f"{timestamp_criacao} - {user_name} ({user_email}) abriu a solicitação de compra."
