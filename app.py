@@ -714,7 +714,7 @@ else:
                         <p><b>Título/Setor:</b> [{cc_selecionado}] {titulo}</p>
                         <p><b>Solicitante:</b> {user_name} ({user_email})</p>
                         <br>
-                        <p style='color: #6c757d; font-size: 0.9em;'>Aceda ao painel interno para registrar o seu parecer.</p>
+                        <p style='color: #6c757d; font-size: 0.9em;'>Acesse o painel interno para registrar o seu parecer.</p>
                     </div>
                     """
                     
