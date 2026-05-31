@@ -244,7 +244,8 @@ if "code" in query_params and not st.session_state.get('connected'):
         st.session_state.email = user_info_service.get("email")
         st.session_state.picture = user_info_service.get("picture")
         
-        validade = datetime.datetime.now() + datetime.timedelta(days=30)
+        fuso_brasilia = datetime.timezone(datetime.timedelta(hours=-3))
+        validade = datetime.datetime.now(fuso_brasilia) + datetime.timedelta(hours=5)
         cookie_manager.set(cookie="moinhos_user_email", val=st.session_state.email, expires_at=validade)
         cookie_manager.set(cookie="moinhos_user_name", val=st.session_state.name, expires_at=validade)
         cookie_manager.set(cookie="moinhos_user_picture", val=st.session_state.picture, expires_at=validade)
@@ -407,7 +408,8 @@ if is_aprovador:
                             if col_ap.button("👍 Aprovar", key=f"ap_{id_chamado}", use_container_width=True):
                                 df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado"
 
-                                timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+                                fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
+                                timestamp_atual = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
                                 nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
                                 nova_nota = f" | {timestamp_atual} - {user_name} aprovou a solicitação."
                                 df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
@@ -457,7 +459,8 @@ if is_aprovador:
                                     df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado com ressalva"
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado com ressalva"
                                     
-                                    timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+                                    fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
+                                    timestamp_atual = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
                                     nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
                                     nova_nota = f" | {timestamp_atual} - {user_name} inseriu uma Ressalva: {ressalva_texto}"
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
@@ -494,7 +497,8 @@ if is_aprovador:
                                     df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Reprovado"
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
                                     
-                                    timestamp_atual = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+                                    fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
+                                    timestamp_atual = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
                                     nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
                                     nova_nota = f" | {timestamp_atual} - {user_name} REPROVOU o chamado. Motivo: {motivo}"
                                     df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
@@ -633,71 +637,159 @@ else:
     tab_novo, tab_status = st.tabs(["Nova solicitação de compra", "Status e histórico dos meus pedidos"])
     
     with tab_novo:
-        st.markdown("### Formulário de requisição padrão")
-        st.markdown("Preencha as informações abaixo para iniciar o processo.")
+    st.markdown("### Formulário de requisição padrão")
+    st.markdown("Preencha as informações abaixo para iniciar o processo.")
+    
+    PASTA_DRIVE_ID = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R" 
+    
+    # --- CONFIGURAÇÃO DINÂMICA DOS CAMPOS (Mapeamento do Sheets) ---
+    CONFIG_CAMPOS = [
+        # SEÇÃO 1: Identificação do Produto e Fornecedor
+        {"id": "descricao", "label": "Descrição completa do produto", "tipo": "area_texto", "secao": "📦 Dados do Produto", "obrigatorio": True},
+        {"id": "apresentacao", "label": "Apresentação/volume", "tipo": "texto", "secao": "📦 Dados do Produto", "obrigatorio": True},
+        {"id": "area_uso", "label": "Área onde será utilizado e indicação detalhada de uso do produto", "tipo": "area_texto", "secao": "📦 Dados do Produto", "obrigatorio": True},
+        {"id": "fabricante", "label": "Fabricante/fornecedor", "tipo": "texto", "secao": "📦 Dados do Produto", "obrigatorio": True},
+        {"id": "contato_fornecedor", "label": "Informações de contato do fornecedor (nome, e-mail e telefone)", "tipo": "area_texto", "secao": "📦 Dados do Produto", "obrigatorio": True},
         
-        PASTA_DRIVE_ID = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R" 
+        # SEÇÃO 2: Dependências e Processos
+        {"id": "insumos_associados", "label": "Equipamentos e/ou insumos associados ao uso do produto?", "tipo": "texto", "secao": "⚙️ Processos e Dependências", "obrigatorio": False},
+        {"id": "insumos_quais", "label": "Caso SIM, responder quais seriam?", "tipo": "texto", "secao": "⚙️ Processos e Dependências", "obrigatorio": False},
+        {"id": "sem_produto", "label": "Explique como o procedimento/atividade atual é realizado SEM este produto:", "tipo": "area_texto", "secao": "⚙️ Processos e Dependências", "obrigatorio": True},
         
-        with st.form("form_requisicao", clear_on_submit=True):
-            st.markdown("<h4 style='color: #005691;'>Identificação da demanda</h4>", unsafe_allow_html=True)
-            titulo = st.text_input("Título do projeto/solicitação de compra:", placeholder="Ex: Aquisição de novos desfibriladores - UTI Leste")
+        # SEÇÃO 3: Avaliação de Impacto e Riscos
+        {"id": "reducao_tempo", "label": "O produto contribui para a redução de tempo de execução dos procedimentos?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+        {"id": "reducao_acidentes", "label": "O produto proposto contribui para a redução do risco de acidentes de trabalho?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+        {"id": "seguranca_paciente", "label": "O produto favorece a segurança do paciente e dos profissionais?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+        {"id": "reducao_infeccao", "label": "O produto proposto contribui para a redução de risco de infecção hospitalar?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+        {"id": "requerido_legislacao", "label": "O item é requerido pela legislação, padrões de qualidade e segurança adotados pela instituição?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+        {"id": "residuo_perigoso", "label": "O item solicitado gera resíduo perigoso?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+        
+        # SEÇÃO 4: Estudos e Viabilidade
+        {"id": "estudos_cientificos", "label": "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.", "tipo": "selecao_binaria", "secao": "🔬 Estudos e Viabilidade", "obrigatorio": True},
+    ]
+
+    respostas_formulario = {}
+    
+    # Captura automática dos metadados das colunas A e B
+    fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
+    timestamp_criacao = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
+    
+    respostas_formulario["Carimbo de data/hora"] = timestamp_criacao
+    respostas_formulario["Endereço de e-mail"] = user_email
+
+    with st.form("form_requisicao", clear_on_submit=False):
+        secao_atual = ""
+        
+        # Renderização automática das seções e perguntas
+        for campo in CONFIG_CAMPOS:
+            if campo["secao"] != secao_atual:
+                secao_atual = campo["secao"]
+                st.markdown(f"<br><h4 style='color: #005691;'>{secao_atual}</h4>", unsafe_allow_html=True)
+                st.markdown("---")
             
-            st.markdown("<br><h4 style='color: #005691;'>Especificações Técnicas</h4>", unsafe_allow_html=True)
-            centro_custo = st.selectbox(
-                "Centro de Custo / Setor Destinado:",
-                options=["Selecione uma opção...", "UTI Adulto", "UTI Pediátrica", "Centro Cirúrgico", "Pronto Atendimento"]
-            )
+            label_final = f"{campo['label']} *" if campo["obrigatorio"] else campo["label"]
             
-            observacoes_tecnicas = st.text_input("Especificação Resumida ou Part Number (Opcional):")
+            if campo["tipo"] == "texto":
+                respostas_formulario[campo["label"]] = st.text_input(label_final, key=campo["id"])
+            elif campo["tipo"] == "area_texto":
+                respostas_formulario[campo["label"]] = st.text_area(label_final, key=campo["id"])
+            elif campo["tipo"] == "selecao_tripla":
+                respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "SIM", "NÃO", "NÃO SE APLICA"], key=campo["id"])
+            elif campo["tipo"] == "selecao_binaria":
+                respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "SIM", "NÃO"], key=campo["id"])
+
+        # --- SEÇÃO EXCLUSIVA DE ANEXOS ---
+        st.markdown("<br><h4 style='color: #005691;'>📎 Arquivos e Documentações</h4>", unsafe_allow_html=True)
+        st.markdown("---")
+        
+        # Colunas D e E
+        arquivos_gerais = st.file_uploader("Arquivos anexados (Registro ANVISA, Laudo Técnico, Ficha Técnica, Fabricante):", accept_multiple_files=True)
+        fds_obrigatorio = st.file_uploader("Anexar FDS (Obrigatório) *")
+        
+        # Colunas S e T (Renderização dinâmica baseada no estado da seleção do selectbox anterior)
+        possui_estudos = st.session_state.get("estudos_cientificos", "")
+        arquivo_estudos = None
+        if possui_estudos == "SIM":
+            arquivo_estudos = st.file_uploader("Anexo arquivo de estudos científicos e de custo-efetividade. *")
+
+        st.markdown("---")
+        enviar = st.form_submit_button("Enviar solicitação", use_container_width=True)
+        
+        if enviar:
+            # 1. Validação dinâmica de campos de texto vazios
+            campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario[campo["label"]]]
             
-            arquivo_anexo = st.file_uploader(
-                "Anexar Arquivos (Orçamentos, Projetos ou Laudos Técnicos):",
-                type=["pdf", "docx", "xlsx", "png", "jpg"]
-            )
-            
-            st.markdown("<br><h4 style='color: #005691;'>Detalhamento</h4>", unsafe_allow_html=True)
-            descricao = st.text_area("Descrição detalhada da demanda:", height=150)
-            justificativa = st.text_area("Justificativa / Impacto para o Hospital:", height=100)
-            
-            st.markdown("---")
-            enviar = st.form_submit_button("Enviar solicitação", use_container_width=True)
-            
-            if enviar:
-                if titulo and descricao:
+            # 2. Validação dos anexos obrigatórios estruturais
+            if not fds_obrigatorio:
+                campos_vazios.append("Anexar FDS")
+            if possui_estudos == "SIM" and not arquivo_estudos:
+                campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade.")
+                
+            if campos_vazios:
+                st.error(f"❌ Por favor, preencha ou anexe os seguintes campos obrigatórios:\n" + "\n".join([f"• {c}" for c in campos_vazios]))
+            else:
+                with st.spinner("Processando anexos e enviando para o Google Drive..."):
+                    # Cálculo automático do próximo ID incremental
                     proximo_id = int(df_dados["ID"].max() + 1) if not df_dados.empty and "ID" in df_dados.columns else 1
-                    cc_selecionado = centro_custo if centro_custo != "Selecione uma opção..." else "Não informado"
                     
-                    link_drive_arquivo = "Nenhum arquivo anexado"
+                    # Upload 1: FDS Obrigatório
+                    link_fds = upload_para_google_drive(fds_obrigatorio, pasta_id=PASTA_DRIVE_ID)
+                    if not link_fds:
+                        link_fds = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
+                        
+                    # Upload 2: Estudos Científicos (Se selecionado)
+                    link_estudos = "Não aplicável"
+                    if possui_estudos == "SIM" and arquivo_estudos:
+                        link_estudos = upload_para_google_drive(arquivo_estudos, pasta_id=PASTA_DRIVE_ID)
+                        if not link_estudos:
+                            link_estudos = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
                     
-                    if arquivo_anexo is not None:
-                        with st.spinner("Fazendo upload do anexo para a pasta segura no Google Drive..."):
-                            link_drive_arquivo = upload_para_google_drive(arquivo_anexo, pasta_id=PASTA_DRIVE_ID)
-                            if not link_drive_arquivo:
-                                link_drive_arquivo = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
-                    
-                    timestamp_criacao = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+                    # Upload 3: Múltiplos Arquivos Gerais
+                    links_gerais = []
+                    if arquivos_gerais:
+                        for arq in arquivos_gerais:
+                            lnk = upload_para_google_drive(arq, pasta_id=PASTA_DRIVE_ID)
+                            if lnk:
+                                links_gerais.append(lnk)
+                    link_gerais_str = ", ".join(links_gerais) if links_gerais else "Nenhum arquivo adicional"
+
+                    # Vincula os links resultantes diretamente às chaves/colunas corretas do dicionário
+                    respostas_formulario["Arquivos anexados"] = link_gerais_str
+                    respostas_formulario["Anexar FDS"] = link_fds
+                    respostas_formulario["Anexo arquivo de estudos científicos e de custo-efetividade."] = link_estudos
+
+                    # Geração do log e metadados estruturais do sistema
                     log_inicial = f"{timestamp_criacao} - {user_name} ({user_email}) abriu a solicitação de compra."
                     
-                    nova_linha = pd.DataFrame([{
+                    # Montagem do dicionário base estendido com as colunas estruturais e de voto (7 Aprovadores)
+                    dados_estruturais = {
                         "ID": proximo_id,
                         "Remetente_Nome": user_name,
-                        "Remetente_Email": user_email,
-                        "Titulo": f"[{cc_selecionado}] {titulo}",
-                        "Descricao": descricao, 
-                        "Justificativa": justificativa,
-                        "Link_Anexo": link_drive_arquivo, 
                         "Voto_Aprovador1": "Pendente",
                         "Voto_Aprovador2": "Pendente",
                         "Voto_Aprovador3": "Pendente",
+                        "Voto_Aprovador4": "Pendente",
+                        "Voto_Aprovador5": "Pendente",
+                        "Voto_Aprovador6": "Pendente",
+                        "Voto_Aprovador7": "Pendente",
                         "Status_Final": "Em análise",
                         "Motivo_Recusa": log_inicial
-                    }])
+                    }
                     
+                    # Mescla as respostas coletadas do formulário com as colunas estruturais em um único registro
+                    registro_completo = {**respostas_formulario, **dados_estruturais}
+                    
+                    nova_linha = pd.DataFrame([registro_completo])
+                    
+                    # Concatena e salva na base de dados (Google Sheets)
                     df_dados = pd.concat([df_dados, nova_linha], ignore_index=True)
                     conn.update(data=df_dados)
                     
+                    st.success("✅ Solicitação enviada com absoluto sucesso!")
+                    st.balloons()
+                    
                     # ==============================================================================
-                    # 🔥 NOVO: DISPARO DE E-MAIL PARA OS APROVADORES (CAPROQ)
+                    # 9. Disparo de e-mails para os aprovadores
                     # ==============================================================================
                     html_novo_chamado = f"""
                     <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
