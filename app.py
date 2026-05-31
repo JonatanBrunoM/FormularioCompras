@@ -659,13 +659,13 @@ else:
             {"id": "sem_produto", "label": "Explique como o procedimento/atividade atual é realizado SEM este produto:", "tipo": "area_texto", "secao": "⚙️ Processos e Dependências", "obrigatorio": True},
             
             # SEÇÃO 3: Avaliação de Impacto e Riscos
-            {"id": "reducao_tempo", "label": "O produto contribui para a redução de tempo de execução dos procedimentos?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "reducao_acidentes", "label": "O produto proposto contribui para a redução do risco de acidentes de trabalho?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "seguranca_paciente", "label": "O produto favorece a segurança do paciente e dos profissionais?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "reducao_infeccao", "label": "O produto proposto contribui para a redução de risco de infecção hospitalar?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "requerido_legislacao", "label": "O item é requerido pela legislação, padrões de qualidade e segurança adotados pela instituição?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "residuo_perigoso", "label": "O item solicitado gera resíduo perigoso?", "tipo": "selecao_tripla", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
-            
+            {"id": "reducao_tempo", "label": "O produto contribui para a redução de tempo de execução dos procedimentos?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": "reducao_acidentes", "label": "O produto proposto contribui para a redução do risco de acidentes de trabalho?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": "seguranca_paciente", "label": "O produto favorece a segurança do paciente and dos profissionais?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": "reducao_infeccao", "label": "O produto proposto contribui para a redução de risco de infecção hospitalar?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": "requerido_legislacao", "label": "O item é requerido pela legislação, padrões de qualidade e segurança adotados pela instituição?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": "residuo_perigoso", "label": "O item solicitado gera resíduo perigoso?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+                
             # SEÇÃO 4: Estudos e Viabilidade
             {"id": "estudos_cientificos", "label": "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.", "tipo": "selecao_binaria", "secao": "🔬 Estudos e Viabilidade", "obrigatorio": True},
         ]
@@ -700,6 +700,15 @@ else:
                     respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "SIM", "NÃO", "NÃO SE APLICA"], key=campo["id"])
                 elif campo["tipo"] == "selecao_binaria":
                     respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "SIM", "NÃO"], key=campo["id"])
+                # --- NOVA CONDIÇÃO AQUI ---
+                elif campo["tipo"] == "radio_horizontal":
+                    respostas_formulario[campo["label"]] = st.radio(
+                        label_final, 
+                        options=["SIM", "NÃO", "NÃO SE APLICA"], 
+                        index=None,  # Começa sem nenhuma opção marcada de forma padrão
+                        horizontal=True, 
+                        key=campo["id"]
+                    )
     
             # --- SEÇÃO EXCLUSIVA DE ANEXOS ---
             st.markdown("<br><h4 style='color: #005691;'>📎 Arquivos e Documentações</h4>", unsafe_allow_html=True)
