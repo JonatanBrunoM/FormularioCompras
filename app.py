@@ -559,18 +559,23 @@ if is_aprovador:
             status_counts.columns = ["Status", "Quantidade"]
             st.bar_chart(data=status_counts, x="Status", y="Quantidade", use_container_width=True)
             
-else:
-    st.info("Nenhuma estrutura de dados mapeada ou permissão ausente.")
+    else:
+        # Esse else fecha o 'if not df_dados.empty:' da área de aprovadores
+        st.info("Nenhuma estrutura de dados mapeada na planilha do Google Sheets.")
 
 else:
+    # --- VISÃO DO SOLICITANTE COMUM (Se 'is_aprovador' for Falso) ---
     st.markdown("---")
     tab_novo, tab_status = st.tabs(["Nova solicitação de compra", "Status e histórico dos meus pedidos"])
     
     with tab_novo:
         st.markdown("### Formulário de requisição padrão")
         st.markdown("Preencha as informações abaixo para iniciar o processo.")
-    
-        PASTA_DRIVE_ID = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R" 
+        
+        PASTA_DRIVE_ID = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R"
+        
+        # O RESTANTE DO SEU FORMULÁRIO CONTINUA DAQUI PARA BAIXO...
+        # (O laço 'for campo in CONFIG_CAMPOS:', os botões de rádio que ajustamos, etc.)
     
         # --- CONFIGURAÇÃO DINÂMICA DOS CAMPOS (Mapeamento do Sheets) ---
         CONFIG_CAMPOS = [
