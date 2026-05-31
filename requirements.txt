@@ -1,6 +1,8 @@
 streamlit>=1.35.0
 requests
 pandas
+gspread
+plotly
 st-gsheets-connection
 extra-streamlit-components
 google-api-python-client
