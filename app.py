@@ -667,7 +667,7 @@ else:
             {"id": "residuo_perigoso", "label": "O item solicitado gera resíduo perigoso?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
                 
             # SEÇÃO 4: Estudos e Viabilidade
-            {"id": "estudos_cientificos", "label": "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.", "tipo": "selecao_binaria", "secao": "🔬 Estudos e Viabilidade", "obrigatorio": True},
+            {"id": "estudos_cientificos", "label": "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.", "tipo": "radio_horizontal", "secao": "🔬 Estudos e Viabilidade", "obrigatorio": True},
         ]
     
         respostas_formulario = {}
@@ -697,15 +697,17 @@ else:
                 elif campo["tipo"] == "area_texto":
                     respostas_formulario[campo["label"]] = st.text_area(label_final, key=campo["id"])
                 elif campo["tipo"] == "selecao_tripla":
-                    respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "SIM", "NÃO", "NÃO SE APLICA"], key=campo["id"])
+                    respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "Sim", "Não", "Não se aplica"], key=campo["id"])
                 elif campo["tipo"] == "selecao_binaria":
-                    respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "SIM", "NÃO"], key=campo["id"])
+                    respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "Sim", "Não"], key=campo["id"])
                 # --- NOVA CONDIÇÃO AQUI ---
                 elif campo["tipo"] == "radio_horizontal":
+                    opcoes_radio = ["Sim", "Não"] if campo["id"] == "estudos_cientificos" else ["Sim", "Não", "Não se aplica"]
+                    
                     respostas_formulario[campo["label"]] = st.radio(
                         label_final, 
-                        options=["SIM", "NÃO", "NÃO SE APLICA"], 
-                        index=None,  # Começa sem nenhuma opção marcada de forma padrão
+                        options=opcoes_radio, 
+                        index=None,  # Começa totalmente desmarcado para obrigar a escolha
                         horizontal=True, 
                         key=campo["id"]
                     )
