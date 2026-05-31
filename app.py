@@ -822,7 +822,7 @@ else:
                         for aprovador_email in APROVADORES:
                             enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
                         
-                       st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
+                        st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
                         st.balloons()
                         time.sleep(2)
                         
