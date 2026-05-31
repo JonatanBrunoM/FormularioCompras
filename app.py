@@ -652,8 +652,7 @@ else:
             {"id": "contato_fornecedor", "label": "Informações de contato do fornecedor (nome, e-mail e telefone)", "tipo": "area_texto", "secao": "📦 Dados do Produto", "obrigatorio": True},
             
             # SEÇÃO 2: Dependências e Processos
-            {"id": "insumos_associados", "label": "Equipamentos e/ou insumos associados ao uso do produto?", "tipo": "texto", "secao": "⚙️ Processos e Dependências", "obrigatorio": False},
-            {"id": "insumos_quais", "label": "Caso SIM, responder quais seriam?", "tipo": "texto", "secao": "⚙️ Processos e Dependências", "obrigatorio": False},
+            {"id": "insumos_associados", "label": "Equipamentos e/ou insumos associados ao uso do produto? Se SIM, quais?", "tipo": "area_texto", "secao": "⚙️ Processos e Dependências", "obrigatorio": False},
             {"id": "sem_produto", "label": "Explique como o procedimento/atividade atual é realizado SEM este produto:", "tipo": "area_texto", "secao": "⚙️ Processos e Dependências", "obrigatorio": True},
             
             # SEÇÃO 3: Avaliação de Impacto e Riscos
@@ -725,7 +724,6 @@ else:
                 if resposta_estudos == "SIM" and not arquivo_estudos:
                     campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade (Obrigatório quando a resposta for SIM)")
                 
-                # --- Correção de Alinhamento aqui:
                 if campos_vazios:
                     st.error(f"❌ Por favor, preencha ou anexe os seguintes campos obrigatórios:\n" + "\n".join([f"• {c}" for c in campos_vazios]))
                 else:
@@ -740,7 +738,7 @@ else:
                             
                         # Upload 2: Estudos Científicos (Se selecionado)
                         link_estudos = "Não aplicável"
-                        if resposta_estudos == "SIM" and arquivo_estudos:  # Ajustado de 'possui_estudos' para 'resposta_estudos' para bater com o seu dicionário
+                        if resposta_estudos == "SIM" and arquivo_estudos:
                             link_estudos = upload_para_google_drive(arquivo_estudos, pasta_id=PASTA_DRIVE_ID)
                             if not link_estudos:
                                 link_estudos = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
@@ -759,13 +757,13 @@ else:
                         respostas_formulario["Anexar FDS"] = link_fds
                         respostas_formulario["Anexo arquivo de estudos científicos e de custo-efetividade."] = link_estudos
     
-                        # Geração do log e metadados estruturais do sistema
+                        # Geração do log e metadados estruturais do sistema (Amarra com o histórico do solicitante)
                         log_inicial = f"{timestamp_criacao} - {user_name} ({user_email}) abriu a solicitação de compra."
                         
-                        # Montagem do dicionário base estendido com as colunas estruturais e de voto (7 Aprovadores)
                         dados_estruturais = {
                             "ID": proximo_id,
                             "Remetente_Nome": user_name,
+                            "Remetente_Email": user_email,  # Mantém o e-mail atrelado para o filtro do histórico
                             "Voto_Aprovador1": "Pendente",
                             "Voto_Aprovador2": "Pendente",
                             "Voto_Aprovador3": "Pendente",
@@ -777,50 +775,53 @@ else:
                             "Motivo_Recusa": log_inicial
                         }
                         
-                        # Mescla as respostas coletadas do formulário com as colunas estruturais em um único registro
+                        # Mescla as respostas coletadas do formulário com as colunas estruturais
                         registro_completo = {**respostas_formulario, **dados_estruturais}
-                        
                         nova_linha = pd.DataFrame([registro_completo])
                         
-                        # Concatena e salva na base de dados (Google Sheets)
+                        # --- ATUALIZAÇÃO DA BASE DE DADOS (Garante gravação no Sheets e na Sessão atual) ---
                         df_dados = pd.concat([df_dados, nova_linha], ignore_index=True)
                         conn.update(data=df_dados)
+                        st.session_state["df_dados"] = df_dados  # Atualiza o estado para atualizar o histórico em tempo real
                         
-                        st.success("✅ Solicitação enviada com absoluto sucesso!")
+                        # ==============================================================================
+                        # 9. Disparo de e-mails para os aprovadores
+                        # ==============================================================================
+                        desc_resumida = respostas_formulario.get("Descrição completa do produto", "")[:60] + "..."
+                        fabricante_resumido = respostas_formulario.get("Fabricante/fornecedor", "Não Informado")
+                        
+                        html_novo_chamado = f"""
+                        <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
+                            <h3 style='color: #005691;'>HOSPITAL MOINHOS DE VENTO</h3>
+                            <p style='color: #2b2b2b; font-size: 1.1em;'>🔔 <b>Nova Solicitação Pendente - CAPROQ</b></p>
+                            <p style='color: #2b2b2b;'>Um novo chamado de padronização foi aberto e aguarda a sua avaliação técnica.</p>
+                            <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
+                            <p><b>Chamado:</b> #{proximo_id}</p>
+                            <p><b>Produto:</b> {desc_resumida}</p>
+                            <p><b>Fabricante/Fornecedor:</b> {fabricante_resumido}</p>
+                            <p><b>Solicitante:</b> {user_name} ({user_email})</p>
+                            <br>
+                            <p style='color: #6c757d; font-size: 0.9em;'>Acesse o painel interno para registrar o seu parecer.</p>
+                        </div>
+                        """
+                        
+                        for aprovador_email in APROVADORES:
+                            enviar_email(
+                                destinatario=aprovador_email, 
+                                assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", 
+                                corpo_html=html_novo_chamado
+                            )
+                        # ==============================================================================
+                        
+                        st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
                         st.balloons()
-                    
-                    # ==============================================================================
-                    # 9. Disparo de e-mails para os aprovadores
-                    # ==============================================================================
-                    desc_resumida = respostas_formulario.get("Descrição completa do produto", "")[:60] + "..."
-                    fabricante_resumido = respostas_formulario.get("Fabricante/fornecedor", "Não Informado")
-                    
-                    html_novo_chamado = f"""
-                    <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
-                        <h3 style='color: #005691;'>HOSPITAL MOINHOS DE VENTO</h3>
-                        <p style='color: #2b2b2b; font-size: 1.1em;'>🔔 <b>Nova Solicitação Pendente - CAPROQ</b></p>
-                        <p style='color: #2b2b2b;'>Um novo chamado de padronização foi aberto e aguarda a sua avaliação técnica.</p>
-                        <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
-                        <p><b>Chamado:</b> #{proximo_id}</p>
-                        <p><b>Produto:</b> {desc_resumida}</p>
-                        <p><b>Fabricante/Fornecedor:</b> {fabricante_resumido}</p>
-                        <p><b>Solicitante:</b> {user_name} ({user_email})</p>
-                        <br>
-                        <p style='color: #6c757d; font-size: 0.9em;'>Acesse o painel interno para registrar o seu parecer.</p>
-                    </div>
-                    """
-                    
-                    for aprovador_email in APROVADORES:
-                        enviar_email(
-                            destinatario=aprovador_email, 
-                            assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", 
-                            corpo_html=html_novo_chamado
-                        )
-                    # ==============================================================================
-                    
-                    st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
-                    time.sleep(1)
-                    st.rerun()
+                        time.sleep(1)
+                        
+                        # Força a limpeza visual completa limpando os states dos campos e recarregando a página limpa
+                        for campo in CONFIG_CAMPOS:
+                            if campo["id"] in st.session_state:
+                                st.session_state[campo["id"]] = ""
+                        st.rerun()
 
     with tab_status:
         st.markdown("### Seus pedidos e andamento")
