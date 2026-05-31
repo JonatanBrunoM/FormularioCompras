@@ -404,11 +404,6 @@ if is_aprovador:
                         if not st.session_state[f"recusando_{id_chamado}"] and not st.session_state[f"ressalvando_{id_chamado}"]:
                             col_ap, col_res, col_rep = st.columns([2.5, 3.2, 2.3])
                             
-                            if col_ap.button("👍 ...", key=f"ap_{id_chamado}", use_container_width=True): # Mantido conforme seu ajuste anterior
-                                pass 
-                            
-                            # (Aqui rodará a lógica interna dos botões que você já salvou antes)
-                            # Para não esticar o código, mantive a sua estrutura funcional intacta aqui.
                             if col_ap.button("👍 Aprovar", key=f"ap_{id_chamado}", use_container_width=True):
                                 df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado"
 
