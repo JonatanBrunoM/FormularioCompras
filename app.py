@@ -777,8 +777,7 @@ else:
                         
                         dados_estruturais = {
                             "ID": proximo_id,
-                            "Remetente_Nome": user_name,
-                            "Remetente_Email": user_email,
+                            "Nome solicitante": user_name,
                             "Voto_Aprovador1": "Pendente",
                             "Voto_Aprovador2": "Pendente",
                             "Voto_Aprovador3": "Pendente",
@@ -828,8 +827,8 @@ else:
 # --- ABA DE STATUS (Fora do bloco do formulário anterior) ---
 with tab_status:
     st.markdown("### Seus pedidos e andamento")
-    if not df_dados.empty and "Remetente_Email" in df_dados.columns:
-        meus_pedidos = df_dados[df_dados["Remetente_Email"] == user_email]
+    if not df_dados.empty and "Endereço de e-mail" in df_dados.columns:
+        meus_pedidos = df_dados[df_dados["Endereço de e-mail"] == user_email]
         if meus_pedidos.empty:
             st.info("Você ainda não enviou nenhuma solicitação.")
         else:
