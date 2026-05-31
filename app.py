@@ -685,7 +685,7 @@ else:
 
     if not st.session_state["sucesso_envio"]:
     
-        with st.form(key=f"form_requisicao_{st.session_state['form_count']}", clear_on_submit=False):
+        with st.form(key="form_requisicao_fixo", clear_on_submit=True):
             secao_atual = ""
             
             # Renderização automática das seções e perguntas
@@ -822,22 +822,11 @@ else:
                         for aprovador_email in APROVADORES:
                             enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
                         
-                        # === PASSO 3 (MODIFICADO): Ativa a trava e incrementa o formulário ===
-                        st.session_state["sucesso_envio"] = True
-                        st.session_state["form_count"] += 1
+                       st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
+                        st.balloons()
+                        time.sleep(2)
+                        
                         st.rerun()
-
-    # TELA DE SUCESSO (Aparece logo após o envio bem-sucedido)
-    else:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.success("🎉 Solicitação enviada com sucesso para análise do comitê CAPROQ!")
-        st.balloons()
-        st.write("Os avaliadores foram notificados por e-mail e você já pode acompanhar o andamento na aba **'Seus pedidos e andamento'**.")
-        
-        # O botão que limpa a tela e permite um novo envio limpo
-        if st.button("🔄 Criar Nova Solicitação", type="primary"):
-            st.session_state["sucesso_envio"] = False
-            st.rerun()
 
     with tab_status:
         st.markdown("### Seus pedidos e andamento")
