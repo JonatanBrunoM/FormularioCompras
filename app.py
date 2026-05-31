@@ -678,6 +678,12 @@ else:
         
         respostas_formulario["Carimbo de data/hora"] = timestamp_criacao
         respostas_formulario["Endereço de e-mail"] = user_email
+
+
+    if "sucesso_envio" not in st.session_state:
+        st.session_state["sucesso_envio"] = False
+
+    if not st.session_state["sucesso_envio"]:
     
         with st.form(key=f"form_requisicao_{st.session_state['form_count']}", clear_on_submit=False):
             secao_atual = ""
@@ -712,6 +718,14 @@ else:
             st.markdown("---")
             enviar = st.form_submit_button("Enviar solicitação", use_container_width=True)
             
+    if "sucesso_envio" not in st.session_state:
+        st.session_state["sucesso_envio"] = False
+
+    if not st.session_state["sucesso_envio"]:
+        
+        with st.form(key=f"form_requisicao_{st.session_state['form_count']}", clear_on_submit=False):
+            secao_atual = ""
+            
             if enviar:
                 # 1. Validação dinâmica de campos de texto vazios
                 campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario[campo["label"]]]
@@ -720,7 +734,7 @@ else:
                 if not fds_obrigatorio:
                     campos_vazios.append("Anexar FDS")
                 
-                # 3. VALIDAÇÃO CONDICIONAL: Se respondeu SIM na pergunta de estudos, exige o arquivo
+                # 3. VALIDAÇÃO CONDICIONAL
                 pergunta_estudos_label = "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo."
                 resposta_estudos = respostas_formulario.get(pergunta_estudos_label, "")
                 
@@ -739,7 +753,7 @@ else:
                         if not link_fds:
                             link_fds = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
                             
-                        # Upload 2: Estudos Científicos (Se selecionado)
+                        # Upload 2: Estudos Científicos
                         link_estudos = "Não aplicável"
                         if resposta_estudos == "SIM" and arquivo_estudos:
                             link_estudos = upload_para_google_drive(arquivo_estudos, pasta_id=PASTA_DRIVE_ID)
@@ -754,19 +768,19 @@ else:
                                 if lnk:
                                     links_gerais.append(lnk)
                         link_gerais_str = ", ".join(links_gerais) if links_gerais else "Nenhum arquivo adicional"
-    
-                        # Vincula os links resultantes diretamente às chaves/colunas corretas do dicionário
+        
+                        # Vincula os links resultantes ao dicionário
                         respostas_formulario["Arquivos anexados"] = link_gerais_str
                         respostas_formulario["Anexar FDS"] = link_fds
                         respostas_formulario["Anexo arquivo de estudos científicos e de custo-efetividade."] = link_estudos
-    
-                        # Geração do log e metadados estruturais do sistema (Amarra com o histórico do solicitante)
+        
+                        # Geração do log e metadados estruturais
                         log_inicial = f"{timestamp_criacao} - {user_name} ({user_email}) abriu a solicitação de compra."
                         
                         dados_estruturais = {
                             "ID": proximo_id,
                             "Remetente_Nome": user_name,
-                            "Remetente_Email": user_email,  # Mantém o e-mail atrelado para o filtro do histórico
+                            "Remetente_Email": user_email,
                             "Voto_Aprovador1": "Pendente",
                             "Voto_Aprovador2": "Pendente",
                             "Voto_Aprovador3": "Pendente",
@@ -778,18 +792,15 @@ else:
                             "Motivo_Recusa": log_inicial
                         }
                         
-                        # Mescla as respostas coletadas do formulário com as colunas estruturais
+                        # Mescla e salva na planilha
                         registro_completo = {**respostas_formulario, **dados_estruturais}
                         nova_linha = pd.DataFrame([registro_completo])
                         
-                        # --- ATUALIZAÇÃO DA BASE DE DADOS (Garante gravação no Sheets e na Sessão atual) ---
                         df_dados = pd.concat([df_dados, nova_linha], ignore_index=True)
                         conn.update(data=df_dados)
-                        st.session_state["df_dados"] = df_dados  # Atualiza o estado para atualizar o histórico em tempo real
+                        st.session_state["df_dados"] = df_dados
                         
-                        # ==============================================================================
-                        # 9. Disparo de e-mails para os aprovadores
-                        # ==============================================================================
+                        # Envio de e-mails para aprovadores
                         desc_resumida = respostas_formulario.get("Descrição completa do produto", "")[:60] + "..."
                         fabricante_resumido = respostas_formulario.get("Fabricante/fornecedor", "Não Informado")
                         
@@ -809,20 +820,24 @@ else:
                         """
                         
                         for aprovador_email in APROVADORES:
-                            enviar_email(
-                                destinatario=aprovador_email, 
-                                assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", 
-                                corpo_html=html_novo_chamado
-                            )
-                        # ==============================================================================
+                            enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
                         
-                        st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
-                        st.balloons()
-                        time.sleep(1)
-
-                        st.session_state.clear()
-                    
+                        # === PASSO 3 (MODIFICADO): Ativa a trava e incrementa o formulário ===
+                        st.session_state["sucesso_envio"] = True
+                        st.session_state["form_count"] += 1
                         st.rerun()
+
+    # TELA DE SUCESSO (Aparece logo após o envio bem-sucedido)
+    else:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.success("🎉 Solicitação enviada com sucesso para análise do comitê CAPROQ!")
+        st.balloons()
+        st.write("Os avaliadores foram notificados por e-mail e você já pode acompanhar o andamento na aba **'Seus pedidos e andamento'**.")
+        
+        # O botão que limpa a tela e permite um novo envio limpo
+        if st.button("🔄 Criar Nova Solicitação", type="primary"):
+            st.session_state["sucesso_envio"] = False
+            st.rerun()
 
     with tab_status:
         st.markdown("### Seus pedidos e andamento")
