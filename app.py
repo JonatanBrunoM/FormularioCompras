@@ -699,6 +699,7 @@ else:
                     respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "SIM", "NÃO"], key=campo["id"])
     
             # --- SEÇÃO EXCLUSIVA DE ANEXOS ---
+            # --- SEÇÃO EXCLUSIVA DE ANEXOS ---
             st.markdown("<br><h4 style='color: #005691;'>📎 Arquivos e Documentações</h4>", unsafe_allow_html=True)
             st.markdown("---")
             
@@ -706,10 +707,11 @@ else:
             arquivos_gerais = st.file_uploader("Arquivos anexados (Registro ANVISA, Laudo Técnico, Ficha Técnica, Fabricante):", accept_multiple_files=True)
             fds_obrigatorio = st.file_uploader("Anexar FDS (Obrigatório) *")
             
-            # Colunas S e T (Renderização dinâmica baseada no estado da seleção do selectbox anterior)
-            possui_estudos = st.session_state.get("estudos_cientificos", "")
+            # --- CORREÇÃO AQUI: Criamos uma caixinha de seleção dedicada para os estudos dentro dos anexos
+            pergunta_estudos = st.checkbox("Desejo anexar arquivos de estudos científicos e de custo-efetividade")
+            
             arquivo_estudos = None
-            if possui_estudos == "SIM":
+            if pergunta_estudos:
                 arquivo_estudos = st.file_uploader("Anexo arquivo de estudos científicos e de custo-efetividade. *")
     
             st.markdown("---")
