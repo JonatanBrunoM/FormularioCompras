@@ -820,12 +820,7 @@ else:
                         st.balloons()
                         time.sleep(1)
 
-                        for campo in CONFIG_CAMPOS:
-                            chave_campo = campo["id"]
-                            if chave_campo in st.session_state:
-                                st.session_state[chave_campo] = "" if campo["tipo"] in ["texto", "area_texto"] else None
-
-                        st.session_state["form_count"] += 1
+                        st.session_state.clear()
                     
                         st.rerun()
 
