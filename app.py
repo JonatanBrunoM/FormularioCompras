@@ -144,7 +144,17 @@ st.markdown("""
 # ==============================================================================
 # 3. Configurações de E-mail e Banco de Dados
 # ==============================================================================
-APROVADORES = ["jonatan231196@gmail.com", "debora.bairros@hmv.org.br", "sandro.carmo@hmv.org.br"]
+ADMINS = ["jonatan231196@gmail.com", "debora.bairros@hmv.org.br", "sandro.carmo@hmv.org.br"]
+
+MAPA_PERMISSOES = {
+    "V": ADMINS,  
+    "W": ["seguranca.ocupacional@hospital.com.br"],  # Segurança Ocupacional
+    "X": ["saude.ocupacional@hospital.com.br"],      # Saúde Ocupacional
+    "Y": ["sci@hospital.com.br"],                    # SCI
+    "Z": ["engenharia.clinica@hospital.com.br"],     # Engenharia Clínica
+    "AA": ["gestao.ambiental@hospital.com.br"],     # Gestão Ambiental
+    "AB": ["prevencao.incendio@hospital.com.br"]     # Prevenção de Incêndio
+}
 
 def enviar_email(destinatario, assunto, corpo_html):
     remetente = st.secrets.get("SMTP_EMAIL", "")
@@ -352,17 +362,43 @@ with col_header2:
 # ==============================================================================
 if is_aprovador:
     st.markdown("---")
-    num_aprovador = APROVADORES.index(user_email) + 1
-    coluna_voto = f"Voto_Aprovador{num_aprovador}"
     
-    if not df_dados.empty and coluna_voto in df_dados.columns:
-        pendentes = df_dados[(df_dados[coluna_voto] == "Pendente") & (df_dados["Status_Final"] == "Em análise")]
-        historico_aprovador = df_dados[df_dados[coluna_voto].isin(["Aprovado", "Reprovado", "Aprovado com ressalva"])]
+    # 1. MAPEAMENTO DE CONFIGURAÇÕES DAS ALÇADAS TÉCNICAS
+    ALCADAS_INFO = {
+        "Voto_Aprovador1": {"letra": "V", "label": "V - Padronização (suprimentos)", "prazo": "Fluxo Contínuo"},
+        "Voto_Aprovador2": {"letra": "W", "label": "W - Segurança Ocupacional", "prazo": "7 dias úteis"},
+        "Voto_Aprovador3": {"letra": "X", "label": "X - Saúde Ocupacional", "prazo": "7 dias úteis"},
+        "Voto_Aprovador4": {"letra": "Y", "label": "Y - SCI", "prazo": "5 dias úteis"},
+        "Voto_Aprovador5": {"letra": "Z", "label": "Z - Engenharia clínica e eletromecânica", "prazo": "5 dias úteis"},
+        "Voto_Aprovador6": {"letra": "AA", "label": "AA - Gestão Ambiental", "prazo": "5 dias úteis"},
+        "Voto_Aprovador7": {"letra": "AB", "label": "AB - Prevenção de Incêndio", "prazo": "5 dias úteis"}
+    }
+    
+    # Descobre quais colunas o e-mail logado tem direito técnico de votar
+    colunas_permitidas_usuario = []
+    is_user_admin = user_email in ADMINS
+    
+    for col_voto, letra_col in zip(ALCADAS_INFO.keys(), ["V", "W", "X", "Y", "Z", "AA", "AB"]):
+        if is_user_admin or user_email in MAPA_PERMISSOES.get(letra_col, []):
+            colunas_permitidas_usuario.append(col_voto)
+
+    if not df_dados.empty:
+        # 2. FILTRAGEM INTELIGENTE DE PENDÊNCIAS
+        # Um chamado está pendente para o usuário se o Status_Final for "Em análise" E pelo menos uma das colunas que ele gerencia estiver como "Pendente"
+        condicao_pendente = (df_dados["Status_Final"] == "Em análise") & (
+            df_dados[colunas_permitidas_usuario].eq("Pendente").any(axis=1)
+        )
+        pendentes = df_dados[condicao_pendente]
         
+        # Histórico: Chamados onde o usuário (ou sua alçada) já emitiu algum voto válido
+        condicao_historico = df_dados[colunas_permitidas_usuario].isin(["Aprovado", "Reprovado"]).any(axis=1)
+        historico_aprovador = df_dados[condicao_historico]
+        
+        # 3. MÉTRICAS DO TOPO
         m1, m2, m3 = st.columns(3)
-        with m1: st.metric("Suas Pendências", len(pendentes))
-        with m2: st.metric("Aprovados pelo Fluxo", len(df_dados[df_dados["Status_Final"] == "Aprovado"]))
-        with m3: st.metric("Reprovados pelo Fluxo", len(df_dados[df_dados["Status_Final"] == "Reprovado"]))
+        with m1: st.metric("Suas Pendências de Área", len(pendentes))
+        with m2: st.metric("Aprovados Gerais no Sheets", len(df_dados[df_dados["Status_Final"] == "Aprovado"]))
+        with m3: st.metric("Reprovados Gerais no Sheets", len(df_dados[df_dados["Status_Final"] == "Reprovado"]))
         
         st.markdown("---")
         
@@ -373,267 +409,158 @@ if is_aprovador:
             "Indicadores"
         ])
         
+        # 4. ABA: MINHAS PENDÊNCIAS
         with tab_pendentes:
-            st.markdown("### Solicitações pendentes de seu parecer")
+            st.markdown("### Solicitações aguardando seu parecer técnico")
             if pendentes.empty:
-                st.success("Nenhuma solicitação pendente para você no momento.")
+                st.success("Nenhuma solicitação pendente para a sua alçada técnica no momento.")
             else:
                 for _, row in pendentes.iterrows():
                     id_chamado = row["ID"]
                     with st.container(border=True):
                         st.markdown(f"#### Chamado #{id_chamado} - {row['Titulo']}")
-                        st.markdown(f"**Solicitante:** {row['Remetente_Nome']} (`{row['Remetente_Email']}`)")
+                        st.markdown(f"**Solicitante:** {row.get('Nome solicitante', 'Não informado')} (`{row.get('Endereço de e-mail', '')}`)")
                         
+                        # Detalhes expandidos do chamado
                         with st.expander("🔍 Visualizar detalhes da solicitação", expanded=False):
                             st.markdown("---")
                             st.markdown("##### 📝 Descrição do pedido:")
-                            st.write(row['Descricao'])
+                            st.write(row.get('Descricao', 'Sem descrição.'))
                             st.markdown("##### 💡 Justificativa:")
-                            st.write(row['Justificativa'])
+                            st.write(row.get('Justificativa', 'Sem justificativa.'))
                             
                             if "Link_Anexo" in row and row["Link_Anexo"] != "Nenhum arquivo anexado":
-                                document_icon = "📂"
                                 st.markdown("##### 📎 Documentação adjunta:")
-                                st.link_button(f"{document_icon} Abrir anexo no Google Drive", row["Link_Anexo"], use_container_width=True)
+                                st.link_button("📂 Abrir anexo no Google Drive", row["Link_Anexo"], use_container_width=True)
                             st.markdown("---")
                         
-                        if f"recusando_{id_chamado}" not in st.session_state:
-                            st.session_state[f"recusando_{id_chamado}"] = False
-                        if f"ressalvando_{id_chamado}" not in st.session_state:
-                            st.session_state[f"ressalvando_{id_chamado}"] = False
+                        st.markdown("<br>##### ⚖️ Seus Pareceres Disponíveis neste Chamado:", unsafe_allow_html=True)
                         
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        
-                        # --- EXIBIÇÃO DOS BOTÕES ---
-                        if not st.session_state[f"recusando_{id_chamado}"] and not st.session_state[f"ressalvando_{id_chamado}"]:
-                            col_ap, col_res, col_rep = st.columns([2.5, 3.2, 2.3])
-                            
-                            if col_ap.button("👍 Aprovar", key=f"ap_{id_chamado}", use_container_width=True):
-                                df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado"
+                        # Varre as 7 alçadas para renderizar o painel de voto específico
+                        for col_voto, info in ALCADAS_INFO.items():
+                            # Se o usuário atual tem permissão sobre esta coluna e ela está pendente neste chamado...
+                            if col_voto in colunas_permitidas_usuario and row[col_voto] == "Pendente":
+                                with st.container(border=True):
+                                    st.markdown(f"**Alçada:** `{info['label']}` | **Prazo:** `{info['prazo']}`")
+                                    
+                                    # Estado dinâmico do formulário de voto na sessão para evitar misturar chamados
+                                    key_voto = f"voto_escolha_{id_chamado}_{col_voto}"
+                                    key_parecer = f"parecer_text_{id_chamado}_{col_voto}"
+                                    
+                                    voto_selecionado = st.radio(
+                                        "Decisão da Alçada:",
+                                        options=["Aprovar", "Reprovar"], # Opções textuais baseadas no escopo do usuário
+                                        format_func=lambda x: "👍 Aprovar" if x == "Aprovar" else "👎 Reprovar",
+                                        index=None,
+                                        horizontal=True,
+                                        key=key_voto
+                                    )
+                                    
+                                    if voto_selecionado:
+                                        parecer_texto = st.text_area(f"Parecer Técnico para {info['letra']} (Obrigatório):", key=key_parecer)
+                                        
+                                        if st.button(f"Confirmar Parecer da Alçada {info['letra']}", key=f"btn_salvar_{id_chamado}_{col_voto}", type="primary"):
+                                            if not parecer_texto.strip():
+                                                st.error("Por favor, preencha o campo Parecer antes de confirmar.")
+                                            else:
+                                                # Traduz a seleção do rádio para o valor oficial a ser salvo no banco
+                                                valor_final_voto = "Aprovado" if voto_selecionado == "Aprovar" else "Reprovado"
+                                                
+                                                # Grava no DataFrame local
+                                                df_dados.loc[df_dados["ID"] == id_chamado, col_voto] = valor_final_voto
+                                                
+                                                # Montagem das notas temporais e trilha de auditoria (Logs)
+                                                fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
+                                                timestamp_atual = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
+                                                nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
+                                                
+                                                nova_nota = f" | {timestamp_atual} - {user_name} ({info['letra']}) avaliou como {valor_final_voto.upper()}. Parecer: {parecer_texto}"
+                                                df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
+                                                
+                                                # --- REGRA DE ENCERRAMENTO AUTOMÁTICO ---
+                                                linha_atualizada = df_dados[df_dados["ID"] == id_chamado].iloc[0]
+                                                todos_votos = [linha_atualizada[c] for c in ALCADAS_INFO.keys()]
+                                                
+                                                # Se houver qualquer "Reprovado" em qualquer alçada, o chamado cai na hora
+                                                if "Reprovado" in todos_votos:
+                                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
+                                                    html_fim = f"<h3>CAPROQ: Chamado #{id_chamado} Indeferido</h3><p>O processo foi encerrado pois recebeu parecer desfavorável na alçada técnica: {info['label']}.</p><p><b>Parecer:</b> {parecer_texto}</p>"
+                                                    enviar_email(destinatario=row["Endereço de e-mail"], assunto=f"CAPROQ: Processo Encerrado (Reprovado) - #{id_chamado}", corpo_html=html_fim)
+                                                
+                                                # Se TODAS as 7 alçadas derem "Aprovado", o chamado finaliza com sucesso total
+                                                elif todos_votos.count("Aprovado") == 7:
+                                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
+                                                    html_fim = f"<h3>CAPROQ: Chamado #{id_chamado} Homologado!</h3><p>A solicitação foi integralmente aprovada por todas as 7 alçadas do comitê técnico.</p>"
+                                                    enviar_email(destinatario=row["Endereço de e-mail"], assunto=f"CAPROQ: Homologação Concluída - #{id_chamado}", corpo_html=html_fim)
+                                                
+                                                # Persiste na Planilha do Drive
+                                                conn.update(data=df_dados)
+                                                st.success("Seu parecer técnico foi computado com sucesso!")
+                                                time.sleep(1.2)
+                                                st.rerun()
+                                    st.markdown("---")
 
-                                fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
-                                timestamp_atual = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
-                                nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
-                                nova_nota = f" | {timestamp_atual} - {user_name} aprovou a solicitação."
-                                df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
-
-                                linha_atualizada = df_dados[df_dados["ID"] == id_chamado].iloc[0]
-                                votos = [linha_atualizada["Voto_Aprovador1"], linha_atualizada["Voto_Aprovador2"], linha_atualizada["Voto_Aprovador3"]]
-
-                                if votos.count("Aprovado") == 3:
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0] + f" | {timestamp_atual} - Sistema: Chamado finalizado com aprovação total."
-
-                                    html_sucesso = f"""
-                                    <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
-                                        <h3 style='color: #005691;'>HOSPITAL MOINHOS DE VENTO</h3>
-                                        <p style='color: #2b2b2b; font-size: 1.1em;'>✅ <b>Chamado #{id_chamado}</b> foi totalmente APROVADO!</p>
-                                        <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
-                                        <p><b>Título do Projeto:</b> {row['Titulo']}</p>
-                                        <p><b>Solicitante:</b> {row['Remetente_Nome']} ({row['Remetente_Email']})</p>
-                                        <br>
-                                        <p style='color: #6c757d; font-size: 0.9em;'>Todos os 3 membros do comitê CAPROQ deram parecer positivo técnico.</p>
-                                    </div>
-                                    """
-                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"CAPROQ: Solicitação Aprovada! - #{id_chamado}", corpo_html=html_sucesso)
-                                    for aprovador_email in APROVADORES:
-                                        enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Chamado #{id_chamado} Finalizado (Aprovado)", corpo_html=html_sucesso)
-                            
-                                conn.update(data=df_dados)
-                                st.success("Voto registrado com sucesso!")
-                                time.sleep(1)
-                                st.rerun()
-                            
-                            if col_res.button("⚠️ Aprovar c/ Ressalva", key=f"res_gatilho_{id_chamado}", use_container_width=True):
-                                st.session_state[f"ressalvando_{id_chamado}"] = True
-                                st.rerun()
-                                
-                            if col_rep.button("👎 Reprovar", key=f"rep_gatilho_{id_chamado}", use_container_width=True):
-                                st.session_state[f"recusando_{id_chamado}"] = True
-                                st.rerun()
-
-                        elif st.session_state[f"ressalvando_{id_chamado}"]:
-                            st.markdown("⚠️ **Descreva a ressalva técnica ou financeira proposta abaixo:**")
-                            ressalva_texto = st.text_input("Ressalva (Obrigatório):", key=f"input_res_{id_chamado}")
-                            col_conf_res, col_canc_res = st.columns([3, 7])
-                            
-                            if col_conf_res.button("Confirmar Ressalva", key=f"conf_res_{id_chamado}", use_container_width=True):
-                                if ressalva_texto.strip():
-                                    df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Aprovado com ressalva"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado com ressalva"
-                                    
-                                    fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
-                                    timestamp_atual = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
-                                    nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
-                                    nova_nota = f" | {timestamp_atual} - {user_name} inseriu uma Ressalva: {ressalva_texto}"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
-                                    
-                                    html_ressalva = f"""
-                                    <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
-                                        <h3 style='color: #E6A23C;'>HOSPITAL MOINHOS DE VENTO</h3>
-                                        <p style='color: #2b2b2b; font-size: 1.1em;'>⚠️ O <b>Chamado #{id_chamado}</b> foi finalizado com <b>RESSALVA</b>.</p>
-                                        <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
-                                        <p><b>Título do Projeto:</b> {row['Titulo']}</p>
-                                        <p><b>Solicitante:</b> {row['Remetente_Nome']} ({row['Remetente_Email']})</p>
-                                        <p><b>Ressalva Técnica:</b> {ressalva_texto}</p>
-                                    </div>
-                                    """
-                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"CAPROQ: Solicitação com Ressalva - #{id_chamado}", corpo_html=html_ressalva)
-                                    for aprovador_email in APROVADORES:
-                                        enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Chamado #{id_chamado} Finalizado com Ressalva", corpo_html=html_ressalva)
-                                    
-                                    conn.update(data=df_dados)
-                                    st.session_state[f"ressalvando_{id_chamado}"] = False
-                                    st.rerun()
-                                    
-                            if col_canc_res.button("Cancelar", key=f"canc_res_{id_chamado}", use_container_width=True):
-                                st.session_state[f"ressalvando_{id_chamado}"] = False
-                                st.rerun()
-
-                        elif st.session_state[f"recusando_{id_chamado}"]:
-                            st.markdown("❌ **Explique o motivo da recusa abaixo:**")
-                            motivo = st.text_input("Motivo da Reprovação (Obrigatório):", key=f"input_motivo_{id_chamado}")
-                            col_conf, col_canc = st.columns([3, 7])
-                            
-                            if col_conf.button("Confirmar eficiência", key=f"conf_rep_{id_chamado}", use_container_width=True):
-                                if motivo.strip():
-                                    df_dados.loc[df_dados["ID"] == id_chamado, coluna_voto] = "Reprovado"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
-                                    
-                                    fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
-                                    timestamp_atual = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
-                                    nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
-                                    nova_nota = f" | {timestamp_atual} - {user_name} REPROVOU o chamado. Motivo: {motivo}"
-                                    df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
-                                    
-                                    html_reprovado = f"""
-                                    <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
-                                        <h3 style='color: #D93025;'>HOSPITAL MOINHOS DE VENTO</h3>
-                                        <p style='color: #2b2b2b; font-size: 1.1em;'>❌ O <b>Chamado #{id_chamado}</b> foi <b>REPROVADO</b>.</p>
-                                        <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
-                                        <p><b>Título do Projeto:</b> {row['Titulo']}</p>
-                                        <p><b>Solicitante:</b> {row['Remetente_Nome']} ({row['Remetente_Email']})</p>
-                                        <p><b>Motivo do Indeferimento:</b> {motivo}</p>
-                                    </div>
-                                    """
-                                    enviar_email(destinatario=row["Remetente_Email"], assunto=f"CAPROQ: Solicitação Recusada - #{id_chamado}", corpo_html=html_reprovado)
-                                    for aprovador_email in APROVADORES:
-                                        enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Chamado #{id_chamado} Finalizado (Reprovado)", corpo_html=html_reprovado)
-                                    
-                                    conn.update(data=df_dados)
-                                    st.session_state[f"recusando_{id_chamado}"] = False
-                                    st.rerun()
-                                    
-                            if col_canc.button("Cancelar", key=f"canc_rep_{id_chamado}", use_container_width=True):
-                                st.session_state[f"recusando_{id_chamado}"] = False
-                                st.rerun()
-
+        # 5. ABA: HISTÓRICO DE DECISÕES
         with tab_hist_aprovador:
-            st.markdown("### Histórico avançado de decisões")
-            st.markdown("Visualize as suas decisões anteriores combinadas com a posição atual do painel.")
-            
+            st.markdown("### Seus Pareceres Anteriores Registrados")
             if historico_aprovador.empty:
-                st.info("Você ainda não registrou votos em chamados anteriores.")
+                st.info("Sua alçada técnica atual ainda não emitiu votos históricos no sistema.")
             else:
                 for _, row in historico_aprovador.iterrows():
                     id_c = int(row['ID'])
-                    voto_proprio = row[coluna_voto]
-                    status_final = row['Status_Final']
-                    
-                    cor_voto = "#008D4C" if voto_proprio == "Aprovado" else "#D93025" if voto_proprio == "Reprovado" else "#E6A23C"
-                    
-                    with st.expander(f"📋 Chamado #{id_c} - {row['Titulo']} (Seu Voto: {voto_proprio} | Final: {status_final})"):
-                        col1, col2 = st.columns([6, 4])
+                    with st.expander(f"📋 Chamado #{id_c} - {row['Titulo']} (Status Final: {row['Status_Final']})"):
+                        st.markdown("**Status detalhado de cada alçada técnica neste chamado:**")
                         
-                        with col1:
-                            st.markdown(f"**Seu Parecer:** <span style='color:{cor_voto}; font-weight:bold;'>{voto_proprio}</span>", unsafe_allow_html=True)
-                            st.write(f"**Solicitante:** {row['Remetente_Nome']} ({row['Remetente_Email']})")
-                            st.write(f"**Descrição:** {row['Descricao']}")
-                        
-                        with col2:
-                            st.markdown("**Status das Alçadas:**")
-                            for idx in range(3):
-                                v_status = row[f"Voto_Aprovador{idx+1}"]
-                                p_email = APROVADORES[idx]
-                                icon = "✅" if v_status == "Aprovado" else "❌" if v_status == "Reprovado" else "⚠️" if v_status == "Aprovado com ressalva" else "⏳"
-                                st.markdown(f"{icon} Aprovador {idx+1}: `{v_status}`")
+                        col_h1, col_h2 = st.columns(2)
+                        with col_h1:
+                            for idx, (col_voto, info) in enumerate(list(ALCADAS_INFO.items())[:4]):
+                                v_status = row[col_voto]
+                                icon = "✅" if v_status == "Aprovado" else "❌" if v_status == "Reprovado" else "⏳"
+                                st.markdown(f"{icon} **{info['letra']}:** `{v_status}`")
+                        with col_h2:
+                            for idx, (col_voto, info) in enumerate(list(ALCADAS_INFO.items())[4:]):
+                                v_status = row[col_voto]
+                                icon = "✅" if v_status == "Aprovado" else "❌" if v_status == "Reprovado" else "⏳"
+                                st.markdown(f"{icon} **{info['letra']}:** `{v_status}`")
 
+        # 6. ABA: LOG DE ATIVIDADES
         with tab_logs:
-            st.markdown("### Log geral de atividades")
-            st.markdown("Histórico completo de movimentações dos chamados.")
-            
-            if df_dados.empty:
-                st.info("Nenhum chamado registrado para gerar logs.")
-            else:
-                for _, row in df_dados.iterrows():
-                    id_c = int(row['ID'])
-                    titulo_c = row['Titulo']
-                    status_final = row['Status_Final']
-                    historico_notas = str(row.get("Motivo_Recusa", "")).strip()
-                    
-                    with st.expander(f"📜 Logs do chamado #{id_c} - {titulo_c} (Status: {status_final})"):
-                        st.markdown(f"**Resumo das configurações do chamado:**")
-                        st.write(f"• **Solicitante original:** {row['Remetente_Nome']} (`{row['Remetente_Email']}`)")
-                        st.write(f"• **Situação das aprovações:** A1: `{row['Voto_Aprovador1']}` | A2: `{row['Voto_Aprovador2']}` | A3: `{row['Voto_Aprovador3']}`")
-                        st.markdown("---")
-                        st.markdown("**Linha do tempo de eventos:**")
-                        
-                        if historico_notas and historico_notas.lower() not in ["nan", "none", ""]:
-                            notas_separadas = historico_notas.split(" | ")
-                            for nota in notas_separadas:
-                                if not nota.strip():
-                                    continue
-                                if "REPROVOU" in nota or "Sistema: Chamado finalizado com Reprovação" in nota:
-                                    st.error(f"🔴 {nota}")
-                                elif "Ressalva" in nota or "Aprovado com ressalva" in nota:
-                                    st.warning(f"🟡 {nota}")
-                                elif "abriu a solicitação" in nota or "Solicitação Criada" in nota:
-                                    st.success(f"🟢 {nota}")
-                                else:
-                                    st.info(f"ℹ️ {nota}")
-                        else:
-                            st.caption("ℹ️ Chamado aguardando ações ou criado antes da implementação da trilha de tempo real.")
+            st.markdown("### Linha do Tempo e Logs de Auditoria")
+            for _, row in df_dados.iterrows():
+                id_c = int(row['ID'])
+                historico_notas = str(row.get("Motivo_Recusa", "")).strip()
+                
+                with st.expander(f"📜 Linha de Tempo - Chamado #{id_c} (Status: {row['Status_Final']})"):
+                    if historico_notas and historico_notas.lower() not in ["nan", "none", ""]:
+                        notas_separadas = historico_notas.split(" | ")
+                        for nota in notas_separadas:
+                            if not nota.strip(): continue
+                            if "REPROVOU" in nota or "Indeferido" in nota:
+                                st.error(f"🔴 {nota}")
+                            elif "aprovou" in nota or "AVALIOU COMO APROVADO" in nota or "Criada" in nota:
+                                st.success(f"🟢 {nota}")
+                            else:
+                                st.info(f"ℹ️ {nota}")
+                    else:
+                        st.caption("ℹ️ Sem registros históricos gravados neste evento.")
 
+        # 7. ABA: INDICADORES
         with tab_indicadores:
-            st.markdown("### Painel analítico")
+            st.markdown("### Painel Geral de Métricas Analíticas")
+            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+            with kpi1: st.metric("Total Solicitado", len(df_dados))
+            with kpi2: st.metric("Aprovados Finais", len(df_dados[df_dados["Status_Final"] == "Aprovado"]))
+            with kpi3: st.metric("Reprovados Finais", len(df_dados[df_dados["Status_Final"] == "Reprovado"]))
+            with kpi4: st.metric("Em Tramitação", len(df_dados[df_dados["Status_Final"] == "Em análise"]))
             
-            if df_dados.empty:
-                st.info("Dados insuficientes para gerar indicadores gráficos.")
-            else:
-                kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-                total_chamados = len(df_dados)
-                finalizados_ap = len(df_dados[df_dados["Status_Final"] == "Aprovado"])
-                finalizados_rep = len(df_dados[df_dados["Status_Final"] == "Reprovado"])
-                em_analise = len(df_dados[df_dados["Status_Final"] == "Em análise"])
-                
-                with kpi1: st.metric("Total de Chamados", total_chamados)
-                with kpi2: st.metric("Aprovados Totais", finalizados_ap)
-                with kpi3: st.metric("Reprovados Totais", finalizados_rep)
-                with kpi4: st.metric("Em Análise", em_analise)
-                
-                st.markdown("---")
-                
-                graf1, graf2 = st.columns(2)
-                
-                with graf1:
-                    st.markdown("##### 📊 Status Finais do Sistema")
-                    status_counts = df_dados["Status_Final"].value_counts().reset_index()
-                    status_counts.columns = ["Status", "Quantidade"]
-                    st.bar_chart(data=status_counts, x="Status", y="Quantidade", use_container_width=True)
-                    
-                with graf2:
-                    st.markdown("##### 🏢 Volumetria por Perfil de Votos (Sua Alçada)")
-                    voto_counts = df_dados[coluna_voto].value_counts().reset_index()
-                    voto_counts.columns = ["Seu Parecer", "Quantidade"]
-                    st.bar_chart(data=voto_counts, x="Seu Parecer", y="Quantidade", use_container_width=True)
-                    
-                st.markdown("##### 📅 Volume de Chamados em Andamento no Fluxo")
-                df_dados['Mês'] = datetime.datetime.now().strftime("%m/%Y")
-                mes_counts = df_dados["Mês"].value_counts().reset_index()
-                mes_counts.columns = ["Período", "Total de Requisições"]
-                st.line_chart(data=mes_counts, x="Período", y="Total de Requisições", use_container_width=True)
-    else:
-        st.info("Nenhuma estrutura de dados mapeada.")
+            st.markdown("---")
+            st.markdown("##### 📊 Distribuição de Status Finais dos Processos")
+            status_counts = df_dados["Status_Final"].value_counts().reset_index()
+            status_counts.columns = ["Status", "Quantidade"]
+            st.bar_chart(data=status_counts, x="Status", y="Quantidade", use_container_width=True)
+            
+else:
+    st.info("Nenhuma estrutura de dados mapeada ou permissão ausente.")
 
 else:
     st.markdown("---")
