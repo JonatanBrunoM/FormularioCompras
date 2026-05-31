@@ -144,7 +144,11 @@ st.markdown("""
 # ==============================================================================
 # 3. Configurações de E-mail e Banco de Dados
 # ==============================================================================
-ADMINS = ["jonatan231196@gmail.com", "debora.bairros@hmv.org.br", "sandro.carmo@hmv.org.br"]
+ADMINS = [
+    "jonatan231196@gmail.com",
+    "debora.bairros@hmv.org.br",
+    "sandro.carmo@hmv.org.br"
+]
 
 MAPA_PERMISSOES = {
     "V": ADMINS,  
@@ -155,6 +159,9 @@ MAPA_PERMISSOES = {
     "AA": ["gestao.ambiental@hospital.com.br"],     # Gestão Ambiental
     "AB": ["prevencao.incendio@hospital.com.br"]     # Prevenção de Incêndio
 }
+
+TODOS_SUB_APROVADORES = [email for lista in MAPA_PERMISSOES.values() for email in lista]
+APROVADORES = list(set(ADMINS + TODOS_SUB_APROVADORES))
 
 def enviar_email(destinatario, assunto, corpo_html):
     remetente = st.secrets.get("SMTP_EMAIL", "")
