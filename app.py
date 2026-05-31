@@ -816,11 +816,6 @@ else:
                         st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
                         st.balloons()
                         time.sleep(1)
-                        
-                        # Força a limpeza visual completa limpando os states dos campos e recarregando a página limpa
-                        for campo in CONFIG_CAMPOS:
-                            if campo["id"] in st.session_state:
-                                del st.session_state[campo["id"]]
                     
                         st.rerun()
 
