@@ -424,17 +424,31 @@ if is_aprovador:
             else:
                 for _, row in pendentes.iterrows():
                     id_chamado = row["ID"]
+                    
+                    # Atualizado para usar o novo campo principal como identificador visual
+                    descricao_produto = row.get("Descrição completa do produto", "Sem descrição do produto")
+                    
                     with st.container(border=True):
-                        st.markdown(f"#### Chamado #{id_chamado} - {row['Titulo']}")
-                        st.markdown(f"**Solicitante:** {row.get('Nome solicitante', 'Não informado')} (`{row.get('Endereço de e-mail', '')}`)")
+                        st.markdown(f"#### Chamado #{id_chamado} — {descricao_produto}")
+                        st.markdown(f"**Solicitante:** {row.get('Nome solicitante', row.get('Nome', 'Não informado'))} (`{row.get('Endereço de e-mail', '')}`)")
                         
-                        # Detalhes expandidos do chamado
-                        with st.expander("🔍 Visualizar detalhes da solicitação", expanded=False):
+                        with st.expander("🔍 Visualizar detalhes completos da solicitação", expanded=True):
                             st.markdown("---")
-                            st.markdown("##### 📝 Descrição do pedido:")
-                            st.write(row.get('Descricao', 'Sem descrição.'))
-                            st.markdown("##### 💡 Justificativa:")
-                            st.write(row.get('Justificativa', 'Sem justificativa.'))
+                            st.markdown("##### 📦 Dados Preenchidos no Formulário:")
+                            
+                            # Cria duas colunas para organizar as respostas e economizar espaço vertical
+                            col_detalhe1, col_detalhe2 = st.columns(2)
+                            
+                            with col_detalhe1:
+                                st.markdown(f"**Descrição do Produto:** {row.get('Descrição completa do produto', 'N/A')}")
+                                st.markdown(f"**Justificativa da Compra:** {row.get('Justificativa', row.get('Justificativa da compra', 'N/A'))}")
+                                st.markdown(f"**Quantidade/Volume:** {row.get('Quantidade', row.get('Volume', 'N/A'))}")
+                                st.markdown(f"**Centro de Custo:** {row.get('Centro de Custo', row.get('CC', 'N/A'))}")
+                                
+                            with col_detalhe2:
+                                st.markdown(f"**Valor Estimado (R$):** {row.get('Valor estimado', row.get('Preço estimado', 'N/A'))}")
+                                st.markdown(f"**Urgência/Prazo:** {row.get('Prazo', row.get('Urgência', 'N/A'))}")
+                                # Se houver novas colunas específicas do formulário, basta adicioná-las aqui usando row.get('Nome_da_Coluna')
                             
                             if "Link_Anexo" in row and row["Link_Anexo"] != "Nenhum arquivo anexado":
                                 st.markdown("##### 📎 Documentação adjunta:")
@@ -443,21 +457,18 @@ if is_aprovador:
                         
                         st.markdown("<br>##### ⚖️ Seus Pareceres Disponíveis neste Chamado:", unsafe_allow_html=True)
                         
-                        # Varre as 7 alçadas para renderizar o painel de voto específico
                         for col_voto, info in ALCADAS_INFO.items():
-                            # Se o usuário atual tem permissão sobre esta coluna e ela está pendente neste chamado...
                             if col_voto in colunas_permitidas_usuario and row[col_voto] == "Pendente":
                                 with st.container(border=True):
                                     st.markdown(f"**Alçada:** `{info['label']}` | **Prazo:** `{info['prazo']}`")
                                     
-                                    # Estado dinâmico do formulário de voto na sessão para evitar misturar chamados
                                     key_voto = f"voto_escolha_{id_chamado}_{col_voto}"
                                     key_parecer = f"parecer_text_{id_chamado}_{col_voto}"
                                     
                                     voto_selecionado = st.radio(
                                         "Decisão da Alçada:",
-                                        options=["Aprovar", "Reprovar"], # Opções textuais baseadas no escopo do usuário
-                                        format_func=lambda x: "👍 Aprovar" if x == "Aprovar" else "👎 Reprovar",
+                                        options=["Aprovar", "Reprovar"],
+                                        format_func=lambda x: "👍  Aprovar" if x == "Aprovar" else "👎 Reprovar",
                                         index=None,
                                         horizontal=True,
                                         key=key_voto
@@ -470,13 +481,9 @@ if is_aprovador:
                                             if not parecer_texto.strip():
                                                 st.error("Por favor, preencha o campo Parecer antes de confirmar.")
                                             else:
-                                                # Traduz a seleção do rádio para o valor oficial a ser salvo no banco
                                                 valor_final_voto = "Aprovado" if voto_selecionado == "Aprovar" else "Reprovado"
-                                                
-                                                # Grava no DataFrame local
                                                 df_dados.loc[df_dados["ID"] == id_chamado, col_voto] = valor_final_voto
                                                 
-                                                # Montagem das notas temporais e trilha de auditoria (Logs)
                                                 fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
                                                 timestamp_atual = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
                                                 nota_atual = str(df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"].values[0]).replace("nan", "").replace("None", "")
@@ -484,28 +491,23 @@ if is_aprovador:
                                                 nova_nota = f" | {timestamp_atual} - {user_name} ({info['letra']}) avaliou como {valor_final_voto.upper()}. Parecer: {parecer_texto}"
                                                 df_dados.loc[df_dados["ID"] == id_chamado, "Motivo_Recusa"] = nota_atual + nova_nota
                                                 
-                                                # --- REGRA DE ENCERRAMENTO AUTOMÁTICO ---
                                                 linha_atualizada = df_dados[df_dados["ID"] == id_chamado].iloc[0]
                                                 todos_votos = [linha_atualizada[c] for c in ALCADAS_INFO.keys()]
                                                 
-                                                # Se houver qualquer "Reprovado" em qualquer alçada, o chamado cai na hora
                                                 if "Reprovado" in todos_votos:
                                                     df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
                                                     html_fim = f"<h3>CAPROQ: Chamado #{id_chamado} Indeferido</h3><p>O processo foi encerrado pois recebeu parecer desfavorável na alçada técnica: {info['label']}.</p><p><b>Parecer:</b> {parecer_texto}</p>"
                                                     enviar_email(destinatario=row["Endereço de e-mail"], assunto=f"CAPROQ: Processo Encerrado (Reprovado) - #{id_chamado}", corpo_html=html_fim)
                                                 
-                                                # Se TODAS as 7 alçadas derem "Aprovado", o chamado finaliza com sucesso total
                                                 elif todos_votos.count("Aprovado") == 7:
                                                     df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
                                                     html_fim = f"<h3>CAPROQ: Chamado #{id_chamado} Homologado!</h3><p>A solicitação foi integralmente aprovada por todas as 7 alçadas do comitê técnico.</p>"
                                                     enviar_email(destinatario=row["Endereço de e-mail"], assunto=f"CAPROQ: Homologação Concluída - #{id_chamado}", corpo_html=html_fim)
                                                 
-                                                # Persiste na Planilha do Drive
                                                 conn.update(data=df_dados)
                                                 st.success("Seu parecer técnico foi computado com sucesso!")
                                                 time.sleep(1.2)
                                                 st.rerun()
-                                    st.markdown("---")
 
         # 5. ABA: HISTÓRICO DE DECISÕES
         with tab_hist_aprovador:
@@ -515,17 +517,18 @@ if is_aprovador:
             else:
                 for _, row in historico_aprovador.iterrows():
                     id_c = int(row['ID'])
-                    with st.expander(f"📋 Chamado #{id_c} - {row['Titulo']} (Status Final: {row['Status_Final']})"):
+                    desc_h = row.get("Descrição completa do produto", "Sem descrição")
+                    with st.expander(f"📋 Chamado #{id_c} — {desc_h} (Status Final: {row['Status_Final']})"):
                         st.markdown("**Status detalhado de cada alçada técnica neste chamado:**")
                         
                         col_h1, col_h2 = st.columns(2)
                         with col_h1:
-                            for idx, (col_voto, info) in enumerate(list(ALCADAS_INFO.items())[:4]):
+                            for col_voto, info in list(ALCADAS_INFO.items())[:4]:
                                 v_status = row[col_voto]
                                 icon = "✅" if v_status == "Aprovado" else "❌" if v_status == "Reprovado" else "⏳"
                                 st.markdown(f"{icon} **{info['letra']}:** `{v_status}`")
                         with col_h2:
-                            for idx, (col_voto, info) in enumerate(list(ALCADAS_INFO.items())[4:]):
+                            for col_voto, info in list(ALCADAS_INFO.items())[4:]:
                                 v_status = row[col_voto]
                                 icon = "✅" if v_status == "Aprovado" else "❌" if v_status == "Reprovado" else "⏳"
                                 st.markdown(f"{icon} **{info['letra']}:** `{v_status}`")
@@ -535,11 +538,12 @@ if is_aprovador:
             st.markdown("### Linha do Tempo e Logs de Auditoria")
             for _, row in df_dados.iterrows():
                 id_c = int(row['ID'])
-                historico_notas = str(row.get("Motivo_Recusa", "")).strip()
+                desc_l = row.get("Descrição completa do produto", "Sem descrição")
+                historico_notes = str(row.get("Motivo_Recusa", "")).strip()
                 
-                with st.expander(f"📜 Linha de Tempo - Chamado #{id_c} (Status: {row['Status_Final']})"):
-                    if historico_notas and historico_notas.lower() not in ["nan", "none", ""]:
-                        notas_separadas = historico_notas.split(" | ")
+                with st.expander(f"📜 Linha de Tempo — Chamado #{id_c} — {desc_l} (Status: {row['Status_Final']})"):
+                    if historico_notes and historico_notes.lower() not in ["nan", "none", ""]:
+                        notas_separadas = historico_notes.split(" | ")
                         for nota in notas_separadas:
                             if not nota.strip(): continue
                             if "REPROVOU" in nota or "Indeferido" in nota:
@@ -547,27 +551,168 @@ if is_aprovador:
                             elif "aprovou" in nota or "AVALIOU COMO APROVADO" in nota or "Criada" in nota:
                                 st.success(f"🟢 {nota}")
                             else:
-                                st.info(f"ℹ️ {nota}")
+                                f"ℹ️ {nota}"
                     else:
                         st.caption("ℹ️ Sem registros históricos gravados neste evento.")
 
         # 7. ABA: INDICADORES
         with tab_indicadores:
-            st.markdown("### Painel Geral de Métricas Analíticas")
-            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-            with kpi1: st.metric("Total Solicitado", len(df_dados))
-            with kpi2: st.metric("Aprovados Finais", len(df_dados[df_dados["Status_Final"] == "Aprovado"]))
-            with kpi3: st.metric("Reprovados Finais", len(df_dados[df_dados["Status_Final"] == "Reprovado"]))
-            with kpi4: st.metric("Em Tramitação", len(df_dados[df_dados["Status_Final"] == "Em análise"]))
+            st.markdown("### 📊 Painel Analítico de Governança (CAPROQ)")
+            st.markdown("Confira os indicadores de desempenho, volumetria e distribuição de pareceres do comitê.")
+            
+            # --- TRATAMENTO DE DATAS PARA OS FILTROS TEMPORAIS ---
+            # Tenta encontrar a coluna de data (comum ser 'Carimbo de data/hora' ou 'Data')
+            col_data = None
+            for c in df_dados.columns:
+                if "data" in c.lower() or "timestamp" in c.lower() or "hora" in c.lower():
+                    col_data = c
+                    break
+            
+            # Se encontrar a coluna, converte para datetime para fazer os cálculos temporais
+            if col_data:
+                df_dados[col_data] = pd.to_datetime(df_dados[col_data], errors='coerce', dayfirst=True)
+                hoje = pd.Timestamp.now()
+                
+                # Filtros temporais
+                df_semana = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=7))]
+                df_mes = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=30))]
+                df_ano = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=365))]
+                
+                qtd_semana = len(df_semana)
+                qtd_mes = len(df_mes)
+                qtd_ano = len(df_ano)
+            else:
+                # Caso não ache a coluna de data, mostra o total geral para não quebrar
+                qtd_semana = qtd_mes = qtd_ano = len(df_dados)
+            
+            # --- Bloco 1: Métricas de Volumetria Temporal ---
+            st.markdown("#### ⏱️ Volumetria Temporal de Requisições")
+            kpi_t1, kpi_t2, kpi_t3, kpi_t4 = st.columns(4)
+            with kpi_t1: st.metric("Últimos 7 dias (Semanal)", qtd_semana)
+            with kpi_t2: st.metric("Últimos 30 dias (Mensal)", qtd_mes)
+            with kpi_t3: st.metric("Último Ano (Anual)", qtd_ano)
+            with kpi_t4: st.metric("Total Histórico", len(df_dados))
             
             st.markdown("---")
-            st.markdown("##### 📊 Distribuição de Status Finais dos Processos")
-            status_counts = df_dados["Status_Final"].value_counts().reset_index()
-            status_counts.columns = ["Status", "Quantidade"]
-            st.bar_chart(data=status_counts, x="Status", y="Quantidade", use_container_width=True)
             
-    else:
-        st.info("Nenhuma estrutura de dados mapeada na planilha do Google Sheets.")
+            # --- Bloco 2: Gráficos de Pizza (Status e Decisões) ---
+            st.markdown("#### 🍩 Distribuição Estatística de Deliberações (Mensal)")
+            col_graph1, col_graph2 = st.columns(2)
+            
+            # Filtrando dados do último mês para os gráficos de pizza
+            df_recorte_mensal = df_mes if col_data else df_dados
+            
+            with col_graph1:
+                st.markdown("##### Status Final dos Processos")
+                # Mapeia os status existentes
+                status_finais = df_recorte_mensal["Status_Final"].value_counts().reset_index()
+                status_finais.columns = ["Status", "Quantidade"]
+                
+                if not status_finais.empty:
+                    import plotly.express as px
+                    # Criando um gráfico de pizza/rosca interativo e elegante com Plotly
+                    fig_status = px.pie(
+                        status_finais, 
+                        names="Status", 
+                        values="Quantidade", 
+                        hole=0.4,
+                        color="Status",
+                        color_discrete_map={"Aprovado": "#2ecc71", "Em análise": "#f1c40f", "Reprovado": "#e74c3c"}
+                    )
+                    fig_status.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=250)
+                    st.plotly_chart(fig_status, use_container_width=True)
+                else:
+                    st.caption("Sem dados para exibir este mês.")
+                    
+            with col_graph2:
+                st.markdown("##### Tipos de Decisões Técnicas")
+                # Lógica para identificar Aprovações Puras, Com Ressalva (Aprovado mas com histórico de notas) ou Recusas
+                # Como o sistema de 7 alçadas salva "Aprovado" ou "Reprovado", podemos inferir "Ressalva" 
+                # se o chamado foi Aprovado mas possui texto no campo "Motivo_Recusa" (onde ficam os pareceres)
+                aprovacoes_puras = 0
+                com_ressalva = 0
+                recusas = 0
+                
+                for _, r in df_recorte_mensal.iterrows():
+                    status = str(r.get("Status_Final", ""))
+                    historico = str(r.get("Motivo_Recusa", "")).lower()
+                    
+                    if status == "Reprovado":
+                        recusas += 1
+                    elif status == "Aprovado":
+                        # Se contiver a palavra "ressalva" ou "atencao" no parecer técnico
+                        if "ressalva" in historico or "ajuste" in historico or "pendente" in historico:
+                            com_ressalva += 1
+                        else:
+                            aprovacoes_puras += 1
+                
+                df_decisoes = pd.DataFrame({
+                    "Decisão": ["Aprovação Pura", "Aprovação com Ressalva", "Recusa Técnica"],
+                    "Quantidade": [aprovacoes_puras, com_ressalva, recusas]
+                })
+                
+                if df_decisoes["Quantidade"].sum() > 0:
+                    import plotly.express as px
+                    fig_decisoes = px.pie(
+                        df_decisoes, 
+                        names="Decisão", 
+                        values="Quantidade", 
+                        hole=0.4,
+                        color="Decisão",
+                        color_discrete_map={"Aprovação Pura": "#27ae60", "Aprovação com Ressalva": "#3498db", "Recusa Técnica": "#c0392b"}
+                    )
+                    fig_decisoes.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=250)
+                    st.plotly_chart(fig_decisoes, use_container_width=True)
+                else:
+                    st.caption("Sem deliberações registradas este mês.")
+
+            st.markdown("---")
+            
+            # --- Bloco 3: Separação de Dados por Área ---
+            st.markdown("#### 🏢 Performance de Fluxo por Alçada Técnica (Histórico)")
+            
+            # Vamos contabilizar quantos pareceres cada alçada já emitiu (Aprovados vs Reprovados vs Pendentes)
+            dados_areas = []
+            for col_voto, info in ALCADAS_INFO.items():
+                if col_voto in df_dados.columns:
+                    votos = df_dados[col_voto].value_counts()
+                    dados_areas.append({
+                        "Alçada": info["letra"],
+                        "Nome": info["label"].split(" - ")[-1], # Pega apenas o nome limpo da área
+                        "Concluídos": votos.get("Aprovado", 0) + votos.get("Reprovado", 0),
+                        "Pendentes": votos.get("Pendente", 0)
+                    })
+            
+            if dados_areas:
+                df_areas = pd.DataFrame(dados_areas)
+                
+                # Exibe uma tabela gerencial linda com o balanço de cada área
+                st.dataframe(
+                    df_areas, 
+                    column_config={
+                        "Alçada": st.column_config.TextColumn("Sigla"),
+                        "Nome": st.column_config.TextColumn("Área Técnica"),
+                        "Concluídos": st.column_config.NumberColumn("Pareceres Emitidos", format="%d ✅"),
+                        "Pendentes": st.column_config.NumberColumn("Demandas em Aberto", format="%d ⏳"),
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
+                
+                # Gráfico complementar de barras para comparar o estoque de pendências por área
+                import plotly.express as px
+                fig_barras_areas = px.bar(
+                    df_areas, 
+                    x="Nome", 
+                    y=["Concluídos", "Pendentes"],
+                    title="Volume de Trabalho por Alçada (Emitidos vs Pendentes)",
+                    barmode="group",
+                    color_discrete_sequence=["#2ecc71", "#e67e22"]
+                )
+                fig_barras_areas.update_layout(xaxis_title="Área Técnica", yaxis_title="Quantidade de Chamados", height=300)
+                st.plotly_chart(fig_barras_areas, use_container_width=True)
+            else:
+                st.info("Mapeamento de colunas das alçadas não localizado na planilha atual.")
 
 else:
     # --- VISÃO DO SOLICITANTE COMUM (Se 'is_aprovador' for Falso) ---
@@ -598,7 +743,7 @@ else:
             # SEÇÃO 3: Avaliação de Impacto e Riscos
             {"id": "reducao_tempo", "label": "O produto contribui para a redução de tempo de execução dos procedimentos?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "reducao_acidentes", "label": "O produto proposto contribui para a redução do risco de acidentes de trabalho?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "seguranca_paciente", "label": "O produto favorece a segurança do paciente and dos profissionais?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": "seguranca_paciente", "label": "O produto favorece a segurança do paciente e dos profissionais?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "reducao_infeccao", "label": "O produto proposto contribui para a redução de risco de infecção hospitalar?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "requerido_legislacao", "label": "O item é requerido pela legislação, padrões de qualidade e segurança adotados pela instituição?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "residuo_perigoso", "label": "O item solicitado gera resíduo perigoso?", "tipo": "radio_horizontal", "secao": "📊 Avaliação de Impacto e Segurança", "obrigatorio": True},
