@@ -767,7 +767,7 @@ else:
                     )
     
             # 9.2. Seção anexos
-            st.markdown("<br><h4 style='color: #005691;'>📎 Arquivos e Documentações</h4>", unsafe_allow_html=True)
+            st.markdown("<br><h4 style='color: #005691;'>Arquivos e Documentações</h4>", unsafe_allow_html=True)
             st.markdown("---")
             
             arquivos_gerais = st.file_uploader("Arquivos anexados (Registro ANVISA, Laudo Técnico, Ficha Técnica, Fabricante):", accept_multiple_files=True)
