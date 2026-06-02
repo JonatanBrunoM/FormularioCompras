@@ -844,9 +844,11 @@ else:
                         
                         URL_DO_APLICATIVO = "https://formulariocompras.streamlit.app"
                         
-                        dict_respostas = dados_novos if 'dados_novos' in locals() else {}
+                        dict_respostas = respostas_formulario if 'respostas_formulario' in locals() else {}
                         
                         link_anexo_atual = dict_respostas.get("arquivos_gerais", "")
+                        if not link_anexo_atual and 'link_drive' in locals():
+                            link_anexo_atual = link_drive
                         
                         txt_descricao = dict_respostas.get("descricao", "Consultar no Painel")
                         txt_apresentacao = dict_respostas.get("apresentacao", "Consultar no Painel")
@@ -861,7 +863,7 @@ else:
                             <p style='color: #2b2b2b;'>Um novo chamado de padronização foi aberto e aguarda a sua avaliação técnica de alçada.</p>
                             <hr style='border: 0; border-top: 1px solid #EAEAEA; margin: 15px 0;'>
                             
-                            <p style='margin: 8px 0;'><b>ID do Chamado:</b> {proximo_id}</p>
+                            <p style='margin: 8px 0;'><b>ID do Chamado:</b> #{proximo_id}</p>
                             <p style='margin: 8px 0;'><b>Solicitante:</b> {user_name} ({user_email})</p>
                             <p style='margin: 8px 0;'><b>Apresentação/volume:</b> {txt_apresentacao}</p>
                             <p style='margin: 8px 0;'><b>Área de uso:</b> {txt_area_uso}</p>
