@@ -839,22 +839,50 @@ else:
                         conn.update(data=df_dados)
                         st.session_state["df_dados"] = df_dados
                         
-                        # Envio de e-mails para aprovadores
                         desc_resumida = respostas_formulario.get("Descrição completa do produto", "")[:60] + "..."
                         fabricante_resumido = respostas_formulario.get("Fabricante/fornecedor", "Não Informado")
                         
+                        URL_DO_APLICATIVO = "https://formulariocompras.streamlit.app"
+                        
+                        link_anexo_atual = dados_novos.get("arquivos_gerais", "") if 'dados_novos' in locals() else ""
+
                         html_novo_chamado = f"""
-                        <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 20px;'>
-                            <h3 style='color: #005691;'>HOSPITAL MOINHOS DE VENTO</h3>
+                        <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 25px; background-color: #ffffff;'>
+                            <h3 style='color: #005691; margin-top: 0;'>HOSPITAL MOINHOS DE VENTO</h3>
                             <p style='color: #2b2b2b; font-size: 1.1em;'>🔔 <b>Nova Solicitação Pendente - CAPROQ</b></p>
-                            <p style='color: #2b2b2b;'>Um novo chamado de padronização foi aberto e aguarda a sua avaliação técnica.</p>
-                            <hr style='border: 0; border-top: 1px solid #EAEAEA;'>
-                            <p><b>Chamado:</b> #{proximo_id}</p>
-                            <p><b>Produto:</b> {desc_resumida}</p>
-                            <p><b>Fabricante/Fornecedor:</b> {fabricante_resumido}</p>
-                            <p><b>Solicitante:</b> {user_name} ({user_email})</p>
-                            <br>
-                            <p style='color: #6c757d; font-size: 0.9em;'>Acesse o painel interno para registrar o seu parecer.</p>
+                            <p style='color: #2b2b2b;'>Um novo chamado de padronização foi aberto e aguarda a sua avaliação técnica de alçada.</p>
+                            <hr style='border: 0; border-top: 1px solid #EAEAEA; margin: 15px 0;'>
+                            
+                            <p style='margin: 8px 0;'><b>ID do Chamado:</b> {proximo_id}</p>
+                            <p style='margin: 8px 0;'><b>Solicitante:</b> {user_name} ({user_email})</p>
+                            <p style='margin: 8px 0;'><b>Apresentação/volume:</b> {apresentacao if 'apresentacao' in locals() else 'Consultar no Painel'}</p>
+                            <p style='margin: 8px 0;'><b>Área de uso:</b> {area_uso if 'area_uso' in locals() else 'Consultar no Painel'}</p>
+                            <p style='margin: 8px 0;'><b>Fabricante:</b> {fabricante if 'fabricante' in locals() else 'Consultar no Painel'}</p>
+                            
+                            <div style='background-color: #F8F9FA; border-left: 4px solid #005691; padding: 12px; margin: 15px 0; border-radius: 4px;'>
+                                <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>📦 Descrição Completa do Produto:</p>
+                                <p style='margin: 0; white-space: pre-line; color: #333;'>{descricao}</p>
+                            </div>
+
+                            <div style='background-color: #F8F9FA; border-left: 4px solid #6c757d; padding: 12px; margin: 15px 0; border-radius: 4px;'>
+                                <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>💡 Justificativa da Compra:</p>
+                                <p style='margin: 0; white-space: pre-line; color: #333;'>{sem_produto if 'sem_produto' in locals() else 'Consultar no Painel'}</p>
+                            </div>
+                            
+                            <div style='margin-top: 20px;'>
+                        """
+
+                        if link_anexo_atual and link_anexo_atual != "Nenhum arquivo anexado":
+                            html_novo_chamado += f"""
+                                <a href='{link_anexo_atual}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #007bff; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-right: 10px; margin-bottom: 10px;'>📂 Abrir Arquivos Anexados</a>
+                            """
+
+                        html_novo_chamado += f"""
+                                <a href='{URL_DO_APLICATIVO}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #005691; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-bottom: 10px;'>⚖️ Acessar Painel de Votação (CAPROQ)</a>
+                            </div>
+                            
+                            <hr style='border: 0; border-top: 1px solid #EAEAEA; margin: 20px 0;'>
+                            <p style='color: #6c757d; font-size: 0.85em; text-align: center; margin: 0;'>Este é um disparo automático do Sistema de Gestão de Compras Moinhos.<br>Por favor, não responda a este e-mail.</p>
                         </div>
                         """
                         
