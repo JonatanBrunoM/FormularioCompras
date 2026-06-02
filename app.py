@@ -861,7 +861,7 @@ else:
                             
                             <div style='background-color: #F8F9FA; border-left: 4px solid #005691; padding: 12px; margin: 15px 0; border-radius: 4px;'>
                                 <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>📦 Descrição Completa do Produto:</p>
-                                <p style='margin: 0; white-space: pre-line; color: #333;'>{descricao}</p>
+                                <p style='margin: 0; white-space: pre-line; color: #333;'>{descricao_produto}</p>
                             </div>
 
                             <div style='background-color: #F8F9FA; border-left: 4px solid #6c757d; padding: 12px; margin: 15px 0; border-radius: 4px;'>
