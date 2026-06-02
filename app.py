@@ -370,7 +370,6 @@ with col_header2:
 if is_aprovador:
     st.markdown("---")
     
-    # 1. MAPEAMENTO DE CONFIGURAÇÕES DAS ALÇADAS TÉCNICAS
     ALCADAS_INFO = {
         "Voto_Aprovador1": {"letra": "V", "label": "V - Padronização (suprimentos)", "prazo": "Fluxo Contínuo"},
         "Voto_Aprovador2": {"letra": "W", "label": "W - Segurança Ocupacional", "prazo": "7 dias úteis"},
@@ -503,7 +502,7 @@ if is_aprovador:
 
         # 8.2. Aba "Histórico de aprovações"
         with tab_hist_aprovador:
-            st.markdown("Seus Pareceres Anteriores Registrados")
+            st.markdown("Seus pareceres anteriores registrados")
             if historico_aprovador.empty:
                 st.info("Sua alçada técnica atual ainda não emitiu votos históricos no sistema.")
             else:
@@ -761,7 +760,7 @@ else:
                     respostas_formulario[campo["label"]] = st.radio(
                         label_final, 
                         options=opcoes_radio, 
-                        index=None,  # Começa totalmente desmarcado para obrigar a escolha
+                        index=None,  
                         horizontal=True, 
                         key=campo["id"]
                     )
@@ -863,7 +862,6 @@ else:
                             enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
                         
                         st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
-                        st.balloons()
                         time.sleep(2)
                         st.rerun()
 
