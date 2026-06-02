@@ -844,7 +844,15 @@ else:
                         
                         URL_DO_APLICATIVO = "https://formulariocompras.streamlit.app"
                         
-                        link_anexo_atual = dados_novos.get("arquivos_gerais", "") if 'dados_novos' in locals() else ""
+                        dict_respostas = dados_novos if 'dados_novos' in locals() else {}
+                        
+                        link_anexo_atual = dict_respostas.get("arquivos_gerais", "")
+                        
+                        txt_descricao = dict_respostas.get("descricao", "Consultar no Painel")
+                        txt_apresentacao = dict_respostas.get("apresentacao", "Consultar no Painel")
+                        txt_area_uso = dict_respostas.get("area_uso", "Consultar no Painel")
+                        txt_fabricante = dict_respostas.get("fabricante", "Consultar no Painel")
+                        txt_sem_produto = dict_respostas.get("sem_produto", "Consultar no Painel")
 
                         html_novo_chamado = f"""
                         <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 25px; background-color: #ffffff;'>
@@ -855,18 +863,18 @@ else:
                             
                             <p style='margin: 8px 0;'><b>ID do Chamado:</b> {proximo_id}</p>
                             <p style='margin: 8px 0;'><b>Solicitante:</b> {user_name} ({user_email})</p>
-                            <p style='margin: 8px 0;'><b>Apresentação/volume:</b> {apresentacao if 'apresentacao' in locals() else 'Consultar no Painel'}</p>
-                            <p style='margin: 8px 0;'><b>Área de uso:</b> {area_uso if 'area_uso' in locals() else 'Consultar no Painel'}</p>
-                            <p style='margin: 8px 0;'><b>Fabricante:</b> {fabricante if 'fabricante' in locals() else 'Consultar no Painel'}</p>
+                            <p style='margin: 8px 0;'><b>Apresentação/volume:</b> {txt_apresentacao}</p>
+                            <p style='margin: 8px 0;'><b>Área de uso:</b> {txt_area_uso}</p>
+                            <p style='margin: 8px 0;'><b>Fabricante:</b> {txt_fabricante}</p>
                             
                             <div style='background-color: #F8F9FA; border-left: 4px solid #005691; padding: 12px; margin: 15px 0; border-radius: 4px;'>
                                 <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>📦 Descrição Completa do Produto:</p>
-                                <p style='margin: 0; white-space: pre-line; color: #333;'>{descricao_produto}</p>
+                                <p style='margin: 0; white-space: pre-line; color: #333;'>{txt_descricao}</p>
                             </div>
 
                             <div style='background-color: #F8F9FA; border-left: 4px solid #6c757d; padding: 12px; margin: 15px 0; border-radius: 4px;'>
-                                <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>💡 Justificativa da Compra:</p>
-                                <p style='margin: 0; white-space: pre-line; color: #333;'>{sem_produto if 'sem_produto' in locals() else 'Consultar no Painel'}</p>
+                                <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>💡 Justificativa (Uso sem o produto):</p>
+                                <p style='margin: 0; white-space: pre-line; color: #333;'>{txt_sem_produto}</p>
                             </div>
                             
                             <div style='margin-top: 20px;'>
