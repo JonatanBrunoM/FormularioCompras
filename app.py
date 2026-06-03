@@ -846,7 +846,6 @@ else:
                         conn.update(data=df_dados)
                         st.session_state["df_dados"] = df_dados
                         
-                        # CORRIGIDO: Capturando os dados do dicionário usando as chaves reais (Labels)
                         txt_descricao = respostas_formulario.get("Descrição completa do produto", "Não informado")
                         txt_apresentacao = respostas_formulario.get("Apresentação/volume", "Não informado")
                         txt_area_uso = respostas_formulario.get("Área onde será utilizado e indicação detalhada de uso do produto", "Não informado")
@@ -855,7 +854,6 @@ else:
                         
                         URL_DO_APLICATIVO = "https://formulariocompras.streamlit.app"
                         
-                        # Montagem do HTML do E-mail
                         html_novo_chamado = f"""
                         <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 25px; background-color: #ffffff;'>
                             <h3 style='color: #005691; margin-top: 0;'>HOSPITAL MOINHOS DE VENTO</h3>
@@ -870,12 +868,12 @@ else:
                             <p style='margin: 8px 0;'><b>Fabricante:</b> {txt_fabricante}</p>
                             
                             <div style='background-color: #F8F9FA; border-left: 4px solid #005691; padding: 12px; margin: 15px 0; border-radius: 4px;'>
-                                <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>📦 Descrição Completa do Produto:</p>
+                                <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>Descrição completa do produto:</p>
                                 <p style='margin: 0; white-space: pre-line; color: #333;'>{txt_descricao}</p>
                             </div>
 
                             <div style='background-color: #F8F9FA; border-left: 4px solid #6c757d; padding: 12px; margin: 15px 0; border-radius: 4px;'>
-                                <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>💡 Justificativa (Uso sem o produto):</p>
+                                <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>Justificativa (Uso sem o produto):</p>
                                 <p style='margin: 0; white-space: pre-line; color: #333;'>{txt_sem_produto}</p>
                             </div>
                             
@@ -884,11 +882,11 @@ else:
 
                         if link_gerais_str != "Nenhum arquivo adicional":
                             html_novo_chamado += f"""
-                                <a href='{links_gerais[0] if links_gerais else "#"}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #007bff; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-right: 10px; margin-bottom: 10px;'>📂 Abrir Arquivos Anexados</a>
+                                <a href='{links_gerais[0] if links_gerais else "#"}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #007bff; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-right: 10px; margin-bottom: 10px;'>📂 Abrir anexo</a>
                             """
 
                         html_novo_chamado += f"""
-                                <a href='{URL_DO_APLICATIVO}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #005691; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-bottom: 10px;'>⚖️ Acessar Painel de Votação (CAPROQ)</a>
+                                <a href='{URL_DO_APLICATIVO}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #005691; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-bottom: 10px;'>Acessar Painel - CAPROQ</a>
                             </div>
                             
                             <hr style='border: 0; border-top: 1px solid #EAEAEA; margin: 20px 0;'>
