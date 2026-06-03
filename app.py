@@ -443,9 +443,9 @@ if is_aprovador:
                                 st.markdown(f"**Gera resíduo perigoso?:** {row.get('O item solicitado gera resíduo perigoso?', 'N/A')}")
                                 st.markdown(f"**Possui estudos científicos?:** {row.get('O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.', 'N/A')}")
 
-                            if "Link_Anexo" in row and row["Link_Anexo"] not in ["Nenhum arquivo anexado", "Nenhum arquivo adicional", ""]:
+                            if "Arquivos anexados" in row and row["Arquivos anexados"] not in ["Nenhum arquivo anexado", "Nenhum arquivo adicional", ""]:
                                 st.markdown("📎 **Documentação Adicional:**")
-                                st.link_button("📂 Abrir anexos no Google Drive", row["Link_Anexo"], use_container_width=True)
+                                st.link_button("📂 Abrir anexos no Google Drive", row["Arquivos anexados"], use_container_width=True)
                             
                             if "Anexar FDS" in row and row["Anexar FDS"] not in ["", "Não aplicável"]:
                                 st.markdown("📄 **Ficha de Dados de Segurança (FDS):**")
@@ -819,8 +819,7 @@ else:
                                     links_gerais.append(lnk)
                         link_gerais_str = ", ".join(links_gerais) if links_gerais else "Nenhum arquivo adicional"
         
-                        # Salvando no dicionário com os nomes exatos de colunas da Planilha
-                        respostas_formulario["Link_Anexo"] = link_gerais_str  # CORRIGIDO: de 'Arquivos anexados' para 'Link_Anexo'
+                        respostas_formulario["Arquivos anexados"] = link_gerais_str
                         respostas_formulario["Anexar FDS"] = link_fds
                         respostas_formulario["Anexo arquivo de estudos científicos e de custo-efetividade."] = link_estudos
         
