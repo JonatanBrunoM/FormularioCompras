@@ -433,17 +433,23 @@ if is_aprovador:
                             
                             with col_detalhe1:
                                 st.markdown(f"**Descrição do Produto:** {row.get('Descrição completa do produto', 'N/A')}")
-                                st.markdown(f"**Justificativa da Compra:** {row.get('Justificativa', row.get('Justificativa da compra', 'N/A'))}")
-                                st.markdown(f"**Quantidade/Volume:** {row.get('Quantidade', row.get('Volume', 'N/A'))}")
-                                st.markdown(f"**Centro de Custo:** {row.get('Centro de Custo', row.get('CC', 'N/A'))}")
-                                
+                                st.markdown(f"**Apresentação/Volume:** {row.get('Apresentação/volume', 'N/A')}")
+                                st.markdown(f"**Fabricante/Fornecedor:** {row.get('Fabricante/fornecedor', 'N/A')}")
+                                st.markdown(f"**Área e Indicação de Uso:** {row.get('Área onde será utilizado e indicação detalhada de uso do produto', 'N/A')}")
+
                             with col_detalhe2:
-                                st.markdown(f"**Valor Estimado (R$):** {row.get('Valor estimado', row.get('Preço estimado', 'N/A'))}")
-                                st.markdown(f"**Urgência/Prazo:** {row.get('Prazo', row.get('Urgência', 'N/A'))}")
+                                st.markdown(f"**Contato do Fornecedor:** {row.get('Informações de contato do fornecedor (nome, e-mail e telefone)', 'N/A')}")
+                                st.markdown(f"**Uso atual SEM o produto:** {row.get('Explique como o procedimento/atividade atual é realizado SEM este produto:', 'N/A')}")
+                                st.markdown(f"**Gera resíduo perigoso?:** {row.get('O item solicitado gera resíduo perigoso?', 'N/A')}")
+                                st.markdown(f"**Possui estudos científicos?:** {row.get('O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.', 'N/A')}")
+
+                            if "Link_Anexo" in row and row["Link_Anexo"] not in ["Nenhum arquivo anexado", "Nenhum arquivo adicional", ""]:
+                                st.markdown("📎 **Documentação Adicional:**")
+                                st.link_button("📂 Abrir anexos no Google Drive", row["Link_Anexo"], use_container_width=True)
                             
-                            if "Link_Anexo" in row and row["Link_Anexo"] != "Nenhum arquivo anexado":
-                                st.markdown("📎 Documentação:")
-                                st.link_button("📂 Abrir anexo no Google Drive", row["Link_Anexo"], use_container_width=True)
+                            if "Anexar FDS" in row and row["Anexar FDS"] not in ["", "Não aplicável"]:
+                                st.markdown("📄 **Ficha de Dados de Segurança (FDS):**")
+                                st.link_button("🔥 Abrir FDS", row["Anexar FDS"], use_container_width=True)
                             st.markdown("---")
                         
                         st.markdown("<br>Seus Seu parecer:", unsafe_allow_html=True)
@@ -785,7 +791,7 @@ else:
                 pergunta_estudos_label = "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo."
                 resposta_estudos = respostas_formulario.get(pergunta_estudos_label, "")
                 
-                if resposta_estudos == "SIM" and not arquivo_estudos:
+                if resposta_estudos == "Sim" and not arquivo_estudos:
                     campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade (Obrigatório quando a resposta for SIM)")
                 
                 if campos_vazios:
@@ -794,12 +800,13 @@ else:
                     with st.spinner("Processando anexos e enviando para o Google Drive..."):
                         proximo_id = int(df_dados["ID"].max() + 1) if not df_dados.empty and "ID" in df_dados.columns else 1
                         
+                        # Upload dos arquivos obrigatórios e opcionais
                         link_fds = upload_para_google_drive(fds_obrigatorio, pasta_id=PASTA_DRIVE_ID)
                         if not link_fds:
                             link_fds = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
                             
                         link_estudos = "Não aplicável"
-                        if resposta_estudos == "SIM" and arquivo_estudos:
+                        if resposta_estudos == "Sim" and arquivo_estudos:
                             link_estudos = upload_para_google_drive(arquivo_estudos, pasta_id=PASTA_DRIVE_ID)
                             if not link_estudos:
                                 link_estudos = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
@@ -812,7 +819,8 @@ else:
                                     links_gerais.append(lnk)
                         link_gerais_str = ", ".join(links_gerais) if links_gerais else "Nenhum arquivo adicional"
         
-                        respostas_formulario["Arquivos anexados"] = link_gerais_str
+                        # Salvando no dicionário com os nomes exatos de colunas da Planilha
+                        respostas_formulario["Link_Anexo"] = link_gerais_str  # CORRIGIDO: de 'Arquivos anexados' para 'Link_Anexo'
                         respostas_formulario["Anexar FDS"] = link_fds
                         respostas_formulario["Anexo arquivo de estudos científicos e de custo-efetividade."] = link_estudos
         
@@ -839,23 +847,16 @@ else:
                         conn.update(data=df_dados)
                         st.session_state["df_dados"] = df_dados
                         
-                        desc_resumida = respostas_formulario.get("Descrição completa do produto", "")[:60] + "..."
-                        fabricante_resumido = respostas_formulario.get("Fabricante/fornecedor", "Não Informado")
+                        # CORRIGIDO: Capturando os dados do dicionário usando as chaves reais (Labels)
+                        txt_descricao = respostas_formulario.get("Descrição completa do produto", "Não informado")
+                        txt_apresentacao = respostas_formulario.get("Apresentação/volume", "Não informado")
+                        txt_area_uso = respostas_formulario.get("Área onde será utilizado e indicação detalhada de uso do produto", "Não informado")
+                        txt_fabricante = respostas_formulario.get("Fabricante/fornecedor", "Não informado")
+                        txt_sem_produto = respostas_formulario.get("Explique como o procedimento/atividade actual é realizado SEM este produto:", "Não informado")
                         
                         URL_DO_APLICATIVO = "https://formulariocompras.streamlit.app"
                         
-                        dict_respostas = respostas_formulario if 'respostas_formulario' in locals() else {}
-                        
-                        link_anexo_atual = dict_respostas.get("arquivos_gerais", "")
-                        if not link_anexo_atual and 'link_drive' in locals():
-                            link_anexo_atual = link_drive
-                        
-                        txt_descricao = dict_respostas.get("descricao", "Consultar no Painel")
-                        txt_apresentacao = dict_respostas.get("apresentacao", "Consultar no Painel")
-                        txt_area_uso = dict_respostas.get("area_uso", "Consultar no Painel")
-                        txt_fabricante = dict_respostas.get("fabricante", "Consultar no Painel")
-                        txt_sem_produto = dict_respostas.get("sem_produto", "Consultar no Painel")
-
+                        # Montagem do HTML do E-mail
                         html_novo_chamado = f"""
                         <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 25px; background-color: #ffffff;'>
                             <h3 style='color: #005691; margin-top: 0;'>HOSPITAL MOINHOS DE VENTO</h3>
@@ -882,9 +883,9 @@ else:
                             <div style='margin-top: 20px;'>
                         """
 
-                        if link_anexo_atual and link_anexo_atual != "Nenhum arquivo anexado":
+                        if link_gerais_str != "Nenhum arquivo adicional":
                             html_novo_chamado += f"""
-                                <a href='{link_anexo_atual}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #007bff; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-right: 10px; margin-bottom: 10px;'>📂 Abrir Arquivos Anexados</a>
+                                <a href='{links_gerais[0] if links_gerais else "#"}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #007bff; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-right: 10px; margin-bottom: 10px;'>📂 Abrir Arquivos Anexados</a>
                             """
 
                         html_novo_chamado += f"""
