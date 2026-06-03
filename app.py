@@ -444,12 +444,17 @@ if is_aprovador:
                                 st.markdown(f"**Possui estudos científicos?:** {row.get('O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.', 'N/A')}")
 
                             if "Arquivos anexados" in row and row["Arquivos anexados"] not in ["Nenhum arquivo anexado", "Nenhum arquivo adicional", ""]:
-                                st.markdown("📎 **Documentação Adicional:**")
-                                st.link_button("📂 Abrir anexos no Google Drive", row["Arquivos anexados"], use_container_width=True)
+                                st.markdown("**Documentação Adicional:**")
+                            link_anexo = row.get("Link_Anexo", row.get("Arquivos anexados", ""))
+                            
+                            if isinstance(link_anexo, str) and link_anexo.strip() not in ["", "nan", "None", "Nenhum arquivo anexado", "Nenhum arquivo adicional"]:
+                                st.link_button("Abrir anexos no Google Drive", link_anexo, use_container_width=True)
+                            else:
+                                st.caption("Nenhum arquivo adicional anexado.")
                             
                             if "Anexar FDS" in row and row["Anexar FDS"] not in ["", "Não aplicável"]:
-                                st.markdown("📄 **Ficha de Dados de Segurança (FDS):**")
-                                st.link_button("🔥 Abrir FDS", row["Anexar FDS"], use_container_width=True)
+                                st.markdown("**Ficha de Dados de Segurança (FDS):**")
+                                st.link_button("Abrir FDS", row["Anexar FDS"], use_container_width=True)
                             st.markdown("---")
                         
                         st.markdown("<br>Seus Seu parecer:", unsafe_allow_html=True)
