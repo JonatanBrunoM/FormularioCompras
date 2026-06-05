@@ -152,12 +152,12 @@ ADMINS = [
 
 MAPA_PERMISSOES = {
     "V": ADMINS,  
-    "W": ["seguranca.ocupacional@hospital.com.br"],  # Segurança Ocupacional
-    "X": ["saude.ocupacional@hospital.com.br"],      # Saúde Ocupacional
-    "Y": ["sci@hospital.com.br"],                    # SCI
-    "Z": ["engenharia.clinica@hospital.com.br"],     # Engenharia Clínica
-    "AA": ["gestao.ambiental@hospital.com.br"],     # Gestão Ambiental
-    "AB": ["prevencao.incendio@hospital.com.br"]     # Prevenção de Incêndio
+    "W": ["jonatan231196@gmail.com"],  # Segurança Ocupacional
+    "X": ["carolina.jagielski@hmv.org.br"],      # Saúde Ocupacional
+    "Y": ["sandro.carmo@hmv.org.br"],                    # SCI
+    "Z": ["gustavo.oliveira@hmv.org.br"],     # Engenharia Clínica
+    "AA": ["gps.lidya@hmv.org.br"],     # Gestão Ambiental
+    "AB": ["debora.bairros@hmv.org.br"]     # Prevenção de Incêndio
 }
 
 TODOS_SUB_APROVADORES = [email for lista in MAPA_PERMISSOES.values() for email in lista]
