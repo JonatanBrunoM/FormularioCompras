@@ -772,7 +772,6 @@ if is_aprovador:
             else:
                 st.caption("Mapeamento de colunas das alçadas não localizado na planilha atual.")
 
-else:
 # ==============================================================================
 # 9. Tela solicitantes
 # ==============================================================================
@@ -860,122 +859,123 @@ with tab_novo:
         st.markdown("---")
         enviar = st.form_submit_button("Enviar solicitação", use_container_width=True)
         
-            if enviar:
-                campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario[campo["label"]]]
-                
-                if not fds_obrigatorio:
-                    campos_vazios.append("Anexar FDS")
-                
-                pergunta_estudos_label = "O produto apresenta estudos científicos and de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo."
-                resposta_estudos = respostas_formulario.get(pergunta_estudos_label, "")
-                
-                if resposta_estudos == "Sim" and not arquivo_estudos:
-                    campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade (Obrigatório quando a resposta for SIM)")
-                
-                if campos_vazios:
-                    st.error(f"❌ Por favor, preencha ou anexe os seguintes campos obrigatórios:\n" + "\n".join([f"• {c}" for c in campos_vazios]))
-                else:
-                    with st.spinner("Processando anexos e enviando para o Google Drive..."):
-                        proximo_id = int(df_dados["ID"].max() + 1) if not df_dados.empty and "ID" in df_dados.columns else 1
-                        
-                        link_fds = upload_para_google_drive(fds_obrigatorio, pasta_id=PASTA_DRIVE_ID)
-                        if not link_fds:
-                            link_fds = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
-                            
-                        link_estudos = "Não aplicável"
-                        if resposta_estudos == "Sim" and arquivo_estudos:
-                            link_estudos = upload_para_google_drive(arquivo_estudos, pasta_id=PASTA_DRIVE_ID)
-                            if not link_estudos:
-                                link_estudos = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
-                        
-                        links_gerais = []
-                        if arquivos_gerais:
-                            for arq in arquivos_gerais:
-                                lnk = upload_para_google_drive(arq, pasta_id=PASTA_DRIVE_ID)
-                                if lnk:
-                                    links_gerais.append(lnk)
-                        link_gerais_str = ", ".join(links_gerais) if links_gerais else "Nenhum arquivo adicional"
+    # <-- O bloco do "if enviar" fica aqui, alinhado com o "with st.form"
+    if enviar:
+        campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario[campo["label"]]]
         
-                        respostas_formulario["Arquivos anexados"] = link_gerais_str
-                        respostas_formulario["Anexar FDS"] = link_fds
-                        respostas_formulario["Anexo arquivo de estudos científicos e de custo-efetividade."] = link_estudos
-    
-                        nome_log = st.session_state.get('user_name', user_name) or "Solicitante desconhecido"
-                        email_log = st.session_state.get('user_email', user_email) or "E-mail não identificado"
-    
-                        if str(nome_log).strip() in ["None", ""]:
-                            nome_log = "Solicitante"
-                        
-                        dados_estruturais = {
-                            "ID": proximo_id,
-                            "Nome solicitante": user_name,
-                            "Status_Final": "Em análise"
-                        }
-                        
-                        for info in ALCADAS_INFO.values():
-                            dados_estruturais[info["coluna_sheets"]] = "Pendente"
-                        
-                        registro_completo = {**respostas_formulario, **dados_estruturais}
-                        nova_linha = pd.DataFrame([registro_completo])
-                        
-                        df_dados = pd.concat([df_dados, nova_linha], ignore_index=True)
-                        conn.update(data=df_dados)
-                        st.session_state["df_dados"] = df_dados
-                        
-                        txt_descricao = respostas_formulario.get("Descrição completa do produto", "Não informado")
-                        txt_apresentacao = respostas_formulario.get("Apresentação/volume", "Não informado")
-                        txt_area_uso = respostas_formulario.get("Área onde será utilizado e indicação detalhada de uso do produto", "Não informado")
-                        txt_fabricante = respostas_formulario.get("Fabricante/fornecedor", "Não informado")
-                        txt_sem_produto = respostas_formulario.get("Explique como o procedimento/atividade atual é realizado SEM este produto:", "Não informado")
-                        
-                        URL_DO_APLICATIVO = "https://formulariocompras.streamlit.app"
-                        
-                        html_novo_chamado = f"""
-                        <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 25px; background-color: #ffffff;'>
-                            <h3 style='color: #005691; margin-top: 0;'>HOSPITAL MOINHOS DE VENTO</h3>
-                            <p style='color: #2b2b2b; font-size: 1.1em;'>🔔 <b>Nova Solicitação Pendente - CAPROQ</b></p>
-                            <p style='color: #2b2b2b;'>Um novo chamado de padronização foi aberto e aguarda a sua avaliação técnica de alçada.</p>
-                            <hr style='border: 0; border-top: 1px solid #EAEAEA; margin: 15px 0;'>
-                            
-                            <p style='margin: 8px 0;'><b>ID do Chamado:</b> #{proximo_id}</p>
-                            <p style='margin: 8px 0;'><b>Solicitante:</b> {user_name} ({user_email})</p>
-                            <p style='margin: 8px 0;'><b>Apresentação/volume:</b> {txt_apresentacao}</p>
-                            <p style='margin: 8px 0;'><b>Área de uso:</b> {txt_area_uso}</p>
-                            <p style='margin: 8px 0;'><b>Fabricante:</b> {txt_fabricante}</p>
-                            
-                            <div style='background-color: #F8F9FA; border-left: 4px solid #005691; padding: 12px; margin: 15px 0; border-radius: 4px;'>
-                                <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>Descrição completa do produto:</p>
-                                <p style='margin: 0; white-space: pre-line; color: #333;'>{txt_descricao}</p>
-                            </div>
-    
-                            <div style='background-color: #F8F9FA; border-left: 4px solid #6c757d; padding: 12px; margin: 15px 0; border-radius: 4px;'>
-                                <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>Justificativa (Uso sem o produto):</p>
-                                <p style='margin: 0; white-space: pre-line; color: #333;'>{txt_sem_produto}</p>
-                            </div>
-                            
-                            <div style='margin-top: 20px;'>
-                        """
-    
-                        if link_gerais_str != "Nenhum arquivo adicional":
-                            html_novo_chamado += f"""
-                                <a href='{links_gerais[0] if links_gerais else "#"}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #007bff; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-right: 10px; margin-bottom: 10px;'>📂 Abrir anexo</a>
-                            """
-    
-                        html_novo_chamado += f"""
-                                <a href='{URL_DO_APLICATIVO}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #005691; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-bottom: 10px;'>Acessar Painel - CAPROQ</a>
-                            </div>
-                            
-                            <hr style='border: 0; border-top: 1px solid #EAEAEA; margin: 20px 0;'>
-                            <p style='color: #6c757d; font-size: 0.85em; text-align: center; margin: 0;'>Este é um disparo automático do Sistema de Gestão de Compras Moinhos.<br>Por favor, não responda a este e-mail.</p>
-                        </div>
-                        """
-                        
-                        for aprovador_email in APROVADORES:
-                            enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
-                        
-                        st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
-                        time.sleep(2)
-                        st.rerun()
+        if not fds_obrigatorio:
+            campos_vazios.append("Anexar FDS")
+        
+        pergunta_estudos_label = "O produto apresenta estudos científicos and de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo."
+        resposta_estudos = respostas_formulario.get(pergunta_estudos_label, "")
+        
+        if resposta_estudos == "Sim" and not arquivo_estudos:
+            campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade (Obrigatório quando a resposta for SIM)")
+        
+        if campos_vazios:
+            st.error(f"❌ Por favor, preencha ou anexe os seguintes campos obrigatórios:\n" + "\n".join([f"• {c}" for c in campos_vazios]))
+        else:
+            with st.spinner("Processando anexos e enviando para o Google Drive..."):
+                proximo_id = int(df_dados["ID"].max() + 1) if not df_dados.empty and "ID" in df_dados.columns else 1
+                
+                link_fds = upload_para_google_drive(fds_obrigatorio, pasta_id=PASTA_DRIVE_ID)
+                if not link_fds:
+                    link_fds = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
+                    
+                link_estudos = "Não aplicável"
+                if resposta_estudos == "Sim" and arquivo_estudos:
+                    link_estudos = upload_para_google_drive(arquivo_estudos, pasta_id=PASTA_DRIVE_ID)
+                    if not link_estudos:
+                        link_estudos = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
+                
+                links_gerais = []
+                if arquivos_gerais:
+                    for arq in arquivos_gerais:
+                        lnk = upload_para_google_drive(arq, pasta_id=PASTA_DRIVE_ID)
+                        if lnk:
+                            links_gerais.append(lnk)
+                link_gerais_str = ", ".join(links_gerais) if links_gerais else "Nenhum arquivo adicional"
+
+                respostas_formulario["Arquivos anexados"] = link_gerais_str
+                respostas_formulario["Anexar FDS"] = link_fds
+                respostas_formulario["Anexo arquivo de estudos científicos e de custo-efetividade."] = link_estudos
+
+                nome_log = st.session_state.get('user_name', user_name) or "Solicitante desconhecido"
+                email_log = st.session_state.get('user_email', user_email) or "E-mail não identificado"
+
+                if str(nome_log).strip() in ["None", ""]:
+                    nome_log = "Solicitante"
+                
+                dados_estruturais = {
+                    "ID": proximo_id,
+                    "Nome solicitante": user_name,
+                    "Status_Final": "Em análise"
+                }
+                
+                for info in ALCADAS_INFO.values():
+                    dados_estruturais[info["coluna_sheets"]] = "Pendente"
+                
+                registro_completo = {**respostas_formulario, **dados_estruturais}
+                nova_linha = pd.DataFrame([registro_completo])
+                
+                df_dados = pd.concat([df_dados, nova_linha], ignore_index=True)
+                conn.update(data=df_dados)
+                st.session_state["df_dados"] = df_dados
+                
+                txt_descricao = respostas_formulario.get("Descrição completa do produto", "Não informado")
+                txt_apresentacao = respostas_formulario.get("Apresentação/volume", "Não informado")
+                txt_area_uso = respostas_formulario.get("Área onde será utilizado e indicação detalhada de uso do produto", "Não informado")
+                txt_fabricante = respostas_formulario.get("Fabricante/fornecedor", "Não informado")
+                txt_sem_produto = respostas_formulario.get("Explique como o procedimento/atividade atual é realizado SEM este produto:", "Não informado")
+                
+                URL_DO_APLICATIVO = "https://formulariocompras.streamlit.app"
+                
+                html_novo_chamado = f"""
+                <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 25px; background-color: #ffffff;'>
+                    <h3 style='color: #005691; margin-top: 0;'>HOSPITAL MOINHOS DE VENTO</h3>
+                    <p style='color: #2b2b2b; font-size: 1.1em;'>🔔 <b>Nova Solicitação Pendente - CAPROQ</b></p>
+                    <p style='color: #2b2b2b;'>Um novo chamado de padronização foi aberto e aguarda a sua avaliação técnica de alçada.</p>
+                    <hr style='border: 0; border-top: 1px solid #EAEAEA; margin: 15px 0;'>
+                    
+                    <p style='margin: 8px 0;'><b>ID do Chamado:</b> #{proximo_id}</p>
+                    <p style='margin: 8px 0;'><b>Solicitante:</b> {user_name} ({user_email})</p>
+                    <p style='margin: 8px 0;'><b>Apresentação/volume:</b> {txt_apresentacao}</p>
+                    <p style='margin: 8px 0;'><b>Área de uso:</b> {txt_area_uso}</p>
+                    <p style='margin: 8px 0;'><b>Fabricante:</b> {txt_fabricante}</p>
+                    
+                    <div style='background-color: #F8F9FA; border-left: 4px solid #005691; padding: 12px; margin: 15px 0; border-radius: 4px;'>
+                        <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>Descrição completa do produto:</p>
+                        <p style='margin: 0; white-space: pre-line; color: #333;'>{txt_descricao}</p>
+                    </div>
+
+                    <div style='background-color: #F8F9FA; border-left: 4px solid #6c757d; padding: 12px; margin: 15px 0; border-radius: 4px;'>
+                        <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>Justificativa (Uso sem o produto):</p>
+                        <p style='margin: 0; white-space: pre-line; color: #333;'>{txt_sem_produto}</p>
+                    </div>
+                    
+                    <div style='margin-top: 20px;'>
+                """
+
+                if link_gerais_str != "Nenhum arquivo adicional":
+                    html_novo_chamado += f"""
+                        <a href='{links_gerais[0] if links_gerais else "#"}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #007bff; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-right: 10px; margin-bottom: 10px;'>📂 Abrir anexo</a>
+                    """
+
+                html_novo_chamado += f"""
+                        <a href='{URL_DO_APLICATIVO}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #005691; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-bottom: 10px;'>Acessar Painel - CAPROQ</a>
+                    </div>
+                    
+                    <hr style='border: 0; border-top: 1px solid #EAEAEA; margin: 20px 0;'>
+                    <p style='color: #6c757d; font-size: 0.85em; text-align: center; margin: 0;'>Este é um disparo automático do Sistema de Gestão de Compras Moinhos.<br>Por favor, não responda a este e-mail.</p>
+                </div>
+                """
+                
+                for aprovador_email in APROVADORES:
+                    enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
+                
+                st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
+                time.sleep(2)
+                st.rerun()
 
 # 9.3. Aba status
 with tab_status:
@@ -1015,7 +1015,7 @@ with tab_status:
                         if idx < len(lista_alcadas):
                             info_alcada = lista_alcadas[idx]
                             nome_col_sheets = info_alcada["coluna_sheets"]
-                            label_curto = info_alcada["label"].split(" - ")[0] # Ex: SCIH, SEG_TRAB
+                            label_curto = info_alcada["label"].split(" - ")[0]
                             
                             voto_bruto = str(row.get(nome_col_sheets, "Pendente"))
                             
