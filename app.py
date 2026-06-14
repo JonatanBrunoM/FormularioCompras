@@ -154,37 +154,44 @@ ALCADAS_INFO = {
     "V": {
         "coluna_sheets": "Padronização (suprimentos)",
         "label": "Padronização (Suprimentos)",
+        "prazo_util": 7,
         "emails": ADMINS
     },
     "W": {
         "coluna_sheets": "Segurança Ocupacional (prazo de análise: 7 dias úteis)",
         "label": "Segurança Ocupacional",
-        "emails": ["jonatan231196@gmail.com"]
+        "emails": ["jonatan231196@gmail.com"],
+        "prazo_util": 7
     },
     "X": {
         "coluna_sheets": "Saúde Ocupacional (prazo de análise: 7 dias úteis)",
         "label": "Saúde Ocupacional",
-        "emails": ["carolina.jagielski@hmv.org.br"]
+        "emails": ["carolina.jagielski@hmv.org.br"],
+        "prazo_util": 7
     },
     "Y": {
         "coluna_sheets": "SCI (prazo de análise: 5 dias úteis)",
         "label": "SCI",
-        "emails": ["sandro.carmo@hmv.org.br"]
+        "emails": ["sandro.carmo@hmv.org.br"],
+        "prazo_util": 5
     },
     "Z": {
         "coluna_sheets": "Engenharia clínica e eletromecânica (Prazo de análise: 5 dias úteis)",
         "label": "Engenharia Clínica e Eletromecânica",
-        "emails": ["gustavo.oliveira@hmv.org.br"]
+        "emails": ["gustavo.oliveira@hmv.org.br"],
+        "prazo_util": 5
     },
     "AA": {
         "coluna_sheets": "Gestão Ambiental (prazo de análise: 5 dias úteis)",
         "label": "Gestão Ambiental",
-        "emails": ["gps.lidya@hmv.org.br"]
+        "emails": ["gps.lidya@hmv.org.br"],
+        "prazo_util": 5
     },
     "AB": {
         "coluna_sheets": "Prevenção de Incêndio (prazo de análise: 5 dias úteis)",
         "label": "Prevenção de Incêndio",
-        "emails": ["debora.bairros@hmv.org.br"]
+        "emails": ["debora.bairros@hmv.org.br"],
+        "prazo_util": 5
     }
 }
 
@@ -556,33 +563,77 @@ if is_aprovador:
         # 8.2. Aba "Histórico de decisões"
         # ----------------------------------------------------------------------
         with tab_hist_aprovador:
-            st.markdown("### Seus pareceres anteriores registrados")
+            st.markdown("### 📋 Acompanhamento e histórico de deliberações")
+            st.caption("Veja abaixo o andamento detalhado e os prazos de resposta de cada alçada técnica.")
+            
             if historico_aprovador.empty:
                 st.info("Sua alçada técnica atual ainda não emitiu votos históricos no sistema.")
             else:
+
                 for _, row in historico_aprovador.iterrows():
                     id_c = int(row['ID'])
                     desc_h = row.get("Descrição completa do produto", "Sem descrição")
-                    with st.expander(f"📋 Chamado #{id_c} — {desc_h} (Status Final: {row['Status_Final']})"):
-                        st.markdown("**Status detalhado de cada alçada técnica neste chamado:**")
+                    
+                    carimbo_original = row.get('Carimbo de data/hora', row.get('Timestamp', ''))
+                    
+                    with st.expander(f"📦 Chamado #{id_c} — {desc_h} (Status Geral: {row['Status_Final']})"):
                         
-                        col_h1, col_h2 = st.columns(2)
-                        colunas_lista = list(ALCADAS_INFO.values())
+                        dt_abertura = None
+                        if carimbo_original and str(carimbo_original).strip() not in ["nan", "None", ""]:
+                            try:
+                                data_limpa = str(carimbo_original).split()[0]
+                                dt_abertura = pd.to_datetime(data_limpa, dayfirst=True)
+                            except:
+                                dt_abertura = None
+
+                        if dt_abertura:
+                            st.markdown(f"⏱️ **Data de Abertura:** {dt_abertura.strftime('%d/%m/%Y')}")
+                        else:
+                            st.markdown("⚠️ *Data de abertura não identificada para cálculo de prazos.*")
                         
-                        with col_h1:
-                            for info in colunas_lista[:4]:
-                                c_nome = info["coluna_sheets"]
-                                if c_nome in df_dados.columns:
-                                    v_status = row[c_nome]
-                                    icon = "✅" if v_status.startswith("Aprovar") else "❌" if v_status.startswith("Reprovar") else "⏳"
-                                    st.markdown(f"{icon} **{info['label']}:** `{v_status}`")
-                        with col_h2:
-                            for info in colunas_lista[4:]:
-                                c_nome = info["coluna_sheets"]
-                                if c_nome in df_dados.columns:
-                                    v_status = row[c_nome]
-                                    icon = "✅" if v_status.startswith("Aprovar") else "❌" if v_status.startswith("Reprovar") else "⏳"
-                                    st.markdown(f"{icon} **{info['label']}:** `{v_status}`")
+                        st.markdown("---")
+                        st.markdown("**Situação por Alçada Técnica:**")
+                        
+                        for letra_col, info in ALCADAS_INFO.items():
+                            c_nome = info["coluna_sheets"]
+                            
+                            if c_nome in df_dados.columns:
+                                v_status = str(row[c_nome]).strip()
+                                
+                                with st.container(border=True):
+                                    col_info_area, col_prazo_status = st.columns([2, 1])
+                                    
+                                    with col_info_area:
+                                        st.markdown(f"📌 **{info['label']}**")
+                                        
+                                        if v_status == "Pendente":
+                                            st.markdown("⏳ **Parecer:** *Aguardando deliberação*")
+                                        else:
+                                            st.markdown(f"💬 **Parecer registrado:**\n`{v_status}`")
+                                            
+                                    with col_prazo_status:
+                                        if v_status == "Pendente" and dt_abertura:
+                                            prazo_definido = info.get("prazo_util", 5)
+                                            
+                                            hoje = pd.Timestamp.now().normalize()
+                                            abertura_norm = dt_abertura.normalize()
+                                            
+                                            dias_passados_uteis = len(pd.date_range(start=abertura_norm, end=hoje, freq='B')) - 1
+                                            dias_restantes_uteis = prazo_definido - dias_passados_uteis
+                                            
+                                            if dias_restantes_uteis > 1:
+                                                st.warning(f"⏰ Restam **{dias_restantes_uteis} dias úteis**")
+                                            elif dias_restantes_uteis == 1:
+                                                st.warning("⚠️ Resta **1 dia útil!**")
+                                            elif dias_restantes_uteis == 0:
+                                                st.error("🚨 **Prazo vence HOJE!**")
+                                            else:
+                                                st.error(f"❌ **Atrasado há {abs(dias_restantes_uteis)} dias úteis**")
+                                                
+                                        elif v_status == "Pendente":
+                                            st.caption("Prazo indisponível")
+                                        else:
+                                            st.success("✅ Concluído")
 
         # ----------------------------------------------------------------------
         # 8.3. Aba "Log de atividades" (Linha do Tempo limpa e integrada)
