@@ -414,7 +414,7 @@ if is_aprovador:
             pendentes = df_dados[df_dados["Status_Final"].astype(str).str.contains("Em análise", na=False)]
             
             condicao_historico = df_dados[colunas_validas].apply(
-                lambda col: col.astype(str).str.startswith(("Aprovado", "Reprovado"), na=False)
+                lambda col: col.astype(str).str.startswith(("Aprovar", "Reprovar"), na=False)
             ).any(axis=1)
             
             historico_aprovador = df_dados[condicao_historico]
@@ -588,15 +588,24 @@ if is_aprovador:
         # 8.3. Aba "Log de atividades" (Linha do Tempo limpa e integrada)
         # ----------------------------------------------------------------------
         with tab_logs:
-            st.markdown("### Linha de Tempo e Auditoria dos Processos")
+            st.markdown("### 📜 Linha de Tempo e Auditoria Geral dos Processos")
+            st.caption("Abaixo consta o histórico completo desde a abertura do chamado para fins de conformidade e auditoria.")
+            
             for _, row in df_dados.iterrows():
                 id_c = int(row['ID'])
                 desc_l = row.get("Descrição completa do produto", "Sem descrição")
+                solicitante_nome = row.get('Nome solicitante', row.get('Nome', 'Não informado'))
+                solicitante_email = row.get('Endereço de e-mail', 'Não informado')
+                carimbo_abertura = row.get('Carimbo de data/hora', row.get('Timestamp', 'Data não registrada'))
                 
-                with st.expander(f"🕒 Histórico Integrado — Chamado #{id_c} — {desc_l} (Status: {row['Status_Final']})"):
-                    logs_encontrados = False
+                with st.expander(f"🕒 Chamado #{id_c} — {desc_l} | Status Atual: {row['Status_Final']}"):
                     
-                    # Varre a própria coluna de cada aprovador procurando por históricos salvos
+                    # --- PASSO 1: Abertura do Chamado (Obrigatório no Log) ---
+                    st.info(f"🔹 **[Abertura do Processo]** — Cadastrado em `{carimbo_abertura}` por **{solicitante_nome}** (`{solicitante_email}`)")
+                    
+                    logs_encontrados = False
+                    st.markdown("**Pareceres e Tramitações Técnicas:**")
+                    
                     for info in ALCADAS_INFO.values():
                         c_nome = info["coluna_sheets"]
                         if c_nome in df_dados.columns and row[c_nome] != "Pendente":
@@ -611,7 +620,11 @@ if is_aprovador:
                                 st.success(f"🟢 **{info['label']}:** {voto_detalhado}")
                     
                     if not logs_encontrados:
-                        st.caption("Aguardando deliberações das alçadas técnicas para este chamado.")
+                        st.caption("⏳ Nenhuma alçada técnica emitiu parecer para este chamado até o momento (Aguardando deliberações).")
+                        
+                    if row['Status_Final'] in ["Aprovado", "Reprovado"]:
+                        cor_status = "🟢" if row['Status_Final'] == "Aprovado" else "🔴"
+                        st.markdown(f"{cor_status} **[Fim do Fluxo]** Processo finalizado com o status de **{row['Status_Final']}**.")
 
         # ----------------------------------------------------------------------
         # 8.4. Aba "Indicadores"
