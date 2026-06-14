@@ -612,7 +612,10 @@ if is_aprovador:
                                             st.markdown(f"💬 **Parecer registrado:**\n`{v_status}`")
                                             
                                     with col_prazo_status:
-                                        if v_status == "Pendente" and dt_abertura:
+                                        if row['Status_Final'] == "Reprovado" and v_status == "Pendente":
+                                            st.error("🛑 Fluxo Encerrado (Chamado Recusado)")
+                                        
+                                        elif v_status == "Pendente" and dt_abertura:
                                             prazo_definido = info.get("prazo_util", 5)
                                             
                                             hoje = pd.Timestamp.now().normalize()
