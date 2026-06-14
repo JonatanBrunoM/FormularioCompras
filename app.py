@@ -613,7 +613,7 @@ if is_aprovador:
                                             
                                     with col_prazo_status:
                                         if row['Status_Final'] == "Reprovado" and v_status == "Pendente":
-                                            st.error("🛑 Fluxo Encerrado (Chamado Recusado)")
+                                            st.error("🛑 Fluxo encerrado (Chamado recusado)")
                                         
                                         elif v_status == "Pendente" and dt_abertura:
                                             prazo_definido = info.get("prazo_util", 5)
