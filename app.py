@@ -768,6 +768,8 @@ if is_aprovador:
             else:
                 st.caption("Mapeamento de colunas das alçadas não localizado na planilha atual.")
 
+else:
+
 # ==============================================================================
 # 9. Tela solicitantes
 # ==============================================================================
