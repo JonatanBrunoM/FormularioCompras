@@ -396,28 +396,23 @@ with col_header2:
 if is_aprovador:
     st.markdown("---")
     
-    # Mapeamento dinâmico das colunas permitidas baseado no ALCADAS_INFO global (Bloco 3)
     colunas_permitidas_usuario = []
     is_user_admin = user_email in ADMINS
     
-    # Coletamos as chaves (letras) e os nomes reais das colunas da planilha
     for letra_col, info_alcada in ALCADAS_INFO.items():
         nome_coluna_sheets = info_alcada["coluna_sheets"]
         if is_user_admin or user_email in info_alcada["emails"]:
             colunas_permitidas_usuario.append(nome_coluna_sheets)
 
     if not df_dados.empty:
-        # Verifica se as colunas permitidas existem no DataFrame para evitar KeyError
         colunas_validas = [c for c in colunas_permitidas_usuario if c in df_dados.columns]
         
         if colunas_validas:
-            # Condição Pendentes: Status é 'Em análise' e QUALQUER uma das alçadas do usuário está estritamente 'Pendente'
             condicao_pendente = (df_dados["Status_Final"] == "Em análise") & (
                 df_dados[colunas_validas].eq("Pendente").any(axis=1)
             )
-            pendentes = df_dados[condicao_pendente]
+            pendentes = df_dados[df_dados["Status_Final"].astype(str).str.contains("Em análise", na=False)]
             
-            # Condição Histórico: O usuário já tomou alguma decisão (não está mais pendente)
             condicao_historico = df_dados[colunas_validas].apply(
                 lambda col: col.str.startswith(("Aprovado", "Reprovado"), na=False)
             ).any(axis=1)
@@ -451,7 +446,7 @@ if is_aprovador:
             else:
                 for _, row in pendentes.iterrows():
                     id_chamado = row["ID"]
-                    descricao_produto = row.get("Descrição completa do produto", "Sem descrição do produto")
+                    descricao_produto = str(row.get("Descrição completa do produto", "Sem descrição"))
                     
                     with st.container(border=True):
                         st.markdown(f"#### Chamado #{id_chamado} — {descricao_produto}")
