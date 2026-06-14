@@ -414,8 +414,9 @@ if is_aprovador:
             pendentes = df_dados[df_dados["Status_Final"].astype(str).str.contains("Em análise", na=False)]
             
             condicao_historico = df_dados[colunas_validas].apply(
-                lambda col: col.str.startswith(("Aprovado", "Reprovado"), na=False)
+                lambda col: col.astype(str).str.startswith(("Aprovado", "Reprovado"), na=False)
             ).any(axis=1)
+            
             historico_aprovador = df_dados[condicao_historico]
         else:
             pendentes = pd.DataFrame()
