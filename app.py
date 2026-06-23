@@ -144,33 +144,56 @@ st.markdown("""
 # ==============================================================================
 # 3. Configurações de E-mail e Banco de Dados
 # ==============================================================================
-try:
-    df_usuarios = conn.read(worksheet="Config_Aprovadores", ttl="10m")
-except Exception as e:
-    st.error(f"Erro ao carregar a tabela de permissões: {e}")
-    df_usuarios = pd.DataFrame()
+ADMINS = [
+    "jonatan231196@gmail.com",
+    "debora.bairros@hmv.org.br",
+    "sandro.carmo@hmv.org.br"
+]
 
-if not df_usuarios.empty:
-    ADMINS = df_usuarios[df_usuarios["Alcada_Letra"] == "ADMIN"]["Email"].dropna().tolist()
-else:
-    ADMINS = ["jonatan231196@gmail.com"]
-
-ALCADAS_INFO = {}
-
-if not df_usuarios.empty:
-    df_aprovadores_tecnicos = df_usuarios[df_usuarios["Alcada_Letra"] != "ADMIN"]
-    
-    for letra, dados_grupo in df_aprovadores_tecnicos.groupby("Alcada_Letra"):
-        primeira_linha = dados_grupo.iloc[0]
-        
-        nome_coluna_sheets = f"Alçada {letra} - {primeira_linha['Label_Area']}"
-        
-        ALCADAS_INFO[letra] = {
-            "coluna_sheets": nome_coluna_sheets,
-            "label": f"{letra} - {primeira_linha['Label_Area']}",
-            "emails": dados_grupo["Email"].dropna().tolist(),
-            "prazo_util": int(primeira_linha.get("Prazo_Util", 5))
-        }
+ALCADAS_INFO = {
+    "V": {
+        "coluna_sheets": "Padronização (suprimentos)",
+        "label": "Padronização (Suprimentos)",
+        "prazo_util": 7,
+        "emails": ADMINS
+    },
+    "W": {
+        "coluna_sheets": "Segurança Ocupacional (prazo de análise: 7 dias úteis)",
+        "label": "Segurança Ocupacional",
+        "emails": ["jonatan231196@gmail.com"],
+        "prazo_util": 7
+    },
+    "X": {
+        "coluna_sheets": "Saúde Ocupacional (prazo de análise: 7 dias úteis)",
+        "label": "Saúde Ocupacional",
+        "emails": ["carolina.jagielski@hmv.org.br"],
+        "prazo_util": 7
+    },
+    "Y": {
+        "coluna_sheets": "SCI (prazo de análise: 5 dias úteis)",
+        "label": "SCI",
+        "emails": ["sandro.carmo@hmv.org.br"],
+        "prazo_util": 5
+    },
+    "Z": {
+        "coluna_sheets": "Engenharia clínica e eletromecânica (Prazo de análise: 5 dias úteis)",
+        "label": "Engenharia Clínica e Eletromecânica",
+        "emails": ["gustavo.oliveira@hmv.org.br"],
+        "prazo_util": 5
+    },
+    "AA": {
+        "coluna_sheets": "Gestão Ambiental (prazo de análise: 5 dias úteis)",
+        "label": "Gestão Ambiental",
+        "emails": ["gps.lidya@hmv.org.br"],
+        "prazo_util": 5
+    },
+    "AB": {
+        "coluna_sheets": "Prevenção de Incêndio (prazo de análise: 5 dias úteis)",
+        "label": "Prevenção de Incêndio",
+        "emails": ["debora.bairros@hmv.org.br"],
+        "prazo_util": 5
+    }
+}
 
 TODOS_SUB_APROVADORES = [email for alcada in ALCADAS_INFO.values() for email in alcada["emails"]]
 APROVADORES = list(set(ADMINS + TODOS_SUB_APROVADORES))
