@@ -142,62 +142,136 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. Configurações de E-mail e Banco de Dados
+# 3. Definição de Alçadas, Conexão e Validação de Usuários (Via Google Sheets)
 # ==============================================================================
-ADMINS = [
-    "jonatan231196@gmail.com",
-    "debora.bairros@hmv.org.br",
-    "sandro.carmo@hmv.org.br"
-]
+conn = st.connection("gsheets", type=GSheetsConnection)
 
+def carregar_dados():
+    try:
+        df = conn.read(ttl=0)
+        df = df.dropna(how="all")
+        if not df.empty:
+            if "ID" in df.columns:
+                df["ID"] = df["ID"].astype(int)
+        return df
+    except Exception as e:
+        st.error(f"Erro ao conectar com a planilha de dados: {e}")
+        return pd.DataFrame()
+
+try:
+    df_usuarios = conn.read(worksheet="Usuarios", ttl=10)
+except Exception as e:
+    st.error(f"Erro ao conectar com a tabela de usuários: {e}")
+    df_usuarios = pd.DataFrame()
+
+st.session_state["user_nome"] = "Novo Solicitante"
+st.session_state["user_perfil"] = "Solicitante"
+st.session_state["user_alcadas"] = []
+st.session_state["is_admin"] = False
+st.session_state["user_ativo"] = True
+
+ADMINS = []
+APROVADORES = []
+
+mapa_emails_alcadas = {
+    "Padronização (suprimentos)": [],
+    "Segurança Ocupacional": [],
+    "Saúde Ocupacional": [],
+    "SCI": [],
+    "Engenharia Clínica e Eletromecânica": [],
+    "Gestão Ambiental": [],
+    "Prevenção de Incêndio": []
+}
+
+if not df_usuarios.empty:
+    df_ativos = df_usuarios[df_usuarios["Ativo"].astype(str).str.strip().str.lower() == "sim"]
+    
+    ADMINS = df_ativos[df_ativos["Admin"].astype(str).str.strip().str.lower() == "sim"]["Email"].str.lower().tolist()
+    
+    for _, row in df_ativos.iterrows():
+        email_u = str(row.get("Email", "")).strip().lower()
+        perfil_u = str(row.get("Perfil", "")).strip()
+        alcadas_u = str(row.get("Alcada", "Nenhum")).strip()
+        
+        if perfil_u == "Aprovador" and alcadas_u.lower() != "nenhum":
+            lista_alcadas_usuario = [a.strip() for a in alcadas_u.split(",")]
+            for alc in lista_alcadas_usuario:
+                if alc in mapa_emails_alcadas:
+                    mapa_emails_alcadas[alc].append(email_u)
+                    
+            APROVADORES.append(email_u)
+
+    APROVADORES = list(set(ADMINS + APROVADORES))
+
+    user_row = df_usuarios[df_usuarios["Email"].str.lower() == user_email.lower()]
+    
+    if not user_row.empty:
+        usuario_info = user_row.iloc[0]
+        status_ativo = str(usuario_info.get("Ativo", "Não")).strip().lower() == "sim"
+        
+        if status_ativo:
+            st.session_state["user_nome"] = usuario_info.get("Nome", "Usuário")
+            st.session_state["user_perfil"] = usuario_info.get("Perfil", "Solicitante")
+            st.session_state["is_admin"] = str(usuario_info.get("Admin", "Não")).strip().lower() == "sim"
+            st.session_state["user_ativo"] = True
+            
+            alcada_raw = str(usuario_info.get("Alcada", "Nenhum"))
+            if alcada_raw and alcada_raw.lower() != "nenhum":
+                st.session_state["user_alcadas"] = [a.strip() for a in alcada_raw.split(",")]
+            else:
+                st.session_state["user_alcadas"] = []
+        else:
+            st.session_state["user_ativo"] = False
+            st.error("❌ Seu usuário está inativo no sistema. Procure o administrador.")
+            st.stop()
+
+# --- 3.3. DICIONÁRIO DE ALÇADAS ATUALIZADO (Integração Dinâmica) ---
 ALCADAS_INFO = {
     "V": {
         "coluna_sheets": "Padronização (suprimentos)",
         "label": "Padronização (Suprimentos)",
         "prazo_util": 7,
-        "emails": ADMINS
+        "emails": mapa_emails_alcadas["Padronização (suprimentos)"] if mapa_emails_alcadas["Padronização (suprimentos)"] else ADMINS
     },
     "W": {
         "coluna_sheets": "Segurança Ocupacional (prazo de análise: 7 dias úteis)",
         "label": "Segurança Ocupacional",
-        "emails": ["jonatan231196@gmail.com"],
-        "prazo_util": 7
+        "prazo_util": 7,
+        "emails": mapa_emails_alcadas["Segurança Ocupacional"] if mapa_emails_alcadas["Segurança Ocupacional"] else ADMINS
     },
     "X": {
         "coluna_sheets": "Saúde Ocupacional (prazo de análise: 7 dias úteis)",
         "label": "Saúde Ocupacional",
-        "emails": ["carolina.jagielski@hmv.org.br"],
-        "prazo_util": 7
+        "prazo_util": 7,
+        "emails": mapa_emails_alcadas["Saúde Ocupacional"] if mapa_emails_alcadas["Saúde Ocupacional"] else ADMINS
     },
     "Y": {
         "coluna_sheets": "SCI (prazo de análise: 5 dias úteis)",
         "label": "SCI",
-        "emails": ["sandro.carmo@hmv.org.br"],
-        "prazo_util": 5
+        "prazo_util": 5,
+        "emails": mapa_emails_alcadas["SCI"] if mapa_emails_alcadas["SCI"] else ADMINS
     },
     "Z": {
         "coluna_sheets": "Engenharia clínica e eletromecânica (Prazo de análise: 5 dias úteis)",
         "label": "Engenharia Clínica e Eletromecânica",
-        "emails": ["gustavo.oliveira@hmv.org.br"],
-        "prazo_util": 5
+        "prazo_util": 5,
+        "emails": mapa_emails_alcadas["Engenharia Clínica e Eletromecânica"] if mapa_emails_alcadas["Engenharia Clínica e Eletromecânica"] else ADMINS
     },
     "AA": {
         "coluna_sheets": "Gestão Ambiental (prazo de análise: 5 dias úteis)",
         "label": "Gestão Ambiental",
-        "emails": ["gps.lidya@hmv.org.br"],
-        "prazo_util": 5
+        "prazo_util": 5,
+        "emails": mapa_emails_alcadas["Gestão Ambiental"] if mapa_emails_alcadas["Gestão Ambiental"] else ADMINS
     },
     "AB": {
         "coluna_sheets": "Prevenção de Incêndio (prazo de análise: 5 dias úteis)",
         "label": "Prevenção de Incêndio",
-        "emails": ["debora.bairros@hmv.org.br"],
-        "prazo_util": 5
+        "prazo_util": 5,
+        "emails": mapa_emails_alcadas["Prevenção de Incêndio"] if mapa_emails_alcadas["Prevenção de Incêndio"] else ADMINS
     }
 }
 
-TODOS_SUB_APROVADORES = [email for alcada in ALCADAS_INFO.values() for email in alcada["emails"]]
-APROVADORES = list(set(ADMINS + TODOS_SUB_APROVADORES))
-
+# --- 3.4. DISPARO DE E-MAIL ---
 def enviar_email(destinatario, assunto, corpo_html):
     remetente = st.secrets.get("SMTP_EMAIL", "")
     senha = st.secrets.get("SMTP_PASSWORD", "")
@@ -217,20 +291,6 @@ def enviar_email(destinatario, assunto, corpo_html):
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
         return False
-
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-def carregar_dados():
-    try:
-        df = conn.read(ttl=0)
-        df = df.dropna(how="all")
-        if not df.empty:
-            if "ID" in df.columns:
-                df["ID"] = df["ID"].astype(int)
-        return df
-    except Exception as e:
-        st.error(f"Erro ao conectar com a planilha: {e}")
-        return pd.DataFrame()
 
 # ==============================================================================
 # 4. Configurações de login Google          
