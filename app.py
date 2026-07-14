@@ -486,7 +486,7 @@ with col_header2:
     st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Fluxo de envio de solicitações para aprovação.</p>", unsafe_allow_html=True)
 
 # ==============================================================================
-# 8. Tela aprovadores
+# 8. Tela aprovadores e Gerenciamento de Usuários (Persistido no Sheets)
 # ==============================================================================
 if is_aprovador:
     
@@ -495,123 +495,157 @@ if is_aprovador:
     # --------------------------------------------------------------------------
     if st.session_state.get("is_admin", False) and st.session_state.get("pagina_atual") == "gerenciar_aprovadores":
         st.markdown("---")
-        st.title("⚙️ Configurações de Aprovadores e Alçadas")
-        st.markdown("Adicione, remova ou altere os e-mails dos responsáveis por cada alçada técnica do comitê.")
+        st.title("⚙️ Configurações de Usuários, Aprovadores e Alçadas")
+        st.markdown("Gerencie os acessos, perfis e alçadas técnicas diretamente integrados à aba **Usuarios** da sua planilha.")
         st.markdown("---")
         
-        # --- VISUALIZAÇÃO ATUAL ---
-        st.subheader("👥 Aprovadores Cadastrados por Alçada")
+        # 1. LEITURA DOS DADOS DA NOVA ABA "Usuarios"
+        try:
+            # Lendo a aba de Usuários via conexão gsheets já existente
+            df_usuarios = conn.read(worksheet="Usuarios")
+        except Exception as e:
+            st.error("❌ Erro ao ler a aba 'Usuarios' no Google Sheets. Verifique se o nome da aba está correto.")
+            st.info("As colunas esperadas na aba são: Email, Nome, Perfil, Alcada, Admin, Ativo, Data_Cadastro")
+            df_usuarios = pd.DataFrame(columns=["Email", "Nome", "Perfil", "Alcada", "Admin", "Ativo", "Data_Cadastro"])
+
+        # Garante tratamento de strings e preenchimentos vazios
+        if not df_usuarios.empty:
+            df_usuarios["Email"] = df_usuarios["Email"].astype(str).str.strip().str.lower()
+            df_usuarios["Ativo"] = df_usuarios["Ativo"].astype(str).str.strip().str.upper()
+            df_usuarios["Admin"] = df_usuarios["Admin"].astype(str).str.strip().str.upper()
         
-        dados_aprovadores = []
-        for chave, info in ALCADAS_INFO.items():
-            # Tratamento caso o valor de e-mails seja uma lista ou string simples
-            emails_atuais = info.get("emails", info.get("email", []))
-            if isinstance(emails_atuais, list):
-                emails_str = ", ".join(emails_atuais)
-            else:
-                emails_str = str(emails_atuais)
-                
-            dados_aprovadores.append({
-                "Alçada / Área": info.get("label", chave),
-                "Coluna no Sheets": info.get("coluna_sheets", ""),
-                "E-mails dos Responsáveis": emails_str
-            })
-        
-        df_aprovadores_view = pd.DataFrame(dados_aprovadores)
-        st.dataframe(df_aprovadores_view, use_container_width=True, hide_index=True)
+        # --- VISUALIZAÇÃO ATUAL DOS USUÁRIOS NO SHEETS ---
+        st.subheader("👥 Usuários Cadastrados na Planilha")
+        if not df_usuarios.empty:
+            st.dataframe(
+                df_usuarios, 
+                column_config={
+                    "Email": st.column_config.TextColumn("E-mail"),
+                    "Nome": st.column_config.TextColumn("Nome Completo"),
+                    "Perfil": st.column_config.TextColumn("Perfil"),
+                    "Alcada": st.column_config.TextColumn("Alçadas Associadas"),
+                    "Admin": st.column_config.TextColumn("Administrador (SIM/NÃO)"),
+                    "Ativo": st.column_config.TextColumn("Status Ativo (SIM/NÃO)"),
+                    "Data_Cadastro": st.column_config.TextColumn("Data de Cadastro")
+                },
+                use_container_width=True, 
+                hide_index=True
+            )
+        else:
+            st.warning("⚠️ Nenhum usuário encontrado na aba 'Usuarios' do Google Sheets.")
         
         st.markdown("---")
         
-        # --- OPERAÇÕES ---
-        tab_alterar, tab_novo_aprovador, tab_excluir = st.tabs([
-            "✏️ Alterar Responsáveis", 
-            "➕ Cadastrar Nova Alçada", 
-            "❌ Excluir Alçada"
+        # --- OPERAÇÕES (TABS) ---
+        tab_salvar_usuario, tab_excluir_usuario = st.tabs([
+            "💾 Cadastrar / Alterar Usuário", 
+            "❌ Remover Usuário"
         ])
         
-        # 1. ALTERAR RESPONSÁVEIS
-        with tab_alterar:
-            st.markdown("### Alterar e-mails de uma alçada existente")
-            with st.form("form_alterar_aprovador"):
-                alcada_selecionada = st.selectbox(
-                    "Selecione a Alçada:", 
-                    options=list(ALCADAS_INFO.keys()),
-                    format_func=lambda x: ALCADAS_INFO[x].get("label", x)
-                )
-                novos_emails_input = st.text_input(
-                    "Novos e-mails dos Responsáveis (separe por vírgula se houver mais de um):",
-                    help="Exemplo: aprovador1@moinhos.com.br, aprovador2@moinhos.com.br"
-                )
-                botao_alterar = st.form_submit_button("Salvar Alteração", use_container_width=True)
+        # Lista de Alçadas disponíveis no sistema para gerar os Checkboxes
+        lista_alcadas_disponiveis = [ALCADAS_INFO[chave].get("label", chave) for chave in ALCADAS_INFO.keys()]
+        
+        # 1. CADASTRAR OU ALTERAR USUÁRIO (Preenchimento amigável com Checkboxes)
+        with tab_salvar_usuario:
+            st.markdown("### Salvar ou Atualizar Informações de Usuário")
+            st.caption("Caso o e-mail digitado já exista, o cadastro correspondente será atualizado.")
+            
+            with st.form("form_usuario_sheets"):
+                email_input = st.text_input("E-mail do Usuário (Chave Única):").strip().lower()
+                nome_input = st.text_input("Nome Completo:")
+                perfil_input = st.selectbox("Perfil de Acesso:", ["Aprovador", "Solicitante", "Visualizador"])
                 
-                if botao_alterar:
-                    if not novos_emails_input.strip():
-                        st.error("❌ Por favor, insira ao menos um e-mail válido.")
+                # Interface de Checkboxes para selecionar alçadas
+                st.markdown("**Selecione as Alçadas Técnicas deste usuário:**")
+                alcadas_selecionadas = []
+                
+                # Renderiza em colunas os checkboxes para ficar visualmente limpo
+                col_checkboxes = st.columns(2)
+                for idx, nome_alcada in enumerate(lista_alcadas_disponiveis):
+                    col_index = idx % 2
+                    with col_checkboxes[col_index]:
+                        if st.checkbox(nome_alcada, key=f"check_alcada_{nome_alcada}"):
+                            alcadas_selecionadas.append(nome_alcada)
+                
+                col_status1, col_status2 = st.columns(2)
+                with col_status1:
+                    is_admin_input = st.selectbox("É Administrador?", ["NÃO", "SIM"])
+                with col_status2:
+                    is_ativo_input = st.selectbox("Usuário Ativo?", ["SIM", "NÃO"])
+                
+                botao_salvar_usr = st.form_submit_button("Salvar Usuário na Planilha", use_container_width=True)
+                
+                if botao_salvar_usr:
+                    if not email_input or "@" not in email_input:
+                        st.error("❌ Forneça um e-mail válido para identificação.")
+                    elif not nome_input.strip():
+                        st.error("❌ O nome do usuário não pode ficar em branco.")
                     else:
-                        lista_emails = [email.strip() for email in novos_emails_input.split(",") if "@" in email]
-                        if not lista_emails:
-                            st.error("❌ Nenhum e-mail válido com formato '@' foi identificado.")
+                        # Converte a lista de alçadas selecionadas em uma string separada por vírgulas
+                        string_alcadas = ", ".join(alcadas_selecionadas) if alcadas_selecionadas else "Nenhuma"
+                        
+                        fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
+                        data_atual_str = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
+                        
+                        # Nova linha estruturada exatamente com as colunas da aba
+                        nova_linha = {
+                            "Email": email_input,
+                            "Nome": nome_input,
+                            "Perfil": perfil_input,
+                            "Alcada": string_alcadas,
+                            "Admin": is_admin_input,
+                            "Ativo": is_ativo_input,
+                            "Data_Cadastro": data_atual_str
+                        }
+                        
+                        # Se já existir o e-mail na base, atualiza. Caso contrário, adiciona.
+                        if not df_usuarios.empty and email_input in df_usuarios["Email"].values:
+                            # Atualiza a linha correspondente
+                            idx_existente = df_usuarios[df_usuarios["Email"] == email_input].index[0]
+                            for col, valor in nova_linha.items():
+                                df_usuarios.at[idx_existente, col] = valor
+                            msg_sucesso = f"🔄 Cadastro do usuário `{email_input}` atualizado com sucesso!"
                         else:
-                            ALCADAS_INFO[alcada_selecionada]["emails"] = lista_emails
-                            # Se houver suporte à chave "email" única para compatibilidade, atualizamos também
-                            ALCADAS_INFO[alcada_selecionada]["email"] = lista_emails[0]
-                            st.success(f"✅ E-mail(s) da alçada '{ALCADAS_INFO[alcada_selecionada]['label']}' atualizado(s) com sucesso!")
+                            # Adiciona nova linha
+                            df_nova_linha = pd.DataFrame([nova_linha])
+                            df_usuarios = pd.concat([df_usuarios, df_nova_linha], ignore_index=True)
+                            msg_sucesso = f"🎉 Usuário `{email_input}` cadastrado com sucesso!"
+                        
+                        # Grava de volta na aba "Usuarios" do Google Sheets
+                        try:
+                            conn.update(worksheet="Usuarios", data=df_usuarios)
+                            st.success(msg_sucesso)
                             time.sleep(1.5)
                             st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao salvar dados na aba 'Usuarios': {e}")
 
-        # 2. CADASTRAR NOVA ALÇADA
-        with tab_novo_aprovador:
-            st.markdown("### Cadastrar nova área técnica de aprovação")
-            st.info("💡 Lembre-se: adicionar uma nova alçada exige que a planilha gsheets possua a coluna correspondente criada.")
-            with st.form("form_novo_aprovador"):
-                nova_chave = st.text_input("ID/Chave da Alçada (Ex: eng_clinica):").strip().lower()
-                novo_label = st.text_input("Nome de Exibição (Ex: ENG_CLINICA - Engenharia Clínica):")
-                nova_coluna_sheets = st.text_input("Nome exato da Coluna no Sheets (Ex: Voto_Eng_Clinica):").strip()
-                emails_novo_input = st.text_input("E-mail(s) do(s) Responsável(eis) (separe por vírgula):")
-                prazo_novo = st.number_input("Prazo de análise padrão (Dias Úteis):", min_value=1, value=5)
-                botao_cadastrar = st.form_submit_button("Cadastrar Nova Alçada", use_container_width=True)
-                
-                if botao_cadastrar:
-                    if not nova_chave or not novo_label or not nova_coluna_sheets or not emails_novo_input:
-                        st.error("❌ Todos os campos são obrigatórios.")
-                    else:
-                        lista_emails = [email.strip() for email in emails_novo_input.split(",") if "@" in email]
-                        if not lista_emails:
-                            st.error("❌ Forneça ao menos um e-mail válido com '@'.")
+        # 2. EXCLUIR USUÁRIO
+        with tab_excluir_usuario:
+            st.markdown("### Remover Usuário da Planilha")
+            st.warning("⚠️ Esta ação removerá permanentemente o usuário da base de dados no Sheets.")
+            
+            if not df_usuarios.empty:
+                emails_exclusao = df_usuarios["Email"].tolist()
+                with st.form("form_excluir_usuario"):
+                    email_excluir = st.selectbox("Selecione o E-mail para Remover:", options=emails_exclusao)
+                    confirmar_exclusao = st.checkbox("Confirmo que desejo apagar o registro deste usuário.")
+                    botao_excluir_usr = st.form_submit_button("Excluir Permanente", use_container_width=True)
+                    
+                    if botao_excluir_usr:
+                        if not confirmar_exclusao:
+                            st.error("❌ Marque a caixa de confirmação para poder prosseguir.")
                         else:
-                            ALCADAS_INFO[nova_chave] = {
-                                "label": novo_label,
-                                "coluna_sheets": nova_coluna_sheets,
-                                "emails": lista_emails,
-                                "email": lista_emails[0],
-                                "prazo_util": int(prazo_novo)
-                            }
-                            st.success(f"🎉 Nova alçada '{novo_label}' cadastrada localmente com sucesso!")
-                            time.sleep(1.5)
-                            st.rerun()
-
-        # 3. EXCLUIR ALÇADA
-        with tab_excluir:
-            st.markdown("### Remover alçada do fluxo técnico")
-            st.warning("⚠️ Atenção: Remover uma alçada fará com que o sistema ignore as validações desta coluna.")
-            with st.form("form_excluir_aprovador"):
-                alcada_excluir = st.selectbox(
-                    "Selecione a Alçada para Remover:", 
-                    options=list(ALCADAS_INFO.keys()),
-                    format_func=lambda x: ALCADAS_INFO[x].get("label", x)
-                )
-                confirmar = st.checkbox("Estou ciente de que esta ação alterará as regras de fluxo de aprovação.")
-                botao_excluir = st.form_submit_button("Excluir Alçada", use_container_width=True)
-                
-                if botao_excluir:
-                    if not confirmar:
-                        st.error("❌ Você precisa marcar a caixa de confirmação para prosseguir.")
-                    else:
-                        nome_removido = ALCADAS_INFO[alcada_excluir].get("label", alcada_excluir)
-                        del ALCADAS_INFO[alcada_excluir]
-                        st.success(f"🗑️ Alçada '{nome_removido}' removida com sucesso!")
-                        time.sleep(1.5)
-                        st.rerun()
+                            df_usuarios = df_usuarios[df_usuarios["Email"] != email_excluir]
+                            try:
+                                conn.update(worksheet="Usuarios", data=df_usuarios)
+                                st.success(f"🗑️ Usuário `{email_excluir}` removido com sucesso!")
+                                time.sleep(1.5)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Erro ao salvar as alterações de exclusão no Sheets: {e}")
+            else:
+                st.info("Nenhum usuário cadastrado para remoção.")
                         
     # --------------------------------------------------------------------------
     # PAINEL DE CONTROLE PRINCIPAL ORIGINAL (Sem alterações no seu fluxo operacional)
