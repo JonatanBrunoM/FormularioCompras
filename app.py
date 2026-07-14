@@ -171,6 +171,9 @@ st.session_state["user_alcadas"] = []
 st.session_state["is_admin"] = False
 st.session_state["user_ativo"] = True
 
+if "pagina_atual" not in st.session_state:
+    st.session_state["pagina_atual"] = "painel_principal"
+
 ADMINS = []
 APROVADORES = []
 
@@ -435,6 +438,23 @@ avatar_html = f"""
 """
 st.sidebar.markdown(avatar_html, unsafe_allow_html=True)
 
+# ------------------------------------------------------------------------------
+# Menu de Configurações para Administradores <<<
+# ------------------------------------------------------------------------------
+if st.session_state.get("is_admin", False):
+    st.sidebar.markdown("<br>", unsafe_allow_html=True)
+    st.sidebar.markdown("⚙️ **Painel Administrativo**")
+    
+    if st.session_state.get("pagina_atual") == "painel_principal":
+        if st.sidebar.button("⚙️ Gerenciar Aprovadores", use_container_width=True):
+            st.session_state["pagina_atual"] = "gerenciar_aprovadores"
+            st.rerun()
+            
+    elif st.session_state.get("pagina_atual") == "gerenciar_aprovadores":
+        if st.sidebar.button("⬅️ Voltar ao Painel", use_container_width=True):
+            st.session_state["pagina_atual"] = "painel_principal"
+            st.rerun()
+
 st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 if st.sidebar.button("Sair do Sistema", use_container_width=True):
     try:
@@ -469,439 +489,569 @@ with col_header2:
 # 8. Tela aprovadores
 # ==============================================================================
 if is_aprovador:
-    st.markdown("---")
     
-    colunas_permitidas_usuario = []
-    is_user_admin = user_email in ADMINS
-    
-    for letra_col, info_alcada in ALCADAS_INFO.items():
-        nome_coluna_sheets = info_alcada["coluna_sheets"]
-        if is_user_admin or user_email in info_alcada["emails"]:
-            colunas_permitidas_usuario.append(nome_coluna_sheets)
-
-    if not df_dados.empty:
-        colunas_validas = [c for c in colunas_permitidas_usuario if c in df_dados.columns]
+    # --------------------------------------------------------------------------
+    # NOVO: Se for Admin e a página selecionada for a de Gerenciamento de Aprovadores
+    # --------------------------------------------------------------------------
+    if st.session_state.get("is_admin", False) and st.session_state.get("pagina_atual") == "gerenciar_aprovadores":
+        st.markdown("---")
+        st.title("⚙️ Configurações de Aprovadores e Alçadas")
+        st.markdown("Adicione, remova ou altere os e-mails dos responsáveis por cada alçada técnica do comitê.")
+        st.markdown("---")
         
-        if colunas_validas:
-            condicao_pendente = (df_dados["Status_Final"] == "Em análise") & (
-                df_dados[colunas_validas].eq("Pendente").any(axis=1)
-            )
-            pendentes = df_dados[df_dados["Status_Final"].astype(str).str.contains("Em análise", na=False)]
-            
-            condicao_historico = df_dados[colunas_validas].apply(
-                lambda col: col.astype(str).str.startswith(("Aprovar", "Reprovar"), na=False)
-            ).any(axis=1)
-            
-            historico_aprovador = df_dados[condicao_historico]
-        else:
-            pendentes = pd.DataFrame()
-            historico_aprovador = pd.DataFrame()
+        # --- VISUALIZAÇÃO ATUAL ---
+        st.subheader("👥 Aprovadores Cadastrados por Alçada")
         
-        # Indicadores do Topo
-        m1, m2, m3 = st.columns(3)
-        with m1: st.metric("Suas Pendências de Área", len(pendentes))
-        with m2: st.metric("Aprovados Gerais no Sheets", len(df_dados[df_dados["Status_Final"] == "Aprovado"]))
-        with m3: st.metric("Reprovados Gerais no Sheets", len(df_dados[df_dados["Status_Final"] == "Reprovado"]))
+        dados_aprovadores = []
+        for chave, info in ALCADAS_INFO.items():
+            # Tratamento caso o valor de e-mails seja uma lista ou string simples
+            emails_atuais = info.get("emails", info.get("email", []))
+            if isinstance(emails_atuais, list):
+                emails_str = ", ".join(emails_atuais)
+            else:
+                emails_str = str(emails_atuais)
+                
+            dados_aprovadores.append({
+                "Alçada / Área": info.get("label", chave),
+                "Coluna no Sheets": info.get("coluna_sheets", ""),
+                "E-mails dos Responsáveis": emails_str
+            })
+        
+        df_aprovadores_view = pd.DataFrame(dados_aprovadores)
+        st.dataframe(df_aprovadores_view, use_container_width=True, hide_index=True)
         
         st.markdown("---")
         
-        tab_pendentes, tab_hist_aprovador, tab_logs, tab_indicadores = st.tabs([
-            "Minhas pendências", 
-            "Histórico de decisões",
-            "Log de atividades",
-            "Indicadores"
+        # --- OPERAÇÕES ---
+        tab_alterar, tab_novo_aprovador, tab_excluir = st.tabs([
+            "✏️ Alterar Responsáveis", 
+            "➕ Cadastrar Nova Alçada", 
+            "❌ Excluir Alçada"
         ])
         
-        # ----------------------------------------------------------------------
-        # 8.1. Aba "Minhas pendências"
-        # ----------------------------------------------------------------------
-        with tab_pendentes:
-            st.markdown("### Solicitações aguardando seu parecer técnico")
-            if pendentes.empty:
-                st.success("Nenhuma solicitação pendente para a sua alçada técnica no momento.")
-            else:
-                for _, row in pendentes.iterrows():
-                    id_chamado = row["ID"]
-                    descricao_produto = str(row.get("Descrição completa do produto", "Sem descrição"))
-                    
-                    with st.container(border=True):
-                        st.markdown(f"#### Chamado #{id_chamado} — {descricao_produto}")
-                        st.markdown(f"**Solicitante:** {row.get('Nome solicitante', row.get('Nome', 'Não informado'))} (`{row.get('Endereço de e-mail', '')}`)")
-                        
-                        with st.expander("🔍 Visualizar detalhes completos da solicitação", expanded=True):
-                            st.markdown("---")
-                            st.markdown("Dados Preenchidos no Formulário:")
-                            
-                            col_detalhe1, col_detalhe2 = st.columns(2)
-                            with col_detalhe1:
-                                st.markdown(f"**Descrição do Produto:** {row.get('Descrição completa do produto', 'N/A')}")
-                                st.markdown(f"**Apresentação/Volume:** {row.get('Apresentação/volume', 'N/A')}")
-                                st.markdown(f"**Fabricante/Fornecedor:** {row.get('Fabricante/fornecedor', 'N/A')}")
-                                st.markdown(f"**Área e Indicação de Uso:** {row.get('Área onde será utilizado e indicação detalhada de uso do produto', 'N/A')}")
-
-                            with col_detalhe2:
-                                st.markdown(f"**Contato do Fornecedor:** {row.get('Informações de contato do fornecedor (nome, e-mail e telefone)', 'N/A')}")
-                                st.markdown(f"**Uso atual SEM o produto:** {row.get('Explique como o procedimento/atividade atual é realizado SEM este produto:', 'N/A')}")
-                                st.markdown(f"**Gera resíduo perigoso?:** {row.get('O item solicitado gera resíduo perigoso?', 'N/A')}")
-                                st.markdown(f"**Possui estudos científicos?:** {row.get('O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.', 'N/A')}")
-
-                            if "Arquivos anexados" in row and row["Arquivos anexados"] not in ["Nenhum arquivo anexado", "Nenhum arquivo adicional", ""]:
-                                st.markdown("**Documentação Adicional:**")
-                            link_anexo = row.get("Link_Anexo", row.get("Arquivos anexados", ""))
-                            
-                            if isinstance(link_anexo, str) and link_anexo.strip() not in ["", "nan", "None", "Nenhum arquivo anexado", "Nenhum arquivo adicional"]:
-                                st.link_button("Abrir anexos no Google Drive", link_anexo, use_container_width=True)
-                            else:
-                                st.caption("Nenhum arquivo adicional anexado.")
-                            
-                            if "Anexar FDS" in row and row["Anexar FDS"] not in ["", "Não aplicável"]:
-                                st.markdown("**Ficha de Dados de Segurança (FDS):**")
-                                st.link_button("Abrir FDS", row["Anexar FDS"], use_container_width=True)
-                            st.markdown("---")
-                        
-                        st.markdown("<br><b>Seu parecer técnico:</b>", unsafe_allow_html=True)
-                        
-                        for letra_col, info in ALCADAS_INFO.items():
-                            col_voto = info["coluna_sheets"]
-                            
-                            if col_voto in colunas_validas and row[col_voto] == "Pendente":
-                                with st.container(border=True):
-                                    st.markdown(f"**Alçada:** `{info['label']}`")
-                                    
-                                    key_voto = f"voto_escolha_{id_chamado}_{letra_col}"
-                                    key_parecer = f"parecer_text_{id_chamado}_{letra_col}"
-                                    
-                                    voto_opcao = st.radio(
-                                        "Decisão da Alçada:",
-                                        options=["Aprovar", "Aprovar com ressalva", "Reprovar"],
-                                        format_func=lambda x: "👍 Aprovar" if x == "Aprovar" else "⚠️ Aprovar com ressalva" if x == "Aprovar com ressalva" else "👎 Reprovar",
-                                        index=None,
-                                        horizontal=True,
-                                        key=key_voto
-                                    )
-                                    
-                                    if voto_opcao:
-                                        parecer_obrigatorio = voto_opcao in ["Aprovar com ressalva", "Reprovar"]
-                                        label_parecer = f"Parecer técnico para {info['label']} (Obrigatório):" if parecer_obrigatorio else f"Parecer técnico para {info['label']} (Opcional):"
-                                        
-                                        parecer_texto = st.text_area(label_parecer, key=key_parecer)
-                                        
-                                        if st.button(f"Confirmar parecer {info['label']}", key=f"btn_salvar_{id_chamado}_{letra_col}", type="primary"):
-                                            if parecer_obrigatorio and not parecer_texto.strip():
-                                                st.error(f"Por favor, preencha o campo Parecer. Ele é obrigatório para decisões de '{voto_opcao}'.")
-                                            else:
-                                                fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
-                                                timestamp_atual = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
-                                                
-                                                aprovador_nome_seguro = st.session_state.get('name', user_name)
-                                                if not aprovador_nome_seguro or str(aprovador_nome_seguro).strip() in ["None", ""]:
-                                                    aprovador_nome_seguro = f"Aprovador {info['label']}"
-                                                
-                                                texto_parecer_limpo = parecer_texto.strip().replace("\n", " ")
-                                                
-                                                if texto_parecer_limpo:
-                                                    conteudo_coluna = f"{voto_opcao} ({timestamp_atual} - {aprovador_nome_seguro}: {texto_parecer_limpo})"
-                                                else:
-                                                    conteudo_coluna = f"{voto_opcao} ({timestamp_atual} - {aprovador_nome_seguro})"
-                                                
-                                                df_dados.loc[df_dados["ID"] == id_chamado, col_voto] = conteudo_coluna
-                                                
-                                                linha_atualizada = df_dados[df_dados["ID"] == id_chamado].iloc[0]
-                                                todos_votos_valores = [str(linha_atualizada[inf["coluna_sheets"]]) for inf in ALCADAS_INFO.values() if inf["coluna_sheets"] in df_dados.columns]
-                                                
-                                                reprovados_count = sum(1 for v in todos_votos_valores if v.startswith("Reprovar"))
-                                                aprovados_count = sum(1 for v in todos_votos_valores if v.startswith(("Aprovar", "Aprovar com ressalva")))
-                                                
-                                                if reprovados_count > 0:
-                                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
-                                                    html_fim = f"<h3>CAPROQ: Chamado #{id_chamado} Indeferido</h3><p>O processo foi encerrado pois recebeu parecer desfavorável na alçada técnica: {info['label']}.</p><p><b>Parecer registrado:</b> {parecer_texto}</p>"
-                                                    enviar_email(destinatario=row["Endereço de e-mail"], assunto=f"CAPROQ: Processo Encerrado (Reprovado) - #{id_chamado}", corpo_html=html_fim)
-                                                
-                                                elif aprovados_count == len(ALCADAS_INFO):
-                                                    df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
-                                                    html_fim = f"<h3>CAPROQ: Chamado #{id_chamado} Homologado!</h3><p>A solicitação foi integralmente aprovada (com ou sem ressalvas) por todas as alçadas do comitê técnico.</p>"
-                                                    enviar_email(destinatario=row["Endereço de e-mail"], assunto=f"CAPROQ: Homologação Concluída - #{id_chamado}", corpo_html=html_fim)
-                                                
-                                                conn.update(data=df_dados)
-                                                st.success("Seu parecer técnico foi computado com sucesso!")
-                                                time.sleep(1.2)
-                                                st.rerun()
-
-        # ----------------------------------------------------------------------
-        # 8.2. Aba "Histórico de decisões"
-        # ----------------------------------------------------------------------
-        with tab_hist_aprovador:
-            st.markdown("### 📋 Acompanhamento e histórico de deliberações")
-            st.caption("Veja abaixo o andamento detalhado e os prazos de resposta de cada alçada técnica.")
-            
-            if historico_aprovador.empty:
-                st.info("Sua alçada técnica atual ainda não emitiu votos históricos no sistema.")
-            else:
-
-                for _, row in historico_aprovador.iterrows():
-                    id_c = int(row['ID'])
-                    desc_h = row.get("Descrição completa do produto", "Sem descrição")
-                    
-                    carimbo_original = row.get('Carimbo de data/hora', row.get('Timestamp', ''))
-                    
-                    with st.expander(f"📦 Chamado #{id_c} — {desc_h} (Status Geral: {row['Status_Final']})"):
-                        
-                        dt_abertura = None
-                        if carimbo_original and str(carimbo_original).strip() not in ["nan", "None", ""]:
-                            try:
-                                data_limpa = str(carimbo_original).split()[0]
-                                dt_abertura = pd.to_datetime(data_limpa, dayfirst=True)
-                            except:
-                                dt_abertura = None
-
-                        if dt_abertura:
-                            st.markdown(f"⏱️ **Data de Abertura:** {dt_abertura.strftime('%d/%m/%Y')}")
+        # 1. ALTERAR RESPONSÁVEIS
+        with tab_alterar:
+            st.markdown("### Alterar e-mails de uma alçada existente")
+            with st.form("form_alterar_aprovador"):
+                alcada_selecionada = st.selectbox(
+                    "Selecione a Alçada:", 
+                    options=list(ALCADAS_INFO.keys()),
+                    format_func=lambda x: ALCADAS_INFO[x].get("label", x)
+                )
+                novos_emails_input = st.text_input(
+                    "Novos e-mails dos Responsáveis (separe por vírgula se houver mais de um):",
+                    help="Exemplo: aprovador1@moinhos.com.br, aprovador2@moinhos.com.br"
+                )
+                botao_alterar = st.form_submit_button("Salvar Alteração", use_container_width=True)
+                
+                if botao_alterar:
+                    if not novos_emails_input.strip():
+                        st.error("❌ Por favor, insira ao menos um e-mail válido.")
+                    else:
+                        lista_emails = [email.strip() for email in novos_emails_input.split(",") if "@" in email]
+                        if not lista_emails:
+                            st.error("❌ Nenhum e-mail válido com formato '@' foi identificado.")
                         else:
-                            st.markdown("⚠️ *Data de abertura não identificada para cálculo de prazos.*")
+                            ALCADAS_INFO[alcada_selecionada]["emails"] = lista_emails
+                            # Se houver suporte à chave "email" única para compatibilidade, atualizamos também
+                            ALCADAS_INFO[alcada_selecionada]["email"] = lista_emails[0]
+                            st.success(f"✅ E-mail(s) da alçada '{ALCADAS_INFO[alcada_selecionada]['label']}' atualizado(s) com sucesso!")
+                            time.sleep(1.5)
+                            st.rerun()
+
+        # 2. CADASTRAR NOVA ALÇADA
+        with tab_novo_aprovador:
+            st.markdown("### Cadastrar nova área técnica de aprovação")
+            st.info("💡 Lembre-se: adicionar uma nova alçada exige que a planilha gsheets possua a coluna correspondente criada.")
+            with st.form("form_novo_aprovador"):
+                nova_chave = st.text_input("ID/Chave da Alçada (Ex: eng_clinica):").strip().lower()
+                novo_label = st.text_input("Nome de Exibição (Ex: ENG_CLINICA - Engenharia Clínica):")
+                nova_coluna_sheets = st.text_input("Nome exato da Coluna no Sheets (Ex: Voto_Eng_Clinica):").strip()
+                emails_novo_input = st.text_input("E-mail(s) do(s) Responsável(eis) (separe por vírgula):")
+                prazo_novo = st.number_input("Prazo de análise padrão (Dias Úteis):", min_value=1, value=5)
+                botao_cadastrar = st.form_submit_button("Cadastrar Nova Alçada", use_container_width=True)
+                
+                if botao_cadastrar:
+                    if not nova_chave or not novo_label or not nova_coluna_sheets or not emails_novo_input:
+                        st.error("❌ Todos os campos são obrigatórios.")
+                    else:
+                        lista_emails = [email.strip() for email in emails_novo_input.split(",") if "@" in email]
+                        if not lista_emails:
+                            st.error("❌ Forneça ao menos um e-mail válido com '@'.")
+                        else:
+                            ALCADAS_INFO[nova_chave] = {
+                                "label": novo_label,
+                                "coluna_sheets": nova_coluna_sheets,
+                                "emails": lista_emails,
+                                "email": lista_emails[0],
+                                "prazo_util": int(prazo_novo)
+                            }
+                            st.success(f"🎉 Nova alçada '{novo_label}' cadastrada localmente com sucesso!")
+                            time.sleep(1.5)
+                            st.rerun()
+
+        # 3. EXCLUIR ALÇADA
+        with tab_excluir:
+            st.markdown("### Remover alçada do fluxo técnico")
+            st.warning("⚠️ Atenção: Remover uma alçada fará com que o sistema ignore as validações desta coluna.")
+            with st.form("form_excluir_aprovador"):
+                alcada_excluir = st.selectbox(
+                    "Selecione a Alçada para Remover:", 
+                    options=list(ALCADAS_INFO.keys()),
+                    format_func=lambda x: ALCADAS_INFO[x].get("label", x)
+                )
+                confirmar = st.checkbox("Estou ciente de que esta ação alterará as regras de fluxo de aprovação.")
+                botao_excluir = st.form_submit_button("Excluir Alçada", use_container_width=True)
+                
+                if botao_excluir:
+                    if not confirmar:
+                        st.error("❌ Você precisa marcar a caixa de confirmação para prosseguir.")
+                    else:
+                        nome_removido = ALCADAS_INFO[alcada_excluir].get("label", alcada_excluir)
+                        del ALCADAS_INFO[alcada_excluir]
+                        st.success(f"🗑️ Alçada '{nome_removido}' removida com sucesso!")
+                        time.sleep(1.5)
+                        st.rerun()
                         
-                        st.markdown("---")
-                        st.markdown("**Situação por Alçada Técnica:**")
+    # --------------------------------------------------------------------------
+    # PAINEL DE CONTROLE PRINCIPAL ORIGINAL (Sem alterações no seu fluxo operacional)
+    # --------------------------------------------------------------------------
+    else:
+        st.markdown("---")
+        
+        colunas_permitidas_usuario = []
+        is_user_admin = user_email in ADMINS
+        
+        for letra_col, info_alcada in ALCADAS_INFO.items():
+            nome_coluna_sheets = info_alcada["coluna_sheets"]
+            # Suporte para validação se "emails" for uma lista ou se "email" for uma string
+            emails_alcada = info_alcada.get("emails", [])
+            if not isinstance(emails_alcada, list):
+                emails_alcada = [emails_alcada]
+            if "email" in info_alcada and info_alcada["email"] not in emails_alcada:
+                emails_alcada.append(info_alcada["email"])
+                
+            if is_user_admin or user_email in emails_alcada:
+                colunas_permitidas_usuario.append(nome_coluna_sheets)
+
+        if not df_dados.empty:
+            colunas_validas = [c for c in colunas_permitidas_usuario if c in df_dados.columns]
+            
+            if colunas_validas:
+                condicao_pendente = (df_dados["Status_Final"] == "Em análise") & (
+                    df_dados[colunas_validas].eq("Pendente").any(axis=1)
+                )
+                pendentes = df_dados[df_dados["Status_Final"].astype(str).str.contains("Em análise", na=False)]
+                
+                condicao_historico = df_dados[colunas_validas].apply(
+                    lambda col: col.astype(str).str.startswith(("Aprovar", "Reprovar"), na=False)
+                ).any(axis=1)
+                
+                historico_aprovador = df_dados[condicao_historico]
+            else:
+                pendentes = pd.DataFrame()
+                historico_aprovador = pd.DataFrame()
+            
+            # Indicadores do Topo
+            m1, m2, m3 = st.columns(3)
+            with m1: st.metric("Suas Pendências de Área", len(pendentes))
+            with m2: st.metric("Aprovados Gerais no Sheets", len(df_dados[df_dados["Status_Final"] == "Aprovado"]))
+            with m3: st.metric("Reprovados Gerais no Sheets", len(df_dados[df_dados["Status_Final"] == "Reprovado"]))
+            
+            st.markdown("---")
+            
+            tab_pendentes, tab_hist_aprovador, tab_logs, tab_indicadores = st.tabs([
+                "Minhas pendências", 
+                "Histórico de decisões",
+                "Log de atividades",
+                "Indicadores"
+            ])
+            
+            # ----------------------------------------------------------------------
+            # 8.1. Aba "Minhas pendências"
+            # ----------------------------------------------------------------------
+            with tab_pendentes:
+                st.markdown("### Solicitações aguardando seu parecer técnico")
+                if pendentes.empty:
+                    st.success("Nenhuma solicitação pendente para a sua alçada técnica no momento.")
+                else:
+                    for _, row in pendentes.iterrows():
+                        id_chamado = row["ID"]
+                        descricao_produto = str(row.get("Descrição completa do produto", "Sem descrição"))
                         
-                        for letra_col, info in ALCADAS_INFO.items():
-                            c_nome = info["coluna_sheets"]
+                        with st.container(border=True):
+                            st.markdown(f"#### Chamado #{id_chamado} — {descricao_produto}")
+                            st.markdown(f"**Solicitante:** {row.get('Nome solicitante', row.get('Nome', 'Não informado'))} (`{row.get('Endereço de e-mail', '')}`)")
                             
-                            if c_nome in df_dados.columns:
-                                v_status = str(row[c_nome]).strip()
+                            with st.expander("🔍 Visualizar detalhes completos da solicitação", expanded=True):
+                                st.markdown("---")
+                                st.markdown("Dados Preenchidos no Formulário:")
                                 
-                                with st.container(border=True):
-                                    col_info_area, col_prazo_status = st.columns([2, 1])
-                                    
-                                    with col_info_area:
-                                        st.markdown(f"📌 **{info['label']}**")
-                                        
-                                        if v_status == "Pendente":
-                                            st.markdown("⏳ **Parecer:** *Aguardando deliberação*")
-                                        else:
-                                            st.markdown(f"💬 **Parecer registrado:**\n`{v_status}`")
-                                            
-                                    with col_prazo_status:
-                                        if row['Status_Final'] == "Reprovado" and v_status == "Pendente":
-                                            st.error("🛑 Fluxo encerrado (Chamado recusado)")
-                                        
-                                        elif v_status == "Pendente" and dt_abertura:
-                                            prazo_definido = info.get("prazo_util", 5)
-                                            
-                                            hoje = pd.Timestamp.now().normalize()
-                                            abertura_norm = dt_abertura.normalize()
-                                            
-                                            dias_passados_uteis = len(pd.date_range(start=abertura_norm, end=hoje, freq='B')) - 1
-                                            dias_restantes_uteis = prazo_definido - dias_passados_uteis
-                                            
-                                            if dias_restantes_uteis > 1:
-                                                st.warning(f"⏰ Restam **{dias_restantes_uteis} dias úteis**")
-                                            elif dias_restantes_uteis == 1:
-                                                st.warning("⚠️ Resta **1 dia útil!**")
-                                            elif dias_restantes_uteis == 0:
-                                                st.error("🚨 **Prazo vence HOJE!**")
-                                            else:
-                                                st.error(f"❌ **Atrasado há {abs(dias_restantes_uteis)} dias úteis**")
-                                                
-                                        elif v_status == "Pendente":
-                                            st.caption("Prazo indisponível")
-                                        else:
-                                            st.success("✅ Concluído")
+                                col_detalhe1, col_detalhe2 = st.columns(2)
+                                with col_detalhe1:
+                                    st.markdown(f"**Descrição do Produto:** {row.get('Descrição completa do produto', 'N/A')}")
+                                    st.markdown(f"**Apresentação/Volume:** {row.get('Apresentação/volume', 'N/A')}")
+                                    st.markdown(f"**Fabricante/Fornecedor:** {row.get('Fabricante/fornecedor', 'N/A')}")
+                                    st.markdown(f"**Área e Indicação de Uso:** {row.get('Área onde será utilizado e indicação detalhada de uso do produto', 'N/A')}")
 
-        # ----------------------------------------------------------------------
-        # 8.3. Aba "Log de atividades" (Linha do Tempo limpa e integrada)
-        # ----------------------------------------------------------------------
-        with tab_logs:
-            st.markdown("### 📜 Linha de Tempo e Auditoria Geral dos Processos")
-            st.caption("Abaixo consta o histórico completo desde a abertura do chamado para fins de conformidade e auditoria.")
-            
-            for _, row in df_dados.iterrows():
-                id_c = int(row['ID'])
-                desc_l = row.get("Descrição completa do produto", "Sem descrição")
-                solicitante_nome = row.get('Nome solicitante', row.get('Nome', 'Não informado'))
-                solicitante_email = row.get('Endereço de e-mail', 'Não informado')
-                carimbo_abertura = row.get('Carimbo de data/hora', row.get('Timestamp', 'Data não registrada'))
-                
-                with st.expander(f"🕒 Chamado #{id_c} — {desc_l} | Status Atual: {row['Status_Final']}"):
-                    
-                    # --- PASSO 1: Abertura do Chamado (Obrigatório no Log) ---
-                    st.info(f"🔹 **[Abertura do Processo]** — Cadastrado em `{carimbo_abertura}` por **{solicitante_nome}** (`{solicitante_email}`)")
-                    
-                    logs_encontrados = False
-                    st.markdown("**Pareceres e Tramitações Técnicas:**")
-                    
-                    for info in ALCADAS_INFO.values():
-                        c_nome = info["coluna_sheets"]
-                        if c_nome in df_dados.columns and row[c_nome] != "Pendente":
-                            voto_detalhado = str(row[c_nome])
-                            logs_encontrados = True
+                                with col_detalhe2:
+                                    st.markdown(f"**Contato do Fornecedor:** {row.get('Informações de contato do fornecedor (nome, e-mail e telefone)', 'N/A')}")
+                                    st.markdown(f"**Uso atual SEM o produto:** {row.get('Explique como o procedimento/atividade atual é realizado SEM este produto:', 'N/A')}")
+                                    st.markdown(f"**Gera resíduo perigoso?:** {row.get('O item solicitado gera resíduo perigoso?', 'N/A')}")
+                                    st.markdown(f"**Possui estudos científicos?:** {row.get('O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.', 'N/A')}")
+
+                                if "Arquivos anexados" in row and row["Arquivos anexados"] not in ["Nenhum arquivo anexado", "Nenhum arquivo adicional", ""]:
+                                    st.markdown("**Documentação Adicional:**")
+                                link_anexo = row.get("Link_Anexo", row.get("Arquivos anexados", ""))
+                                
+                                if isinstance(link_anexo, str) and link_anexo.strip() not in ["", "nan", "None", "Nenhum arquivo anexado", "Nenhum arquivo adicional"]:
+                                    st.link_button("Abrir anexos no Google Drive", link_anexo, use_container_width=True)
+                                else:
+                                    st.caption("Nenhum arquivo adicional anexado.")
+                                
+                                if "Anexar FDS" in row and row["Anexar FDS"] not in ["", "Não aplicável"]:
+                                    st.markdown("**Ficha de Dados de Segurança (FDS):**")
+                                    st.link_button("Abrir FDS", row["Anexar FDS"], use_container_width=True)
+                                st.markdown("---")
                             
-                            if "Reprovar" in voto_detalhado:
-                                st.error(f"🔴 **{info['label']}:** {voto_detalhado}")
-                            elif "ressalva" in voto_detalhado.lower():
-                                st.warning(f"🟡 **{info['label']}:** {voto_detalhado}")
-                            else:
-                                st.success(f"🟢 **{info['label']}:** {voto_detalhado}")
-                    
-                    if not logs_encontrados:
-                        st.caption("⏳ Nenhuma alçada técnica emitiu parecer para este chamado até o momento (Aguardando deliberações).")
+                            st.markdown("<br><b>Seu parecer técnico:</b>", unsafe_allow_html=True)
+                            
+                            for letra_col, info in ALCADAS_INFO.items():
+                                col_voto = info["coluna_sheets"]
+                                
+                                if col_voto in colunas_validas and row[col_voto] == "Pendente":
+                                    with st.container(border=True):
+                                        st.markdown(f"**Alçada:** `{info['label']}`")
+                                        
+                                        key_voto = f"voto_escolha_{id_chamado}_{letra_col}"
+                                        key_parecer = f"parecer_text_{id_chamado}_{letra_col}"
+                                        
+                                        voto_opcao = st.radio(
+                                            "Decisão da Alçada:",
+                                            options=["Aprovar", "Aprovar com ressalva", "Reprovar"],
+                                            format_func=lambda x: "👍 Aprovar" if x == "Aprovar" else "⚠️ Aprovar com ressalva" if x == "Aprovar com ressalva" else "👎 Reprovar",
+                                            index=None,
+                                            horizontal=True,
+                                            key=key_voto
+                                        )
+                                        
+                                        if voto_opcao:
+                                            parecer_obrigatorio = voto_opcao in ["Aprovar com ressalva", "Reprovar"]
+                                            label_parecer = f"Parecer técnico para {info['label']} (Obrigatório):" if parecer_obrigatorio else f"Parecer técnico para {info['label']} (Opcional):"
+                                            
+                                            parecer_texto = st.text_area(label_parecer, key=key_parecer)
+                                            
+                                            if st.button(f"Confirmar parecer {info['label']}", key=f"btn_salvar_{id_chamado}_{letra_col}", type="primary"):
+                                                if parecer_obrigatorio and not parecer_texto.strip():
+                                                    st.error(f"Por favor, preencha o campo Parecer. Ele é obrigatório para decisões de '{voto_opcao}'.")
+                                                else:
+                                                    fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
+                                                    timestamp_atual = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
+                                                    
+                                                    aprovador_nome_seguro = st.session_state.get('name', user_name)
+                                                    if not aprovador_nome_seguro or str(aprovador_nome_seguro).strip() in ["None", ""]:
+                                                        aprovador_nome_seguro = f"Aprovador {info['label']}"
+                                                    
+                                                    texto_parecer_limpo = parecer_texto.strip().replace("\n", " ")
+                                                    
+                                                    if texto_parecer_limpo:
+                                                        conteudo_coluna = f"{voto_opcao} ({timestamp_atual} - {aprovador_nome_seguro}: {texto_parecer_limpo})"
+                                                    else:
+                                                        conteudo_coluna = f"{voto_opcao} ({timestamp_atual} - {aprovador_nome_seguro})"
+                                                    
+                                                    df_dados.loc[df_dados["ID"] == id_chamado, col_voto] = conteudo_coluna
+                                                    
+                                                    linha_atualizada = df_dados[df_dados["ID"] == id_chamado].iloc[0]
+                                                    todos_votos_valores = [str(linha_atualizada[inf["coluna_sheets"]]) for inf in ALCADAS_INFO.values() if inf["coluna_sheets"] in df_dados.columns]
+                                                    
+                                                    reprovados_count = sum(1 for v in todos_votos_valores if v.startswith("Reprovar"))
+                                                    aprovados_count = sum(1 for v in todos_votos_valores if v.startswith(("Aprovar", "Aprovar com ressalva")))
+                                                    
+                                                    if reprovados_count > 0:
+                                                        df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
+                                                        html_fim = f"<h3>CAPROQ: Chamado #{id_chamado} Indeferido</h3><p>O processo foi encerrado pois recebeu parecer desfavorável na alçada técnica: {info['label']}.</p><p><b>Parecer registrado:</b> {parecer_texto}</p>"
+                                                        enviar_email(destinatario=row["Endereço de e-mail"], assunto=f"CAPROQ: Processo Encerrado (Reprovado) - #{id_chamado}", corpo_html=html_fim)
+                                                    
+                                                    elif aprovados_count == len(ALCADAS_INFO):
+                                                        df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
+                                                        html_fim = f"<h3>CAPROQ: Chamado #{id_chamado} Homologado!</h3><p>A solicitação foi integralmente aprovada (com ou sem ressalvas) por todas as alçadas do comitê técnico.</p>"
+                                                        enviar_email(destinatario=row["Endereço de e-mail"], assunto=f"CAPROQ: Homologação Concluída - #{id_chamado}", corpo_html=html_fim)
+                                                    
+                                                    conn.update(data=df_dados)
+                                                    st.success("Seu parecer técnico foi computado com sucesso!")
+                                                    time.sleep(1.2)
+                                                    st.rerun()
+
+            # ----------------------------------------------------------------------
+            # 8.2. Aba "Histórico de decisões"
+            # ----------------------------------------------------------------------
+            with tab_hist_aprovador:
+                st.markdown("### 📋 Acompanhamento e histórico de deliberações")
+                st.caption("Veja abaixo o andamento detalhado e os prazos de resposta de cada alçada técnica.")
+                
+                if historico_aprovador.empty:
+                    st.info("Sua alçada técnica atual ainda não emitiu votos históricos no sistema.")
+                else:
+                    for _, row in historico_aprovador.iterrows():
+                        id_c = int(row['ID'])
+                        desc_h = row.get("Descrição completa do produto", "Sem descrição")
                         
-                    if row['Status_Final'] in ["Aprovado", "Reprovado"]:
-                        cor_status = "🟢" if row['Status_Final'] == "Aprovado" else "🔴"
-                        st.markdown(f"{cor_status} **[Fim do Fluxo]** Processo finalizado com o status de **{row['Status_Final']}**.")
+                        carimbo_original = row.get('Carimbo de data/hora', row.get('Timestamp', ''))
+                        
+                        with st.expander(f"📦 Chamado #{id_c} — {desc_h} (Status Geral: {row['Status_Final']})"):
+                            dt_abertura = None
+                            if carimbo_original and str(carimbo_original).strip() not in ["nan", "None", ""]:
+                                try:
+                                    data_limpa = str(carimbo_original).split()[0]
+                                    dt_abertura = pd.to_datetime(data_limpa, dayfirst=True)
+                                except:
+                                    dt_abertura = None
 
-        # ----------------------------------------------------------------------
-        # 8.4. Aba "Indicadores"
-        # ----------------------------------------------------------------------
-        with tab_indicadores:
-            st.markdown("### Painel analítico (CAPROQ)")
-            st.markdown("Confira os indicadores de desempenho, volumetria e distribuição de pareceres do comitê.")
-            
-            col_data = None
-            for c in df_dados.columns:
-                if "data" in c.lower() or "timestamp" in c.lower() or "hora" in c.lower():
-                    col_data = c
-                    break
-            
-            if col_data:
-                df_dados[col_data] = pd.to_datetime(df_dados[col_data], errors='coerce', dayfirst=True)
-                hoje = pd.Timestamp.now()
+                            if dt_abertura:
+                                st.markdown(f"⏱️ **Data de Abertura:** {dt_abertura.strftime('%d/%m/%Y')}")
+                            else:
+                                st.markdown("⚠️ *Data de abertura não identificada para cálculo de prazos.*")
+                            
+                            st.markdown("---")
+                            st.markdown("**Situação por Alçada Técnica:**")
+                            
+                            for letra_col, info in ALCADAS_INFO.items():
+                                c_nome = info["coluna_sheets"]
+                                
+                                if c_nome in df_dados.columns:
+                                    v_status = str(row[c_nome]).strip()
+                                    
+                                    with st.container(border=True):
+                                        col_info_area, col_prazo_status = st.columns([2, 1])
+                                        
+                                        with col_info_area:
+                                            st.markdown(f"📌 **{info['label']}**")
+                                            
+                                            if v_status == "Pendente":
+                                                st.markdown("⏳ **Parecer:** *Aguardando deliberação*")
+                                            else:
+                                                st.markdown(f"💬 **Parecer registrado:**\n`{v_status}`")
+                                                
+                                        with col_prazo_status:
+                                            if row['Status_Final'] == "Reprovado" and v_status == "Pendente":
+                                                st.error("🛑 Fluxo encerrado (Chamado recusado)")
+                                            
+                                            elif v_status == "Pendente" and dt_abertura:
+                                                prazo_definido = info.get("prazo_util", 5)
+                                                
+                                                hoje = pd.Timestamp.now().normalize()
+                                                abertura_norm = dt_abertura.normalize()
+                                                
+                                                dias_passados_uteis = len(pd.date_range(start=abertura_norm, end=hoje, freq='B')) - 1
+                                                dias_restantes_uteis = prazo_definido - dias_passados_uteis
+                                                
+                                                if dias_restantes_uteis > 1:
+                                                    st.warning(f"⏰ Restam **{dias_restantes_uteis} dias úteis**")
+                                                elif dias_restantes_uteis == 1:
+                                                    st.warning("⚠️ Resta **1 dia útil!**")
+                                                elif dias_restantes_uteis == 0:
+                                                    st.error("🚨 **Prazo vence HOJE!**")
+                                                else:
+                                                    st.error(f"❌ **Atrasado há {abs(dias_restantes_uteis)} dias úteis**")
+                                                    
+                                            elif v_status == "Pendente":
+                                                st.caption("Prazo indisponível")
+                                            else:
+                                                st.success("✅ Concluído")
+
+            # ----------------------------------------------------------------------
+            # 8.3. Aba "Log de atividades"
+            # ----------------------------------------------------------------------
+            with tab_logs:
+                st.markdown("### 📜 Linha de Tempo e Auditoria Geral dos Processos")
+                st.caption("Abaixo consta o histórico completo desde a abertura do chamado para fins de conformidade e auditoria.")
                 
-                df_semana = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=7))]
-                df_mes = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=30))]
-                df_ano = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=365))]
-                
-                qtd_semana = len(df_semana)
-                qtd_mes = len(df_mes)
-                qtd_ano = len(df_ano)
-            else:
-                qtd_semana = qtd_mes = qtd_ano = len(df_dados)
-            
-            st.markdown("**Volumetria temporal de requisições**")
-            kpi_t1, kpi_t2, kpi_t3, kpi_t4 = st.columns(4)
-            with kpi_t1: st.metric("Últimos 7 dias (Semanal)", qtd_semana)
-            with kpi_t2: st.metric("Últimos 30 dias (Mensal)", qtd_mes)
-            with kpi_t3: st.metric("Último Ano (Anual)", qtd_ano)
-            with kpi_t4: st.metric("Total Histórico", len(df_dados))
-            
-            st.markdown("---")
-            
-            st.markdown("**Distribuição estatística de deliberações (Mensal)**")
-            col_graph1, col_graph2 = st.columns(2)
-            
-            df_recorte_mensal = df_mes if col_data else df_dados
-            
-            with col_graph1:
-                st.markdown("Status final dos processos")
-                status_finais = df_recorte_mensal["Status_Final"].value_counts().reset_index()
-                status_finais.columns = ["Status", "Quantidade"]
-                
-                if not status_finais.empty:
-                    import plotly.express as px
-                    fig_status = px.pie(
-                        status_finais, 
-                        names="Status", 
-                        values="Quantidade", 
-                        hole=0.4,
-                        color="Status",
-                        color_discrete_map={"Aprovado": "#2ecc71", "Em análise": "#f1c40f", "Reprovado": "#e74c3c"}
-                    )
-                    fig_status.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=250)
-                    st.plotly_chart(fig_status, use_container_width=True)
-                else:
-                    st.caption("Sem dados para exibir este mês.")
+                for _, row in df_dados.iterrows():
+                    id_c = int(row['ID'])
+                    desc_l = row.get("Descrição completa do produto", "Sem descrição")
+                    solicitante_nome = row.get('Nome solicitante', row.get('Nome', 'Não informado'))
+                    solicitante_email = row.get('Endereço de e-mail', 'Não informado')
+                    carimbo_abertura = row.get('Carimbo de data/hora', row.get('Timestamp', 'Data não registrada'))
                     
-            with col_graph2:
-                st.markdown("Tipos de decisões técnicas")
-                aprovacoes_puras = 0
-                com_ressalva = 0
-                recusas = 0
-                
-                for _, r in df_recorte_mensal.iterrows():
-                    status = str(r.get("Status_Final", ""))
-                    
-                    if status == "Reprovado":
-                        recusas += 1
-                    elif status == "Aprovado":
-                        # Varre as alçadas da linha procurando se alguma continha ressalva no texto unificado
-                        contem_ressalva = False
+                    with st.expander(f"🕒 Chamado #{id_c} — {desc_l} | Status Atual: {row['Status_Final']}"):
+                        st.info(f"🔹 **[Abertura do Processo]** — Cadastrado em `{carimbo_abertura}` por **{solicitante_nome}** (`{solicitante_email}`)")
+                        
+                        logs_encontrados = False
+                        st.markdown("**Pareceres e Tramitações Técnicas:**")
+                        
                         for info in ALCADAS_INFO.values():
-                            c_n = info["coluna_sheets"]
-                            if c_n in df_recorte_mensal.columns and "ressalva" in str(r.get(c_n, "")).lower():
-                                contem_ressalva = True
-                                break
-                        if contem_ressalva:
-                            com_ressalva += 1
-                        else:
-                            aprovacoes_puras += 1
-                
-                df_decisoes = pd.DataFrame({
-                    "Decisão": ["Aprovação", "Aprovação com ressalva", "Recusa"],
-                    "Quantidade": [aprovacoes_puras, com_ressalva, recusas]
-                })
-                
-                if df_decisoes["Quantidade"].sum() > 0:
-                    import plotly.express as px
-                    fig_decisoes = px.pie(
-                        df_decisoes, 
-                        names="Decisão", 
-                        values="Quantidade", 
-                        hole=0.4,
-                        color="Decisão",
-                        color_discrete_map={"Aprovação": "#27ae60", "Aprovação com ressalva": "#3498db", "Recusa": "#c0392b"}
-                    )
-                    fig_decisoes.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=250)
-                    st.plotly_chart(fig_decisoes, use_container_width=True)
-                else:
-                    st.caption("Sem deliberações registradas este mês.")
+                            c_nome = info["coluna_sheets"]
+                            if c_nome in df_dados.columns and row[c_nome] != "Pendente":
+                                voto_detalhado = str(row[c_nome])
+                                logs_encontrados = True
+                                
+                                if "Reprovar" in voto_detalhado:
+                                    st.error(f"🔴 **{info['label']}:** {voto_detalhado}")
+                                elif "ressalva" in voto_detalhado.lower():
+                                    st.warning(f"🟡 **{info['label']}:** {voto_detalhado}")
+                                else:
+                                    st.success(f"🟢 **{info['label']}:** {voto_detalhado}")
+                        
+                        if not logs_encontrados:
+                            st.caption("⏳ Nenhuma alçada técnica emitiu parecer para este chamado até o momento (Aguardando deliberações).")
+                            
+                        if row['Status_Final'] in ["Aprovado", "Reprovado"]:
+                            cor_status = "🟢" if row['Status_Final'] == "Aprovado" else "🔴"
+                            st.markdown(f"{cor_status} **[Fim do Fluxo]** Processo finalizado com o status de **{row['Status_Final']}**.")
 
-            st.markdown("---")
-            
-            # 8.5. Separação de dados por área
-            st.markdown("**Performance de fluxo por alçada (Histórico)**")
-            
-            dados_areas = []
-            for letra_col, info in ALCADAS_INFO.items():
-                col_voto = info["coluna_sheets"]
-                if col_voto in df_dados.columns:
-                    votos_serie = df_dados[col_voto].astype(str)
+            # ----------------------------------------------------------------------
+            # 8.4. Aba "Indicadores"
+            # ----------------------------------------------------------------------
+            with tab_indicadores:
+                st.markdown("### Painel analítico (CAPROQ)")
+                st.markdown("Confira os indicadores de desempenho, volumetria e distribuição de pareceres do comitê.")
+                
+                col_data = None
+                for c in df_dados.columns:
+                    if "data" in c.lower() or "timestamp" in c.lower() or "hora" in c.lower():
+                        col_data = c
+                        break
+                
+                if col_data:
+                    df_dados[col_data] = pd.to_datetime(df_dados[col_data], errors='coerce', dayfirst=True)
+                    hoje = pd.Timestamp.now()
                     
-                    concluidos = sum(votos_serie.str.startswith(("Aprovar", "Reprovar")))
-                    pendentes_qtd = sum(votos_serie == "Pendente")
+                    df_semana = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=7))]
+                    df_mes = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=30))]
+                    df_ano = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=365))]
                     
-                    dados_areas.append({
-                        "Sigla": info["label"].split(" - ")[0],
-                        "Área Técnica": info["label"].split(" - " )[-1],
-                        "Concluídos": concluidos,
-                        "Pendentes": pendentes_qtd
+                    qtd_semana = len(df_semana)
+                    qtd_mes = len(df_mes)
+                    qtd_ano = len(df_ano)
+                else:
+                    qtd_semana = qtd_mes = qtd_ano = len(df_dados)
+                
+                st.markdown("**Volumetria temporal de requisições**")
+                kpi_t1, kpi_t2, kpi_t3, kpi_t4 = st.columns(4)
+                with kpi_t1: st.metric("Últimos 7 dias (Semanal)", qtd_semana)
+                with kpi_t2: st.metric("Últimos 30 dias (Mensal)", qtd_mes)
+                with kpi_t3: st.metric("Último Ano (Anual)", qtd_ano)
+                with kpi_t4: st.metric("Total Histórico", len(df_dados))
+                
+                st.markdown("---")
+                
+                st.markdown("**Distribuição estatística de deliberações (Mensal)**")
+                col_graph1, col_graph2 = st.columns(2)
+                
+                df_recorte_mensal = df_mes if col_data else df_dados
+                
+                with col_graph1:
+                    st.markdown("Status final dos processos")
+                    status_finais = df_recorte_mensal["Status_Final"].value_counts().reset_index()
+                    status_finais.columns = ["Status", "Quantidade"]
+                    
+                    if not status_finais.empty:
+                        import plotly.express as px
+                        fig_status = px.pie(
+                            status_finais, 
+                            names="Status", 
+                            values="Quantidade", 
+                            hole=0.4,
+                            color="Status",
+                            color_discrete_map={"Aprovado": "#2ecc71", "Em análise": "#f1c40f", "Reprovado": "#e74c3c"}
+                        )
+                        fig_status.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=250)
+                        st.plotly_chart(fig_status, use_container_width=True)
+                    else:
+                        st.caption("Sem dados para exibir este mês.")
+                        
+                with col_graph2:
+                    st.markdown("Tipos de decisões técnicas")
+                    aprovacoes_puras = 0
+                    com_ressalva = 0
+                    recusas = 0
+                    
+                    for _, r in df_recorte_mensal.iterrows():
+                        status = str(r.get("Status_Final", ""))
+                        
+                        if status == "Reprovado":
+                            recusas += 1
+                        elif status == "Aprovado":
+                            contem_ressalva = False
+                            for info in ALCADAS_INFO.values():
+                                c_n = info["coluna_sheets"]
+                                if c_n in df_recorte_mensal.columns and "ressalva" in str(r.get(c_n, "")).lower():
+                                    contem_ressalva = True
+                                    break
+                            if contem_ressalva:
+                                com_ressalva += 1
+                            else:
+                                aprovacoes_puras += 1
+                    
+                    df_decisoes = pd.DataFrame({
+                        "Decisão": ["Aprovação", "Aprovação com ressalva", "Recusa"],
+                        "Quantidade": [aprovacoes_puras, com_ressalva, recusas]
                     })
-            
-            if dados_areas:
-                df_areas = pd.DataFrame(dados_areas)
+                    
+                    if df_decisoes["Quantidade"].sum() > 0:
+                        import plotly.express as px
+                        fig_decisoes = px.pie(
+                            df_decisoes, 
+                            names="Decisão", 
+                            values="Quantidade", 
+                            hole=0.4,
+                            color="Decisão",
+                            color_discrete_map={"Aprovação": "#27ae60", "Aprovação com ressalva": "#3498db", "Recusa": "#c0392b"}
+                        )
+                        fig_decisoes.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=250)
+                        st.plotly_chart(fig_decisoes, use_container_width=True)
+                    else:
+                        st.caption("Sem deliberações registradas este mês.")
+
+                st.markdown("---")
                 
-                st.dataframe(
-                    df_areas, 
-                    column_config={
-                        "Sigla": st.column_config.TextColumn("Coluna Sheets"),
-                        "Área Técnica": st.column_config.TextColumn("Área Comitê"),
-                        "Concluídos": st.column_config.NumberColumn("Pareceres emitidos", format="%d ✅"),
-                        "Pendentes": st.column_config.NumberColumn("Demandas em aberto", format="%d ⏳"),
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
+                # 8.5. Separação de dados por área
+                st.markdown("**Performance de fluxo por alçada (Histórico)**")
                 
-                import plotly.express as px
-                fig_barras_areas = px.bar(
-                    df_areas, 
-                    x="Área Técnica", 
-                    y=["Concluídos", "Pendentes"],
-                    title="Volume de Trabalho por Alçada (Emitidos vs Pendentes)",
-                    barmode="group",
-                    color_discrete_sequence=["#2ecc71", "#e67e22"]
-                )
-                fig_barras_areas.update_layout(xaxis_title="Área Técnica", yaxis_title="Quantidade de Chamados", height=300)
-                st.plotly_chart(fig_barras_areas, use_container_width=True)
-            else:
-                st.caption("Mapeamento de colunas das alçadas não localizado na planilha atual.")
+                dados_areas = []
+                for letra_col, info in ALCADAS_INFO.items():
+                    col_voto = info["coluna_sheets"]
+                    if col_voto in df_dados.columns:
+                        votos_serie = df_dados[col_voto].astype(str)
+                        
+                        concluidos = sum(votos_serie.str.startswith(("Aprovar", "Reprovar")))
+                        pendentes_qtd = sum(votos_serie == "Pendente")
+                        
+                        dados_areas.append({
+                            "Sigla": info["label"].split(" - ")[0],
+                            "Área Técnica": info["label"].split(" - " )[-1],
+                            "Concluídos": concluidos,
+                            "Pendentes": pendentes_qtd
+                        })
+                
+                if dados_areas:
+                    df_areas = pd.DataFrame(dados_areas)
+                    
+                    st.dataframe(
+                        df_areas, 
+                        column_config={
+                            "Sigla": st.column_config.TextColumn("Coluna Sheets"),
+                            "Área Técnica": st.column_config.TextColumn("Área Comitê"),
+                            "Concluídos": st.column_config.NumberColumn("Pareceres emitidos", format="%d ✅"),
+                            "Pendentes": st.column_config.NumberColumn("Demandas em aberto", format="%d ⏳"),
+                        },
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    import plotly.express as px
+                    fig_barras_areas = px.bar(
+                        df_areas, 
+                        x="Área Técnica", 
+                        y=["Concluídos", "Pendentes"],
+                        title="Volume de Trabalho por Alçada (Emitidos vs Pendentes)",
+                        barmode="group",
+                        color_discrete_sequence=["#2ecc71", "#e67e22"]
+                    )
+                    fig_barras_areas.update_layout(xaxis_title="Área Técnica", yaxis_title="Quantidade de Chamados", height=300)
+                    st.plotly_chart(fig_barras_areas, use_container_width=True)
+                else:
+                    st.caption("Mapeamento de colunas das alçadas não localizado na planilha atual.")
 
 else:
 
