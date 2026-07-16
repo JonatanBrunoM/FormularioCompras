@@ -1,0 +1,24 @@
+name: Manter App Ativo
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch: 
+
+jobs:
+  ping-or-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping App URL
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" https://formulariocompras.streamlit.app/
+
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Commit Vazio (Reset do timer de Inatividade)
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "Manter app ativo (Automático)"
+          git push
