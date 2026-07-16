@@ -14,7 +14,7 @@ jobs:
           curl -s -o /dev/null -w "%{http_code}" https://formulariocompras.streamlit.app/
 
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Commit Vazio (Reset do timer de Inatividade)
         run: |
