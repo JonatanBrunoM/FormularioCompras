@@ -486,35 +486,28 @@ with col_header2:
     st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Fluxo de envio de solicitações para aprovação.</p>", unsafe_allow_html=True)
 
 # ==============================================================================
-# 8. Tela aprovadores e Gerenciamento de Usuários (Persistido no Sheets)
+# 8. Tela aprovadores e Gerenciamento de Usuários
 # ==============================================================================
 if is_aprovador:
     
-    # --------------------------------------------------------------------------
-    # NOVO: Se for Admin e a página selecionada for a de Gerenciamento de Aprovadores
-    # --------------------------------------------------------------------------
     if st.session_state.get("is_admin", False) and st.session_state.get("pagina_atual") == "gerenciar_aprovadores":
         st.markdown("---")
-        st.title("⚙️ Configurações de Usuários, Aprovadores e Alçadas")
+        st.title("⚙️ Configurações de Uusuários, aprovadores e alçadas")
         st.markdown("Gerencie os acessos, perfis e alçadas técnicas diretamente integrados à aba **Usuarios** da sua planilha.")
         st.markdown("---")
         
-        # 1. LEITURA DOS DADOS DA NOVA ABA "Usuarios"
         try:
-            # Lendo a aba de Usuários via conexão gsheets já existente
             df_usuarios = conn.read(worksheet="Usuarios")
         except Exception as e:
             st.error("❌ Erro ao ler a aba 'Usuarios' no Google Sheets. Verifique se o nome da aba está correto.")
             st.info("As colunas esperadas na aba são: Email, Nome, Perfil, Alcada, Admin, Ativo, Data_Cadastro")
             df_usuarios = pd.DataFrame(columns=["Email", "Nome", "Perfil", "Alcada", "Admin", "Ativo", "Data_Cadastro"])
 
-        # Garante tratamento de strings e preenchimentos vazios
         if not df_usuarios.empty:
             df_usuarios["Email"] = df_usuarios["Email"].astype(str).str.strip().str.lower()
             df_usuarios["Ativo"] = df_usuarios["Ativo"].astype(str).str.strip().str.upper()
             df_usuarios["Admin"] = df_usuarios["Admin"].astype(str).str.strip().str.upper()
         
-        # --- VISUALIZAÇÃO ATUAL DOS USUÁRIOS NO SHEETS ---
         st.subheader("👥 Usuários Cadastrados na Planilha")
         if not df_usuarios.empty:
             st.dataframe(
@@ -536,30 +529,25 @@ if is_aprovador:
         
         st.markdown("---")
         
-        # --- OPERAÇÕES (TABS) ---
         tab_salvar_usuario, tab_excluir_usuario = st.tabs([
             "💾 Cadastrar / Alterar Usuário", 
             "❌ Remover Usuário"
         ])
         
-        # Lista de Alçadas disponíveis no sistema para gerar os Checkboxes
         lista_alcadas_disponiveis = [ALCADAS_INFO[chave].get("label", chave) for chave in ALCADAS_INFO.keys()]
         
-        # 1. CADASTRAR OU ALTERAR USUÁRIO (Preenchimento amigável com Checkboxes)
         with tab_salvar_usuario:
-            st.markdown("### Salvar ou Atualizar Informações de Usuário")
+            st.markdown("### Salvar ou Atualizar informações de usuário")
             st.caption("Caso o e-mail digitado já exista, o cadastro correspondente será atualizado.")
             
             with st.form("form_usuario_sheets"):
-                email_input = st.text_input("E-mail do Usuário (Chave Única):").strip().lower()
-                nome_input = st.text_input("Nome Completo:")
-                perfil_input = st.selectbox("Perfil de Acesso:", ["Aprovador", "Solicitante", "Visualizador"])
+                email_input = st.text_input("E-mail do usuário (Chave única):").strip().lower()
+                nome_input = st.text_input("Nome completo:")
+                perfil_input = st.selectbox("Perfil de acesso:", ["Aprovador", "Solicitante", "Visualizador"])
                 
-                # Interface de Checkboxes para selecionar alçadas
-                st.markdown("**Selecione as Alçadas Técnicas deste usuário:**")
+                st.markdown("**Selecione as alçadas técnicas deste usuário:**")
                 alcadas_selecionadas = []
                 
-                # Renderiza em colunas os checkboxes para ficar visualmente limpo
                 col_checkboxes = st.columns(2)
                 for idx, nome_alcada in enumerate(lista_alcadas_disponiveis):
                     col_index = idx % 2
@@ -581,13 +569,11 @@ if is_aprovador:
                     elif not nome_input.strip():
                         st.error("❌ O nome do usuário não pode ficar em branco.")
                     else:
-                        # Converte a lista de alçadas selecionadas em uma string separada por vírgulas
                         string_alcadas = ", ".join(alcadas_selecionadas) if alcadas_selecionadas else "Nenhuma"
                         
                         fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
                         data_atual_str = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
                         
-                        # Nova linha estruturada exatamente com as colunas da aba
                         nova_linha = {
                             "Email": email_input,
                             "Nome": nome_input,
@@ -598,20 +584,16 @@ if is_aprovador:
                             "Data_Cadastro": data_atual_str
                         }
                         
-                        # Se já existir o e-mail na base, atualiza. Caso contrário, adiciona.
                         if not df_usuarios.empty and email_input in df_usuarios["Email"].values:
-                            # Atualiza a linha correspondente
                             idx_existente = df_usuarios[df_usuarios["Email"] == email_input].index[0]
                             for col, valor in nova_linha.items():
                                 df_usuarios.at[idx_existente, col] = valor
                             msg_sucesso = f"🔄 Cadastro do usuário `{email_input}` atualizado com sucesso!"
                         else:
-                            # Adiciona nova linha
                             df_nova_linha = pd.DataFrame([nova_linha])
                             df_usuarios = pd.concat([df_usuarios, df_nova_linha], ignore_index=True)
                             msg_sucesso = f"🎉 Usuário `{email_input}` cadastrado com sucesso!"
                         
-                        # Grava de volta na aba "Usuarios" do Google Sheets
                         try:
                             conn.update(worksheet="Usuarios", data=df_usuarios)
                             st.success(msg_sucesso)
@@ -622,15 +604,15 @@ if is_aprovador:
 
         # 2. EXCLUIR USUÁRIO
         with tab_excluir_usuario:
-            st.markdown("### Remover Usuário da Planilha")
-            st.warning("⚠️ Esta ação removerá permanentemente o usuário da base de dados no Sheets.")
+            st.markdown("### Remover usuário do sistema")
+            st.warning("⚠️ Esta ação removerá o usuário da base de dados do sistema.")
             
             if not df_usuarios.empty:
                 emails_exclusao = df_usuarios["Email"].tolist()
                 with st.form("form_excluir_usuario"):
-                    email_excluir = st.selectbox("Selecione o E-mail para Remover:", options=emails_exclusao)
+                    email_excluir = st.selectbox("Selecione o e-mail para remover:", options=emails_exclusao)
                     confirmar_exclusao = st.checkbox("Confirmo que desejo apagar o registro deste usuário.")
-                    botao_excluir_usr = st.form_submit_button("Excluir Permanente", use_container_width=True)
+                    botao_excluir_usr = st.form_submit_button("Excluir", use_container_width=True)
                     
                     if botao_excluir_usr:
                         if not confirmar_exclusao:
@@ -648,7 +630,7 @@ if is_aprovador:
                 st.info("Nenhum usuário cadastrado para remoção.")
                         
     # --------------------------------------------------------------------------
-    # PAINEL DE CONTROLE PRINCIPAL ORIGINAL (Sem alterações no seu fluxo operacional)
+    # PAINEL DE CONTROLE PRINCIPAL
     # --------------------------------------------------------------------------
     else:
         st.markdown("---")
@@ -686,7 +668,6 @@ if is_aprovador:
                 pendentes = pd.DataFrame()
                 historico_aprovador = pd.DataFrame()
             
-            # Indicadores do Topo
             m1, m2, m3 = st.columns(3)
             with m1: st.metric("Suas Pendências de Área", len(pendentes))
             with m2: st.metric("Aprovados Gerais no Sheets", len(df_dados[df_dados["Status_Final"] == "Aprovado"]))
