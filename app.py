@@ -443,7 +443,6 @@ st.sidebar.markdown(avatar_html, unsafe_allow_html=True)
 # ------------------------------------------------------------------------------
 if st.session_state.get("is_admin", False):
     st.sidebar.markdown("<br>", unsafe_allow_html=True)
-    st.sidebar.markdown("⚙️ **Painel Administrativo**")
     
     if st.session_state.get("pagina_atual") == "painel_principal":
         if st.sidebar.button("⚙️ Gerenciar Aprovadores", use_container_width=True):
