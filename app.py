@@ -1101,15 +1101,143 @@ if is_aprovador:
                         barmode="group",
                         color_discrete_sequence=["#2ecc71", "#e67e22"]
                     )
+                    # ... [Código anterior do Bloco 8.5 (Indicadores / Plotly)] ...
+
                     fig_barras_areas.update_layout(xaxis_title="Área Técnica", yaxis_title="Quantidade de Chamados", height=300)
                     st.plotly_chart(fig_barras_areas, use_container_width=True)
                 else:
                     st.caption("Mapeamento de colunas das alçadas não localizado na planilha atual.")
 
+    # ==============================================================================
+    # 9. Segunda Etapa: Homologação e Decisão Final (Exclusivo Administradores)
+    # ==============================================================================
+    if st.session_state.get("is_admin", False) and st.session_state.get("pagina_atual") != "gerenciar_aprovadores":
+        st.markdown("---")
+        st.title("🛡️ Painel de Homologação e Decisão Final (Admin)")
+        st.markdown("Analise os pareceres técnicos das alçadas e registre a deliberação final do comitê.")
+        
+        if not df_dados.empty:
+            status_validos_admin = ["Aguardando homologação", "Reunião Necessária", "Reunião necessária"]
+            chamados_para_decisao = df_dados[
+                (df_dados["Status_Final"] == "Em análise") & 
+                (df_dados["Status_Aprovadores"].astype(str).str.strip().isin(status_validos_admin))
+            ]
+            
+            if chamados_para_decisao.empty:
+                st.info("💡 No momento, não há chamados pendentes de homologação final ou com status de reunião definida.")
+            else:
+                st.warning(f"⚠️ Existem {len(chamados_para_decisao)} solicitações aguardando sua deliberação final.")
+                
+                for _, row in chamados_para_decisao.iterrows():
+                    id_chamado = row["ID"]
+                    status_apr = row["Status_Aprovadores"]
+                    
+                    col_prod = "Descrição completa do produto" if "Descrição completa do produto" in row else "Descrição do produto" if "Descrição do produto" in row else "Descricao_Produto"
+                    descricao_produto = str(row.get(col_prod, "Sem descrição"))
+                    
+                    with st.container(border=True):
+                        st.markdown(f"### Chamado #{id_chamado} — {descricao_produto}")
+                        st.markdown(f"**Status dos Aprovadores:** `{status_apr}`")
+                        
+                        st.markdown("**📋 Pareceres Técnicos Registrados:**")
+                        cols_votos = st.columns(len(ALCADAS_INFO))
+                        for idx, (letra_col, info) in enumerate(ALCADAS_INFO.items()):
+                            col_voto = info["coluna_sheets"]
+                            voto_atual = row.get(col_voto, "Pendente")
+                            with cols_votos[idx]:
+                                if "Aprovar" in str(voto_atual) and "ressalva" not in str(voto_atual):
+                                    st.success(f"**{info['label']}:**\n🟢 Aprovado")
+                                elif "ressalva" in str(voto_atual):
+                                    st.warning(f"**{info['label']}:**\n🟡 Com Ressalva")
+                                elif "Reprovar" in str(voto_atual):
+                                    st.error(f"**{info['label']}:**\n🔴 Recusado")
+                                else:
+                                    st.caption(f"**{info['label']}:**\n⚪ {voto_atual}")
+                        
+                        with st.expander("💬 Ver detalhes dos pareceres escritos pelas alçadas"):
+                            for letra_col, info in ALCADAS_INFO.items():
+                                voto_detalhado = row.get(info["coluna_sheets"], "Pendente")
+                                st.markdown(f"**{info['label']}:** {voto_detalhado}")
+                        
+                        st.markdown("---")
+                        st.markdown("#### 🎯 Questionário de Viabilidade e Alinhamento Estratégico")
+                        
+                        key_q1 = f"admin_q1_{id_chamado}"
+                        key_q2 = f"admin_q2_{id_chamado}"
+                        key_q3 = f"admin_q3_{id_chamado}"
+                        key_q4 = f"admin_q4_{id_chamado}"
+                        key_obs = f"admin_obs_{id_chamado}"
+                        
+                        q1 = st.radio(
+                            "1. O produto apresenta claro alinhamento assistencial e ganho clínico comprovado?",
+                            options=["Sim", "Não"], index=None, horizontal=True, key=key_q1
+                        )
+                        q2 = st.radio(
+                            "2. Há viabilidade orçamentária e financeira para absorção deste item no fluxo atual?",
+                            options=["Sim", "Não"], index=None, horizontal=True, key=key_q2
+                        )
+                        q3 = st.radio(
+                            "3. A cadeia de suprimentos e logística do fornecedor atende aos requisitos mínimos de segurança?",
+                            options=["Sim", "Não"], index=None, horizontal=True, key=key_q3
+                        )
+                        q4 = st.radio(
+                            "4. O impacto em resíduos, infraestrutura ou engenharia clínica foi mitigado/aprovado?",
+                            options=["Sim", "Não"], index=None, horizontal=True, key=key_q4
+                        )
+                        
+                        obs_admin = st.text_area("✍️ Considerações finais do Comitê / Justificativa do veredito:", key=key_obs)
+                        
+                        if st.button(f"Firmar Decisão Final - Chamado #{id_chamado}", key=f"btn_admin_final_{id_chamado}", type="primary"):
+                            if not all([q1, q2, q3, q4]):
+                                st.error("❌ Por favor, responda a todas as 4 perguntas do questionário estratégico antes de salvar.")
+                            elif not obs_admin.strip():
+                                st.error("❌ É obrigatório preencher as considerações finais para fins de auditoria e registro de ata.")
+                            else:
+                                fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
+                                timestamp_homologacao = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
+                                
+                                tem_resposta_negativa = "Não" in [q1, q2, q3, q4]
+                                
+                                if tem_resposta_negativa or "Reunião" in str(status_apr):
+                                    status_final_texto = "Reprovar"
+                                    emoji_resultado = "❌ REPROVADO"
+                                else:
+                                    status_final_texto = "Aprovar"
+                                    emoji_resultado = "✅ APROVADO"
+                                    
+                                respostas_resumo = f"Q1:{q1}|Q2:{q2}|Q3:{q3}|Q4:{q4}"
+                                historico_admin_completo = f"{status_final_texto} ({timestamp_homologacao} - por {st.session_state.get('name', user_name)}: [{respostas_resumo}] {obs_admin.strip().replace('\n', ' ')})"
+                                
+                                df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = status_final_texto
+                                df_dados.loc[df_dados["ID"] == id_chamado, "Parecer_Final_Admin"] = historico_admin_completo
+                                
+                                email_solicitante = row.get("Endereço de e-mail", "")
+                                nome_solicitante = row.get("Nome solicitante", row.get("Nome", "Solicitante"))
+                                
+                                html_encerramento = f"""
+                                <h3>🔔 CAPROQ: Processo de Avaliação Concluído - Chamado #{id_chamado}</h3>
+                                <p>Olá, <b>{nome_solicitante}</b>,</p>
+                                <p>O processo de análise técnica e homologação estratégica do produto <b>{descricao_produto}</b> foi concluído pelo comitê.</p>
+                                <p><b>Resultado Final:</b> {emoji_resultado}</p>
+                                <p><b>Justificativa da Deliberação:</b> {obs_admin.strip()}</p>
+                                <p><br>Agradecemos a sua submissão. Este chamado encontra-se agora encerrado em nossa base de dados.</p>
+                                """
+                                
+                                if email_solicitante and "@" in str(email_solicitante):
+                                    enviar_email(destinatario=email_solicitante, assunto=f"CAPROQ: Resultado Final - Chamado #{id_chamado}", corpo_html=html_encerramento)
+                                
+                                try:
+                                    conn.update(data=df_dados)
+                                    st.success(f"🎉 Chamado #{id_chamado} deliberado e encerrado com sucesso! E-mail enviado ao solicitante.")
+                                    time.sleep(1.5)
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao salvar a deliberação final na planilha: {e}")
+
 else:
 
 # ==============================================================================
-# 9. Tela solicitantes
+# 10. Tela solicitantes
 # ==============================================================================
     st.markdown("---")
     
