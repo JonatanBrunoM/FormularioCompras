@@ -1123,29 +1123,35 @@ else:
         st.markdown("Preencha as informações abaixo para iniciar o processo.")
         
         PASTA_DRIVE_ID = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R"
+        
+        # Cria um inicializador de versão para resetar os widgets de upload e chaves de input
+        if "form_version" not in st.session_state:
+            st.session_state["form_version"] = 0
+            
+        v = st.session_state["form_version"]
     
         CONFIG_CAMPOS = [
             # SEÇÃO 1: Identificação do produto e fornecedor
-            {"id": "descricao", "label": "Descrição completa do produto", "tipo": "area_texto", "secao": "Dados do Produto", "obrigatorio": True},
-            {"id": "apresentacao", "label": "Apresentação/volume", "tipo": "texto", "secao": "Dados do Produto", "obrigatorio": True},
-            {"id": "area_uso", "label": "Área onde será utilizado e indicação detalhada de uso do produto", "tipo": "area_texto", "secao": "Dados do Produto", "obrigatorio": True},
-            {"id": "fabricante", "label": "Fabricante/fornecedor", "tipo": "texto", "secao": "Dados do Produto", "obrigatorio": True},
-            {"id": "contato_fornecedor", "label": "Informações de contato do fornecedor (nome, e-mail e telefone)", "tipo": "area_texto", "secao": "Dados do Produto", "obrigatorio": True},
+            {"id": f"descricao_{v}", "label": "Descrição completa do produto", "tipo": "area_texto", "secao": "Dados do Produto", "obrigatorio": True},
+            {"id": f"apresentacao_{v}", "label": "Apresentação/volume", "tipo": "texto", "secao": "Dados do Produto", "obrigatorio": True},
+            {"id": f"area_uso_{v}", "label": "Área onde será utilizado e indicação detalhada de uso do produto", "tipo": "area_texto", "secao": "Dados do Produto", "obrigatorio": True},
+            {"id": f"fabricante_{v}", "label": "Fabricante/fornecedor", "tipo": "texto", "secao": "Dados do Produto", "obrigatorio": True},
+            {"id": f"contato_fornecedor_{v}", "label": "Informações de contato do fornecedor (nome, e-mail e telefone)", "tipo": "area_texto", "secao": "Dados do Produto", "obrigatorio": True},
             
             # SEÇÃO 2: Dependências e processos
-            {"id": "insumos_associados", "label": "Equipamentos e/ou insumos associados ao uso do produto? Se SIM, quais?", "tipo": "area_texto", "secao": "Processos e Dependências", "obrigatorio": False},
-            {"id": "sem_produto", "label": "Explique como o procedimento/atividade atual é realizado SEM este produto:", "tipo": "area_texto", "secao": "Processos e Dependências", "obrigatorio": True},
+            {"id": f"insumos_associados_{v}", "label": "Equipamentos e/ou insumos associados ao uso do produto? Se SIM, quais?", "tipo": "area_texto", "secao": "Processos e Dependências", "obrigatorio": False},
+            {"id": f"sem_produto_{v}", "label": "Explique como o procedimento/atividade atual é realizado SEM este produto:", "tipo": "area_texto", "secao": "Processos e Dependências", "obrigatorio": True},
 
             # SEÇÃO 3: Avaliação de impacto e riscos
-            {"id": "reducao_tempo", "label": "O produto contribui para a redução de tempo de execução dos procedimentos?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "reducao_acidentes", "label": "O produto proposto contribui para a redução do risco de acidentes de trabalho?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "seguranca_paciente", "label": "O produto favorece a segurança do paciente and dos profissionais?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "reducao_infeccao", "label": "O produto proposto contribui para a redução de risco de infecção hospitalar?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "requerido_legislacao", "label": "O item é requerido pela legislação, padrões de qualidade e segurança adotados pela instituição?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "residuo_perigoso", "label": "O item solicitado gera resíduo perigoso?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": f"reducao_tempo_{v}", "label": "O produto contribui para a redução de tempo de execução dos procedimentos?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": f"reducao_acidentes_{v}", "label": "O produto proposto contribui para a redução do risco de acidentes de trabalho?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": f"seguranca_paciente_{v}", "label": "O produto favorece a segurança do paciente e dos profissionais?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": f"reducao_infeccao_{v}", "label": "O produto proposto contribui para a redução de risco de infecção hospitalar?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": f"requerido_legislacao_{v}", "label": "O item é requerido pela legislação, padrões de qualidade e segurança adotados pela instituição?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": f"residuo_perigoso_{v}", "label": "O item solicitado gera resíduo perigoso?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
                 
             # SEÇÃO 4: Estudos e viabilidade
-            {"id": "estudos_cientificos", "label": "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.", "tipo": "radio_horizontal", "secao": "Studies e Viabilidade", "obrigatorio": True},
+            {"id": f"estudos_cientificos_{v}", "label": "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.", "tipo": "radio_horizontal", "secao": "Studies e Viabilidade", "obrigatorio": True},
         ]
     
         respostas_formulario = {}
@@ -1156,8 +1162,8 @@ else:
         respostas_formulario["Carimbo de data/hora"] = timestamp_criacao
         respostas_formulario["Endereço de e-mail"] = user_email
 
-        # 9.1. Formulário Base Obrigatório
-        with st.form(key="form_requisicao_fixo", clear_on_submit=False):
+        # 9.1. Formulário Base Obrigatório - clear_on_submit=True garante limpeza visual nativa
+        with st.form(key=f"form_requisicao_fixo_{v}", clear_on_submit=True):
             
             st.markdown("<br><h4 style='color: #005691;'>Processos e Dependências (Fase Inicial)</h4>", unsafe_allow_html=True)
             st.markdown("---")
@@ -1166,7 +1172,7 @@ else:
                 options=["SIM", "NÃO"],
                 index=1,  # Padrão NÃO
                 horizontal=True,
-                key="produto_teste_reativo",
+                key=f"produto_teste_reativo_{v}",
                 help="Selecione SIM se este produto passará por um período de testes práticos antes da compra final."
             )
             respostas_formulario["Este produto é um Produto de Teste / Piloto?"] = valor_produto_teste
@@ -1190,7 +1196,7 @@ else:
                 elif campo["tipo"] == "selecao_binaria":
                     respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "Sim", "Não"], key=campo["id"])
                 elif campo["tipo"] == "radio_horizontal":
-                    opcoes_radio = ["Sim", "Não"] if campo["id"] == "estudos_cientificos" else ["Sim", "Não", "Não se aplica"]
+                    opcoes_radio = ["Sim", "Não"] if "estudos_cientificos" in campo["id"] else ["Sim", "Não", "Não se aplica"]
                     
                     respostas_formulario[campo["label"]] = st.radio(
                         label_final, 
@@ -1204,9 +1210,9 @@ else:
             st.markdown("<br><h4 style='color: #005691;'>Arquivos e Documentações</h4>", unsafe_allow_html=True)
             st.markdown("---")
             
-            arquivos_gerais = st.file_uploader("Arquivos anexados (Registro ANVISA, Laudo Técnico, Ficha Técnico, Fabricante):", accept_multiple_files=True, key="up_arquivos_gerais")
-            fds_obrigatorio = st.file_uploader("Anexar FDS (Obrigatório) *", key="up_fds_obrigatorio")
-            arquivo_estudos = st.file_uploader("Anexo arquivo de estudos científicos e de custo-efetividade:", key="up_arquivo_estudos")
+            arquivos_gerais = st.file_uploader("Arquivos anexados (Registro ANVISA, Laudo Técnico, Ficha Técnico, Fabricante):", accept_multiple_files=True, key=f"up_arquivos_gerais_{v}")
+            fds_obrigatorio = st.file_uploader("Anexar FDS (Obrigatório) *", key=f"up_fds_obrigatorio_{v}")
+            arquivo_estudos = st.file_uploader("Anexo arquivo de estudos científicos e de custo-efetividade:", key=f"up_arquivo_estudos_{v}")
     
             st.markdown("---")
             
@@ -1257,21 +1263,21 @@ else:
                 motivo_teste = st.selectbox(
                     "Classificação do item no HMV: *",
                     options=["", "Produto novo/lançamento", "Melhoramento do produto", "Produto existente não usado no HMV", "Produto similar ao usado no HMV", "Suprir a falta de um produto"],
-                    key="final_motivo_teste"
+                    key=f"final_motivo_teste_{v}"
                 )
                 
                 c1, c2, c3 = st.columns(3)
-                with c1: consumo_mes = st.text_input("Consumo estimado/mês: *", key="final_consumo_mes")
-                with c2: qtd_teste = st.text_input("Quantidade do teste: *", key="final_qtd_teste")
-                with c3: setores_teste = st.text_input("Setores do teste: *", key="final_setores_teste")
+                with c1: consumo_mes = st.text_input("Consumo estimado/mês: *", key=f"final_consumo_mes_{v}")
+                with c2: qtd_teste = st.text_input("Quantidade do teste: *", key=f"final_qtd_teste_{v}")
+                with c3: setores_teste = st.text_input("Setores do teste: *", key=f"final_setores_teste_{v}")
                 
                 st.markdown("<hr style='border: 0; border-top: 1px dashed #d3d3d3; margin: 15px 0;'>", unsafe_allow_html=True)
                 st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações de Contato do Solicitante</p>", unsafe_allow_html=True)
                 
                 c4, c5, c6 = st.columns(3)
-                with c4: setor_solicitante = st.text_input("Setor: *", key="final_setor_solicitante")
-                with c5: ramal_solicitante = st.text_input("Fone/ramal do setor: *", key="final_ramal_solicitante")
-                with c6: responsavel_area = st.text_input("Gerente ou coordenador da área: *", key="final_responsavel_area")
+                with c4: setor_solicitante = st.text_input("Setor: *", key=f"final_setor_solicitante_{v}")
+                with c5: ramal_solicitante = st.text_input("Fone/ramal do setor: *", key=f"final_ramal_solicitante_{v}")
+                with c6: responsavel_area = st.text_input("Gerente ou coordenador da área: *", key=f"final_responsavel_area_{v}")
 
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("🚀 Confirmar e Concluir Envio do Produto Teste", use_container_width=True, type="primary"):
@@ -1400,11 +1406,12 @@ else:
                 for aprovador_email in APROVADORES:
                     enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
                 
-                # RESET DE ESTADOS LIMPO
-                chaves_para_limpar = ["produto_teste_reativo", "final_motivo_teste", "final_consumo_mes", "final_qtd_teste", "final_setores_teste", "final_setor_solicitante", "final_ramal_solicitante", "final_responsavel_area", "dados_base_coletados"]
-                for key in chaves_para_limpar:
-                    if key in st.session_state:
-                        del st.session_state[key]
+                # RESET COMPLETO DE ESTADOS E INCREMENTO DE VERSÃO DO FORMULÁRIO
+                st.session_state["form_version"] += 1
+                
+                # Deleta memórias temporárias
+                if "dados_base_coletados" in st.session_state:
+                    del st.session_state["dados_base_coletados"]
                 
                 st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
                 time.sleep(2)
