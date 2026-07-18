@@ -1136,6 +1136,9 @@ else:
             {"id": "insumos_associados", "label": "Equipamentos e/ou insumos associados ao uso do produto? Se SIM, quais?", "tipo": "area_texto", "secao": "Processos e Dependências", "obrigatorio": False},
             {"id": "sem_produto", "label": "Explique como o procedimento/atividade atual é realizado SEM este produto:", "tipo": "area_texto", "secao": "Processos e Dependências", "obrigatorio": True},
             
+            # [PASSO 3]: Nova Pergunta de Produto de Teste injetada dinamicamente
+            {"id": "produto_teste", "label": "Este produto é um Produto de Teste / Piloto?", "tipo": "radio_horizontal_teste", "secao": "Processos e Dependências", "obrigatorio": True},
+
             # SEÇÃO 3: Avaliação de impacto e riscos
             {"id": "reducao_tempo", "label": "O produto contribui para a redução de tempo de execução dos procedimentos?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "reducao_acidentes", "label": "O produto proposto contribui para a redução do risco de acidentes de trabalho?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
@@ -1186,26 +1189,34 @@ else:
                         horizontal=True, 
                         key=campo["id"]
                     )
+                elif campo["tipo"] == "radio_horizontal_teste":
+                    respostas_formulario[campo["label"]] = st.radio(
+                        label_final,
+                        options=["SIM", "NÃO"],
+                        index=1, # Padrão como NÃO
+                        horizontal=True,
+                        key=campo["id"],
+                        help="Selecione SIM se este produto passará por um período de testes práticos antes da compra final."
+                    )
     
             # 9.2. Seção anexos
             st.markdown("<br><h4 style='color: #005691;'>Arquivos e Documentações</h4>", unsafe_allow_html=True)
             st.markdown("---")
             
-            arquivos_gerais = st.file_uploader("Arquivos anexados (Registro ANVISA, Laudo Técnico, Ficha Técnica, Fabricante):", accept_multiple_files=True)
+            arquivos_gerais = st.file_uploader("Arquivos anexados (Registro ANVISA, Laudo Técnico, Ficha Técnico, Fabricante):", accept_multiple_files=True)
             fds_obrigatorio = st.file_uploader("Anexar FDS (Obrigatório) *")
             arquivo_estudos = st.file_uploader("Anexo arquivo de estudos científicos e de custo-efetividade:")
     
             st.markdown("---")
             enviar = st.form_submit_button("Enviar solicitação", use_container_width=True)
             
-        # <-- O bloco do "if enviar" fica aqui, alinhado com o "with st.form"
         if enviar:
-            campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario[campo["label"]]]
+            campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario.get(campo["label"])]
             
             if not fds_obrigatorio:
                 campos_vazios.append("Anexar FDS")
             
-            pergunta_estudos_label = "O produto apresenta estudos científicos and de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo."
+            pergunta_estudos_label = "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo."
             resposta_estudos = respostas_formulario.get(pergunta_estudos_label, "")
             
             if resposta_estudos == "Sim" and not arquivo_estudos:
@@ -1245,10 +1256,13 @@ else:
                     if str(nome_log).strip() in ["None", ""]:
                         nome_log = "Solicitante"
                     
+                    valor_produto_teste = respostas_formulario.get("Este produto é um Produto de Teste / Piloto?", "NÃO")
+
                     dados_estruturais = {
                         "ID": proximo_id,
                         "Nome solicitante": user_name,
-                        "Status_Final": "Em análise"
+                        "Status_Final": "Em análise",
+                        "Produto_Teste": valor_produto_teste  # <--- MAPEA O VALOR SALVO PARA A SUA PLANILHA
                     }
                     
                     for info in ALCADAS_INFO.values():
@@ -1278,6 +1292,7 @@ else:
                         
                         <p style='margin: 8px 0;'><b>ID do Chamado:</b> #{proximo_id}</p>
                         <p style='margin: 8px 0;'><b>Solicitante:</b> {user_name} ({user_email})</p>
+                        <p style='margin: 8px 0;'><b>⚠️ É Produto de Teste?:</b> <span style='color: {"#D93025" if valor_produto_teste == "SIM" else "#2b2b2b"}; font-weight: bold;'>{valor_produto_teste}</span></p>
                         <p style='margin: 8px 0;'><b>Apresentação/volume:</b> {txt_apresentacao}</p>
                         <p style='margin: 8px 0;'><b>Área de uso:</b> {txt_area_uso}</p>
                         <p style='margin: 8px 0;'><b>Fabricante:</b> {txt_fabricante}</p>
@@ -1337,8 +1352,13 @@ else:
                     desc_produto = row.get("Descrição completa do produto", "Sem Descrição")
                     titulo_resumido = desc_produto[:50] + "..." if len(desc_produto) > 50 else desc_produto
                 
-                    with st.expander(f"📋 Chamado #{id_c} - {titulo_resumido} [{status_atual}]"):
+                    tag_teste = " [PRODUTO DE TESTE]" if str(row.get("Produto_Teste", "")).upper() == "SIM" else ""
+                    
+                    with st.expander(f"📋 Chamado #{id_c} - {titulo_resumido}{tag_teste} [{status_atual}]"):
                         st.markdown(f"Status Final: <span style='color: {cor_status}; font-weight: bold;'>{status_atual}</span>", unsafe_allow_html=True)
+                        
+                        if tag_teste:
+                            st.warning("📦 **Atenção:** Este item foi cadastrado como Produto de Teste / Piloto.")
                         
                         st.write(f"**Descrição Completa:** {desc_produto}")
                         st.write(f"**Área de Uso:** {row.get('Área onde será utilizado e indicação detalhada de uso do produto', 'Não informado')}")
