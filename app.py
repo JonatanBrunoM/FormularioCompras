@@ -1230,7 +1230,6 @@ else:
                         respostas_formulario["Setor_Solicitante"] = ""
                         respostas_formulario["Ramal_Solicitante"] = ""
                         respostas_formulario["Responsavel_Area"] = ""
-                    )
     
             # 9.2. Seção anexos
             st.markdown("<br><h4 style='color: #005691;'>Arquivos e Documentações</h4>", unsafe_allow_html=True)
