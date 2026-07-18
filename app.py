@@ -1139,7 +1139,7 @@ else:
             # SEÇÃO 3: Avaliação de impacto e riscos
             {"id": "reducao_tempo", "label": "O produto contribui para a redução de tempo de execução dos procedimentos?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "reducao_acidentes", "label": "O produto proposto contribui para a redução do risco de acidentes de trabalho?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "seguranca_paciente", "label": "O produto favorece a segurança do paciente e dos profissionais?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": "seguranca_paciente", "label": "O produto favorece a segurança do paciente and dos profissionais?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "reducao_infeccao", "label": "O produto proposto contribui para a redução de risco de infecção hospitalar?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "requerido_legislacao", "label": "O item é requerido pela legislação, padrões de qualidade e segurança adotados pela instituição?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "residuo_perigoso", "label": "O item solicitado gera resíduo perigoso?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
@@ -1156,50 +1156,54 @@ else:
         respostas_formulario["Carimbo de data/hora"] = timestamp_criacao
         respostas_formulario["Endereço de e-mail"] = user_email
 
-        st.markdown("<br><h4 style='color: #005691;'>Processos e Dependências (Fase Inicial)</h4>", unsafe_allow_html=True)
-        st.markdown("---")
-        valor_produto_teste = st.radio(
-            "Este produto é um Produto de Teste / Piloto? *",
-            options=["SIM", "NÃO"],
-            index=1,  # Padrão NÃO
-            horizontal=True,
-            key="produto_teste_reativo",
-            help="Selecione SIM se este produto passará por um período de testes práticos antes da compra final."
-        )
-        respostas_formulario["Este produto é um Produto de Teste / Piloto?"] = valor_produto_teste
-
-        respostas_teste_dinamico = {
-            "Motivo_Teste": "", "Consumo_Mes": "", "Qtd_Teste": "", "Setores_Teste": "",
-            "Setor_Solicitante": "", "Ramal_Solicitante": "", "Responsavel_Area": ""
-        }
-
-        if valor_produto_teste == "SIM":
-            with st.container(border=True):
-                st.markdown("<p style='color: #005691; font-weight: bold; margin-top:0; font-size: 1.1em;'>📦 Detalhes do Piloto / Teste Prático</p>", unsafe_allow_html=True)
-                
-                respostas_teste_dinamico["Motivo_Teste"] = st.selectbox(
-                    "Classificação do item no HMV: *",
-                    options=["", "Produto novo/lançamento", "Melhoramento do produto", "Produto existente não usado no HMV", "Produto similar ao usado no HMV", "Suprir a falta de um produto"],
-                    key="sb_motivo_teste"
-                )
-                
-                respostas_teste_dinamico["Consumo_Mes"] = st.text_input("Consumo estimado/mês: *", key="txt_consumo_mes")
-                respostas_teste_dinamico["Qtd_Teste"] = st.text_input("Quantidade do teste: *", key="txt_qtd_teste")
-                respostas_teste_dinamico["Setores_Teste"] = st.text_input("Setores do teste: *", key="txt_setores_teste")
-                
-                st.markdown("<hr style='border: 0; border-top: 1px dashed #d3d3d3; margin: 15px 0;'>", unsafe_allow_html=True)
-                st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações do Solicitante</p>", unsafe_allow_html=True)
-                
-                respostas_teste_dinamico["Setor_Solicitante"] = st.text_input("Setor: *", key="txt_setor_solicitante")
-                respostas_teste_dinamico["Ramal_Solicitante"] = st.text_input("Fone/ramal do setor: *", key="txt_ramal_solicitante")
-                respostas_teste_dinamico["Responsavel_Area"] = st.text_input("Gerente ou coordenador da área: *", key="txt_responsavel_area")
-
-        respostas_formulario.update(respostas_teste_dinamico)
-    
-        # 9.1. Formulário Fixo
+        # 9.1. Formulário Fixo Único (tudo dentro dele evita o flicker ao digitar)
         with st.form(key="form_requisicao_fixo", clear_on_submit=True):
-            secao_atual = ""
             
+            # Bloco de Produto de Teste movido para dentro do Form
+            st.markdown("<br><h4 style='color: #005691;'>Processos e Dependências (Fase Inicial)</h4>", unsafe_allow_html=True)
+            st.markdown("---")
+            valor_produto_teste = st.radio(
+                "Este produto é um Produto de Teste / Piloto? *",
+                options=["SIM", "NÃO"],
+                index=1,  # Padrão NÃO
+                horizontal=True,
+                key="produto_teste_reativo",
+                help="Selecione SIM se este produto passará por um período de testes práticos antes da compra final."
+            )
+            respostas_formulario["Este produto é um Produto de Teste / Piloto?"] = valor_produto_teste
+
+            # Inicializa o dicionário com strings vazias para o caso de ser "NÃO"
+            respostas_teste_dinamico = {
+                "Motivo_Teste": "", "Consumo_Mes": "", "Qtd_Teste": "", "Setores_Teste": "",
+                "Setor_Solicitante": "", "Ramal_Solicitante": "", "Responsavel_Area": ""
+            }
+
+            # Renderiza os campos de teste se marcado SIM
+            if valor_produto_teste == "SIM":
+                with st.container(border=True):
+                    st.markdown("<p style='color: #005691; font-weight: bold; margin-top:0; font-size: 1.1em;'>📦 Detalhes do Piloto / Teste Prático</p>", unsafe_allow_html=True)
+                    
+                    respostas_teste_dinamico["Motivo_Teste"] = st.selectbox(
+                        "Classificação do item no HMV: *",
+                        options=["", "Produto novo/lançamento", "Melhoramento do produto", "Produto existente não usado no HMV", "Produto similar ao usado no HMV", "Suprir a falta de um produto"],
+                        key="sb_motivo_teste"
+                    )
+                    
+                    respostas_teste_dinamico["Consumo_Mes"] = st.text_input("Consumo estimado/mês: *", key="txt_consumo_mes")
+                    respostas_teste_dinamico["Qtd_Teste"] = st.text_input("Quantidade do teste: *", key="txt_qtd_teste")
+                    respostas_teste_dinamico["Setores_Teste"] = st.text_input("Setores do teste: *", key="txt_setores_teste")
+                    
+                    st.markdown("<hr style='border: 0; border-top: 1px dashed #d3d3d3; margin: 15px 0;'>", unsafe_allow_html=True)
+                    st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações do Solicitante</p>", unsafe_allow_html=True)
+                    
+                    respostas_teste_dinamico["Setor_Solicitante"] = st.text_input("Setor: *", key="txt_setor_solicitante")
+                    respostas_teste_dinamico["Ramal_Solicitante"] = st.text_input("Fone/ramal do setor: *", key="txt_ramal_solicitante")
+                    respostas_teste_dinamico["Responsavel_Area"] = st.text_input("Gerente ou coordenador da área: *", key="txt_responsavel_area")
+
+            respostas_formulario.update(respostas_teste_dinamico)
+
+            # Restante dos campos estruturados do formulário
+            secao_atual = ""
             for campo in CONFIG_CAMPOS:
                 if campo["secao"] != secao_atual:
                     secao_atual = campo["secao"]
@@ -1231,9 +1235,9 @@ else:
             st.markdown("<br><h4 style='color: #005691;'>Arquivos e Documentações</h4>", unsafe_allow_html=True)
             st.markdown("---")
             
-            arquivos_gerais = st.file_uploader("Arquivos anexados (Registro ANVISA, Laudo Técnico, Ficha Técnico, Fabricante):", accept_multiple_files=True)
-            fds_obrigatorio = st.file_uploader("Anexar FDS (Obrigatório) *")
-            arquivo_estudos = st.file_uploader("Anexo arquivo de estudos científicos e de custo-efetividade:")
+            arquivos_gerais = st.file_uploader("Arquivos anexados (Registro ANVISA, Laudo Técnico, Ficha Técnico, Fabricante):", accept_multiple_files=True, key="up_arquivos_gerais")
+            fds_obrigatorio = st.file_uploader("Anexar FDS (Obrigatório) *", key="up_fds_obrigatorio")
+            arquivo_estudos = st.file_uploader("Anexo arquivo de estudos científicos e de custo-efetividade:", key="up_arquivo_estudos")
     
             st.markdown("---")
             enviar = st.form_submit_button("Enviar solicitação", use_container_width=True)
@@ -1295,7 +1299,6 @@ else:
                     
                     respostas_formulario.pop("Este produto é um Produto de Teste / Piloto?", None)
     
-                    # Dicionário unificado (Correção da sobrescrita e remoção dos pops destrutivos)
                     dados_estruturais = {
                         "ID": proximo_id,
                         "Nome solicitante": user_name,
@@ -1371,6 +1374,12 @@ else:
                     
                     for aprovador_email in APROVADORES:
                         enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
+                    
+                    # FORÇANDO O RESET COMPLETO E VOLTA DO BOTÃO PARA "NÃO"
+                    chaves_para_limpar = ["produto_teste_reativo", "sb_motivo_teste", "txt_consumo_mes", "txt_qtd_teste", "txt_setores_teste", "txt_setor_solicitante", "txt_ramal_solicitante", "txt_responsavel_area"]
+                    for key in chaves_para_limpar:
+                        if key in st.session_state:
+                            del st.session_state[key]
                     
                     st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
                     time.sleep(2)
