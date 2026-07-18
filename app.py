@@ -1156,10 +1156,9 @@ else:
         respostas_formulario["Carimbo de data/hora"] = timestamp_criacao
         respostas_formulario["Endereço de e-mail"] = user_email
 
-        # 9.1. Formulário Fixo Único (tudo dentro dele evita o flicker ao digitar)
+        # 9.1. Formulário Base Obrigatório
         with st.form(key="form_requisicao_fixo", clear_on_submit=False):
             
-            # Bloco de Produto de Teste movido para dentro do Form
             st.markdown("<br><h4 style='color: #005691;'>Processos e Dependências (Fase Inicial)</h4>", unsafe_allow_html=True)
             st.markdown("---")
             valor_produto_teste = st.radio(
@@ -1172,37 +1171,7 @@ else:
             )
             respostas_formulario["Este produto é um Produto de Teste / Piloto?"] = valor_produto_teste
 
-            # Inicializa o dicionário com strings vazias para o caso de ser "NÃO"
-            respostas_teste_dinamico = {
-                "Motivo_Teste": "", "Consumo_Mes": "", "Qtd_Teste": "", "Setores_Teste": "",
-                "Setor_Solicitante": "", "Ramal_Solicitante": "", "Responsavel_Area": ""
-            }
-
-            # Renderiza os campos de teste se marcado SIM
-            if valor_produto_teste == "SIM":
-                with st.container(border=True):
-                    st.markdown("<p style='color: #005691; font-weight: bold; margin-top:0; font-size: 1.1em;'>📦 Detalhes do Piloto / Teste Prático</p>", unsafe_allow_html=True)
-                    
-                    respostas_teste_dinamico["Motivo_Teste"] = st.selectbox(
-                        "Classificação do item no HMV: *",
-                        options=["", "Produto novo/lançamento", "Melhoramento do produto", "Produto existente não usado no HMV", "Produto similar ao usado no HMV", "Suprir a falta de um produto"],
-                        key="sb_motivo_teste"
-                    )
-                    
-                    respostas_teste_dinamico["Consumo_Mes"] = st.text_input("Consumo estimado/mês: *", key="txt_consumo_mes")
-                    respostas_teste_dinamico["Qtd_Teste"] = st.text_input("Quantidade do teste: *", key="txt_qtd_teste")
-                    respostas_teste_dinamico["Setores_Teste"] = st.text_input("Setores do teste: *", key="txt_setores_teste")
-                    
-                    st.markdown("<hr style='border: 0; border-top: 1px dashed #d3d3d3; margin: 15px 0;'>", unsafe_allow_html=True)
-                    st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações do Solicitante</p>", unsafe_allow_html=True)
-                    
-                    respostas_teste_dinamico["Setor_Solicitante"] = st.text_input("Setor: *", key="txt_setor_solicitante")
-                    respostas_teste_dinamico["Ramal_Solicitante"] = st.text_input("Fone/ramal do setor: *", key="txt_ramal_solicitante")
-                    respostas_teste_dinamico["Responsavel_Area"] = st.text_input("Gerente ou coordenador da área: *", key="txt_responsavel_area")
-
-            respostas_formulario.update(respostas_teste_dinamico)
-
-            # Restante dos campos estruturados do formulário
+            # Restante dos campos estruturados do formulário base
             secao_atual = ""
             for campo in CONFIG_CAMPOS:
                 if campo["secao"] != secao_atual:
@@ -1241,10 +1210,11 @@ else:
     
             st.markdown("---")
             
-            # Primeiro botão para processar os dados do formulário
-            avancar_validacao = st.form_submit_button("Validar e Avançar", use_container_width=True)
+            # Botão de validação inicial
+            texto_avanco = "Validar e Preencher Dados do Teste ➡️" if valor_produto_teste == "SIM" else "Enviar solicitação"
+            avancar_validacao = st.form_submit_button(texto_avanco, use_container_width=True)
             
-        # Variável para controlar o disparo do envio final
+        # Controle de disparo do envio final
         executar_envio_final = False
 
         if avancar_validacao:
@@ -1263,51 +1233,65 @@ else:
             if campos_vazios:
                 st.error(f"❌ Por favor, preencha ou anexe os seguintes campos obrigatórios do formulário principal:\n" + "\n".join([f"• {c}" for c in campos_vazios]))
             else:
-                # ETAPA 2: Se for produto de teste, faz a checagem secundária aqui
-                if valor_produto_teste == "SIM":
-                    campos_vazios_teste = []
-                    if not respostas_formulario.get("Motivo_Teste"): campos_vazios_teste.append("Classificação do item no HMV")
-                    if not respostas_formulario.get("Consumo_Mes"): campos_vazios_teste.append("Consumo estimado/mês")
-                    if not respostas_formulario.get("Qtd_Teste"): campos_vazios_teste.append("Quantidade do teste")
-                    if not respostas_formulario.get("Setores_Teste"): campos_vazios_teste.append("Setores do teste")
-                    if not respostas_formulario.get("Setor_Solicitante"): campos_vazios_teste.append("Setor do solicitante")
-                    if not respostas_formulario.get("Ramal_Solicitante"): campos_vazios_teste.append("Fone/ramal do setor")
-                    if not respostas_formulario.get("Responsavel_Area"): campos_vazios_teste.append("Gerente ou coordenador da área")
-
-                    if campos_vazios_teste:
-                        st.warning("⚠️ **Campos do Produto Teste Pendentes:** O formulário principal está correto, mas você precisa preencher os dados do Bloco de Piloto/Teste Prático lá em cima antes de enviar.")
-                        st.error(f"❌ Falta preencher:\n" + "\n".join([f"• {c}" for c in campos_vazios_teste]))
-                    else:
-                        # Salva temporariamente os dados validados no session_state para não perdê-los no clique final
-                        st.session_state["dados_teste_prontos"] = {
-                            "respostas": respostas_formulario,
-                            "arquivos_gerais": arquivos_gerais,
-                            "fds_obrigatorio": fds_obrigatorio,
-                            "arquivo_estudos": arquivo_estudos,
-                            "resposta_estudos": resposta_estudos,
-                            "valor_produto_teste": valor_produto_teste
-                        }
-                else:
-                    # Se NÃO for produto de teste e passou na Etapa 1, libera direto para envio
-                    st.session_state["dados_teste_prontos"] = {
-                        "respostas": respostas_formulario,
-                        "arquivos_gerais": arquivos_gerais,
-                        "fds_obrigatorio": fds_obrigatorio,
-                        "arquivo_estudos": arquivo_estudos,
-                        "resposta_estudos": resposta_estudos,
-                        "valor_produto_teste": valor_produto_teste
-                    }
+                # Se passou e é NÃO teste, envia direto
+                st.session_state["dados_base_validados"] = {
+                    "respostas": respostas_formulario,
+                    "arquivos_gerais": arquivos_gerais,
+                    "fds_obrigatorio": fds_obrigatorio,
+                    "arquivo_estudos": arquivo_estudos,
+                    "resposta_estudos": resposta_estudos,
+                    "valor_produto_teste": valor_produto_teste
+                }
+                if valor_produto_teste == "NÃO":
                     executar_envio_final = True
 
-        # Se os dados estão validados e é Produto Teste, mostra a confirmação final FORA do form
-        if "dados_teste_prontos" in st.session_state and st.session_state["dados_teste_prontos"]["valor_produto_teste"] == "SIM":
-            st.success("✅ Tudo pronto e validado! Clique no botão abaixo para confirmar os dados do Produto Teste e concluir o envio.")
-            if st.button("🚀 Confirmar e Enviar Solicitação de Produto Teste", use_container_width=True, type="primary"):
-                executar_envio_final = True
+        # SEGUNDA ETAPA: Se for Produto de Teste, exibe os campos extras AQUI EMBAIXO junto com o envio
+        if "dados_base_validados" in st.session_state and st.session_state["dados_base_validados"]["valor_produto_teste"] == "SIM":
+            st.markdown("<br>", unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown("<h4 style='color: #005691; margin-top:0;'>📦 Etapa Final: Informações do Produto Teste / Piloto</h4>", unsafe_allow_html=True)
+                st.info("Os dados iniciais do formulário estão validados com sucesso! Preencha os campos abaixo e envie o chamado.")
+                
+                motivo_teste = st.selectbox(
+                    "Classificação do item no HMV: *",
+                    options=["", "Produto novo/lançamento", "Melhoramento do produto", "Produto existente não usado no HMV", "Produto similar ao usado no HMV", "Suprir a falta de um produto"],
+                    key="final_motivo_teste"
+                )
+                
+                c1, c2, c3 = st.columns(3)
+                with c1: consumo_mes = st.text_input("Consumo estimado/mês: *", key="final_consumo_mes")
+                with c2: qtd_teste = st.text_input("Quantidade do teste: *", key="final_qtd_teste")
+                with c3: setores_teste = st.text_input("Setores do teste: *", key="final_setores_teste")
+                
+                st.markdown("<hr style='border: 0; border-top: 1px dashed #d3d3d3; margin: 15px 0;'>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações de Contato do Solicitante</p>", unsafe_allow_html=True)
+                
+                c4, c5, c6 = st.columns(3)
+                with c4: setor_solicitante = st.text_input("Setor: *", key="final_setor_solicitante")
+                with c5: ramal_solicitante = st.text_input("Fone/ramal do setor: *", key="final_ramal_solicitante")
+                with c6: responsavel_area = st.text_input("Gerente ou coordenador da área: *", key="final_responsavel_area")
 
-        # BLOCO DE SALVAMENTO FINAL (Unificado para evitar falhas)
-        if executar_envio_final and "dados_teste_prontos" in st.session_state:
-            cache = st.session_state["dados_teste_prontos"]
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("🚀 Confirmar e Concluir Envio do Produto Teste", use_container_width=True, type="primary"):
+                    # Validação rápida dos campos dinâmicos na própria tela final
+                    if not all([motivo_teste, consumo_mes, qtd_teste, setores_teste, setor_solicitante, ramal_solicitante, responsavel_area]):
+                        st.error("❌ Todos os campos obrigatórios do Produto Teste listados acima precisam ser informados.")
+                    else:
+                        # Injeta as respostas dinâmicas no cache coletado do formulário base
+                        st.session_state["dados_base_validados"]["respostas"].update({
+                            "Motivo_Teste": motivo_teste,
+                            "Consumo_Mes": consumo_mes,
+                            "Qtd_Teste": qtd_teste,
+                            "Setores_Teste": setores_teste,
+                            "Setor_Solicitante": setor_solicitante,
+                            "Ramal_Solicitante": ramal_solicitante,
+                            "Responsavel_Area": responsavel_area
+                        })
+                        executar_envio_final = True
+
+        # BLOCO DE SALVAMENTO FINAL (Unificado e livre de falhas)
+        if executar_envio_final and "dados_base_validados" in st.session_state:
+            cache = st.session_state["dados_base_validados"]
             resp_form = cache["respostas"]
             v_prod_teste = cache["valor_produto_teste"]
             resp_estudos = cache["resposta_estudos"]
@@ -1337,12 +1321,6 @@ else:
                 resp_form["Anexar FDS"] = link_fds
                 resp_form["Anexo arquivo de estudos científicos e de custo-efetividade."] = link_estudos
 
-                nome_log = st.session_state.get('user_name', user_name) or "Solicitante desconhecido"
-                email_log = st.session_state.get('user_email', user_email) or "E-mail não identificado"
-
-                if str(nome_log).strip() in ["None", ""]:
-                    nome_log = "Solicitante"
-                
                 resp_form.pop("Este produto é um Produto de Teste / Piloto?", None)
 
                 dados_estruturais = {
@@ -1421,8 +1399,8 @@ else:
                 for aprovador_email in APROVADORES:
                     enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
                 
-                # LIMPEZA DO CACHE DE REGISTRO E VOLTA AO PADRÃO
-                chaves_para_limpar = ["produto_teste_reativo", "sb_motivo_teste", "txt_consumo_mes", "txt_qtd_teste", "txt_setores_teste", "txt_setor_solicitante", "txt_ramal_solicitante", "txt_responsavel_area", "dados_teste_prontos"]
+                # LIMPEZA LIMPA E RESET DO ESTADO
+                chaves_para_limpar = ["produto_teste_reativo", "final_motivo_teste", "final_consumo_mes", "final_qtd_teste", "final_setores_teste", "final_setor_solicitante", "final_ramal_solicitante", "final_responsavel_area", "dados_base_validados"]
                 for key in chaves_para_limpar:
                     if key in st.session_state:
                         del st.session_state[key]
