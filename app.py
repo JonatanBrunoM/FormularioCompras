@@ -1145,7 +1145,7 @@ else:
             {"id": "residuo_perigoso", "label": "O item solicitado gera resíduo perigoso?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
                 
             # SEÇÃO 4: Estudos e viabilidade
-            {"id": "estudos_cientificos", "label": "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.", "tipo": "radio_horizontal", "secao": "Estudos e Viabilidade", "obrigatorio": True},
+            {"id": "estudos_cientificos", "label": "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.", "tipo": "radio_horizontal", "secao": "Studies e Viabilidade", "obrigatorio": True},
         ]
     
         respostas_formulario = {}
@@ -1210,15 +1210,15 @@ else:
     
             st.markdown("---")
             
-            # Botão de validação inicial
-            texto_avanco = "Validar e Preencher Dados do Teste ➡️" if valor_produto_teste == "SIM" else "Enviar solicitação"
-            avancar_validacao = st.form_submit_button(texto_avanco, use_container_width=True)
+            # Botão de envio padrão - Aciona a validação em 1 clique
+            enviar_formulario = st.form_submit_button("Enviar solicitação", use_container_width=True)
             
-        # Controle de disparo do envio final
+        # Controle interno de salvamento final
         executar_envio_final = False
 
-        if avancar_validacao:
-            # ETAPA 1: Validação dos campos padrões obrigatórios
+        # Dispara imediatamente após o primeiro clique
+        if enviar_formulario:
+            # Validação dos campos padrões obrigatórios
             campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario.get(campo["label"])]
             
             if not fds_obrigatorio:
@@ -1233,8 +1233,8 @@ else:
             if campos_vazios:
                 st.error(f"❌ Por favor, preencha ou anexe os seguintes campos obrigatórios do formulário principal:\n" + "\n".join([f"• {c}" for c in campos_vazios]))
             else:
-                # Se passou e é NÃO teste, envia direto
-                st.session_state["dados_base_validados"] = {
+                # Salva os dados no Session State de forma direta
+                st.session_state["dados_base_coletados"] = {
                     "respostas": respostas_formulario,
                     "arquivos_gerais": arquivos_gerais,
                     "fds_obrigatorio": fds_obrigatorio,
@@ -1242,15 +1242,17 @@ else:
                     "resposta_estudos": resposta_estudos,
                     "valor_produto_teste": valor_produto_teste
                 }
+                
+                # Se for um produto convencional (NÃO teste), encaminha para gravação direto
                 if valor_produto_teste == "NÃO":
                     executar_envio_final = True
 
-        # SEGUNDA ETAPA: Se for Produto de Teste, exibe os campos extras AQUI EMBAIXO junto com o envio
-        if "dados_base_validados" in st.session_state and st.session_state["dados_base_validados"]["valor_produto_teste"] == "SIM":
+        # SEGUNDA ETAPA DINÂMICA: Aparece instantaneamente se for Produto de Teste
+        if "dados_base_coletados" in st.session_state and st.session_state["dados_base_coletados"]["valor_produto_teste"] == "SIM":
             st.markdown("<br>", unsafe_allow_html=True)
             with st.container(border=True):
-                st.markdown("<h4 style='color: #005691; margin-top:0;'>📦 Etapa Final: Informações do Produto Teste / Piloto</h4>", unsafe_allow_html=True)
-                st.info("Os dados iniciais do formulário estão validados com sucesso! Preencha os campos abaixo e envie o chamado.")
+                st.markdown("<h4 style='color: #005691; margin-top:0;'>📦 Informações Complementares: Produto Teste / Piloto</h4>", unsafe_allow_html=True)
+                st.warning("⚠️ **Identificamos que este é um Produto de Teste.** Preencha os detalhes finais abaixo para concluir o chamado:")
                 
                 motivo_teste = st.selectbox(
                     "Classificação do item no HMV: *",
@@ -1273,12 +1275,11 @@ else:
 
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("🚀 Confirmar e Concluir Envio do Produto Teste", use_container_width=True, type="primary"):
-                    # Validação rápida dos campos dinâmicos na própria tela final
                     if not all([motivo_teste, consumo_mes, qtd_teste, setores_teste, setor_solicitante, ramal_solicitante, responsavel_area]):
-                        st.error("❌ Todos os campos obrigatórios do Produto Teste listados acima precisam ser informados.")
+                        st.error("❌ Todos os campos adicionais do Produto Teste precisam ser preenchidos antes de salvar.")
                     else:
-                        # Injeta as respostas dinâmicas no cache coletado do formulário base
-                        st.session_state["dados_base_validados"]["respostas"].update({
+                        # Acopla os dados complementares recolhidos no fluxo dinâmico
+                        st.session_state["dados_base_coletados"]["respostas"].update({
                             "Motivo_Teste": motivo_teste,
                             "Consumo_Mes": consumo_mes,
                             "Qtd_Teste": qtd_teste,
@@ -1289,9 +1290,9 @@ else:
                         })
                         executar_envio_final = True
 
-        # BLOCO DE SALVAMENTO FINAL (Unificado e livre de falhas)
-        if executar_envio_final and "dados_base_validados" in st.session_state:
-            cache = st.session_state["dados_base_validados"]
+        # BLOCO DE SALVAMENTO FINAL (Processamento e gravação no Sheets)
+        if executar_envio_final and "dados_base_coletados" in st.session_state:
+            cache = st.session_state["dados_base_coletados"]
             resp_form = cache["respostas"]
             v_prod_teste = cache["valor_produto_teste"]
             resp_estudos = cache["resposta_estudos"]
@@ -1399,8 +1400,8 @@ else:
                 for aprovador_email in APROVADORES:
                     enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
                 
-                # LIMPEZA LIMPA E RESET DO ESTADO
-                chaves_para_limpar = ["produto_teste_reativo", "final_motivo_teste", "final_consumo_mes", "final_qtd_teste", "final_setores_teste", "final_setor_solicitante", "final_ramal_solicitante", "final_responsavel_area", "dados_base_validados"]
+                # RESET DE ESTADOS LIMPO
+                chaves_para_limpar = ["produto_teste_reativo", "final_motivo_teste", "final_consumo_mes", "final_qtd_teste", "final_setores_teste", "final_setor_solicitante", "final_ramal_solicitante", "final_responsavel_area", "dados_base_coletados"]
                 for key in chaves_para_limpar:
                     if key in st.session_state:
                         del st.session_state[key]
