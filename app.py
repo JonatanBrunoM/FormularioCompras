@@ -159,18 +159,27 @@ def carregar_dados():
         return pd.DataFrame()
 
 # --- 3.2. CARREGAMENTO DINÂMICO DE USUÁRIOS E PERMISSÕES (Aba 'Usuarios') ---
-try:
-    df_usuarios = conn.read(worksheet="Usuarios", ttl=10)
-except Exception as e:
-    st.error(f"Erro ao conectar com a tabela de usuários: {e}")
-    df_usuarios = pd.DataFrame()
+@st.cache_data(ttl=300)
+def carregar_dados_usuarios():
+    try:
+        df = conn.read(worksheet="Usuarios", ttl=300)
+        return df
+    except Exception as e:
+        st.error(f"Erro ao conectar com a tabela de usuários (Usando Cache): {e}")
+        return pd.DataFrame()
 
-st.session_state["user_nome"] = "Novo Solicitante"
-st.session_state["user_perfil"] = "Solicitante"
-st.session_state["user_alcadas"] = []
-st.session_state["is_admin"] = False
-st.session_state["user_ativo"] = True
+df_usuarios = carregar_dados_usuarios()
 
+if "user_nome" not in st.session_state:
+    st.session_state["user_nome"] = "Novo Solicitante"
+if "user_perfil" not in st.session_state:
+    st.session_state["user_perfil"] = "Solicitante"
+if "user_alcadas" not in st.session_state:
+    st.session_state["user_alcadas"] = []
+if "is_admin" not in st.session_state:
+    st.session_state["is_admin"] = False
+if "user_ativo" not in st.session_state:
+    st.session_state["user_ativo"] = True
 if "pagina_atual" not in st.session_state:
     st.session_state["pagina_atual"] = "painel_principal"
 
@@ -207,34 +216,37 @@ if not df_usuarios.empty:
 
     APROVADORES = list(set(ADMINS + APROVADORES))
 
-    email_atual_seguro = ""
-    if "email" in st.session_state:
-        email_atual_seguro = st.session_state["email"]
-    elif 'user_email' in locals():
-        email_atual_seguro = user_email
+    if st.session_state["user_nome"] == "Novo Solicitante":
+        email_atual_seguro = ""
+        if "email" in st.session_state:
+            email_atual_seguro = st.session_state["email"]
+        elif 'user_email' in locals():
+            email_atual_seguro = user_email
 
-    if email_atual_seguro:
-        user_row = df_usuarios[df_usuarios["Email"].str.lower() == email_atual_seguro.lower()]
-        
-        if not user_row.empty:
-            usuario_info = user_row.iloc[0]
-            status_ativo = str(usuario_info.get("Ativo", "Não")).strip().lower() == "sim"
+        if email_atual_seguro:
+            user_row = df_usuarios[df_usuarios["Email"].str.lower() == email_atual_seguro.lower()]
             
-            if status_ativo:
-                st.session_state["user_nome"] = usuario_info.get("Nome", "Usuário")
-                st.session_state["user_perfil"] = usuario_info.get("Perfil", "Solicitante")
-                st.session_state["is_admin"] = str(usuario_info.get("Admin", "Não")).strip().lower() == "sim"
-                st.session_state["user_ativo"] = True
+            if not user_row.empty:
+                usuario_info = user_row.iloc[0]
+                status_ativo = str(usuario_info.get("Ativo", "Não")).strip().lower() == "sim"
                 
-                alcada_raw = str(usuario_info.get("Alcada", "Nenhum"))
-                if alcada_raw and alcada_raw.lower() != "nenhum":
-                    st.session_state["user_alcadas"] = [a.strip() for a in alcada_raw.split(",")]
+                if status_ativo:
+                    st.session_state["user_nome"] = usuario_info.get("Nome", "Usuário")
+                    st.session_state["user_perfil"] = usuario_info.get("Perfil", "Solicitante")
+                    st.session_state["is_admin"] = str(usuario_info.get("Admin", "Não")).strip().lower() == "sim"
+                    st.session_state["user_ativo"] = True
+                    
+                    alcada_raw = str(usuario_info.get("Alcada", "Nenhum"))
+                    if alcada_raw and alcada_raw.lower() != "nenhum":
+                        st.session_state["user_alcadas"] = [a.strip() for a in alcada_raw.split(",")]
+                    else:
+                        st.session_state["user_alcadas"] = []
                 else:
-                    st.session_state["user_alcadas"] = []
-            else:
-                st.session_state["user_ativo"] = False
-                st.error("❌ Seu usuário está inativo no sistema. Procure o administrador.")
-                st.stop()
+                    st.session_state["user_ativo"] = False
+
+if not st.session_state["user_ativo"]:
+    st.error("❌ Seu usuário está inativo no sistema. Procure o administrador.")
+    st.stop()
 
 # --- 3.3. DICIONÁRIO DE ALÇADAS ATUALIZADO (Integração Dinâmica) ---
 ALCADAS_INFO = {
