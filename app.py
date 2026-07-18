@@ -1190,13 +1190,46 @@ else:
                         key=campo["id"]
                     )
                 elif campo["tipo"] == "radio_horizontal_teste":
-                    respostas_formulario[campo["label"]] = st.radio(
+                    val_teste = st.radio(
                         label_final,
                         options=["SIM", "NÃO"],
-                        index=1, # Padrão como NÃO
+                        index=1, # Padrão NÃO
                         horizontal=True,
                         key=campo["id"],
                         help="Selecione SIM se este produto passará por um período de testes práticos antes da compra final."
+                    )
+                    respostas_formulario[campo["label"]] = val_teste
+                    
+                    if val_teste == "SIM":
+                        st.markdown("<div style='background-color: #F0F4F8; padding: 18px; border-radius: 8px; border-left: 4px solid #005691; margin-bottom: 15px;'>", unsafe_allow_html=True)
+                        st.markdown("<p style='color: #005691; font-weight: bold; margin-top:0; font-size: 1.1em;'>📦 Detalhes do Piloto / Teste Prático</p>", unsafe_allow_html=True)
+                        
+                        respostas_formulario["Motivo_Teste"] = st.selectbox(
+                            "Classificação do item no HMV: *",
+                            options=["", "Produto novo/lançamento", "Melhoramento do produto", "Produto existente não usado no HMV", "Produto similar ao usado no HMV", "Suprir a falta de um produto"],
+                            key="sb_motivo_teste"
+                        )
+                        
+                        respostas_formulario["Consumo_Mes"] = st.text_input("Consumo estimado/mês: *", key="txt_consumo_mes")
+                        respostas_formulario["Qtd_Teste"] = st.text_input("Quantidade do teste: *", key="txt_qtd_teste")
+                        respostas_formulario["Setores_Teste"] = st.text_input("Setores do teste: *", key="txt_setores_teste")
+                        
+                        st.markdown("<hr style='border: 0; border-top: 1px dashed #005691; margin: 15px 0;'>", unsafe_allow_html=True)
+                        st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações do Solicitante</p>", unsafe_allow_html=True)
+                        
+                        respostas_formulario["Setor_Solicitante"] = st.text_input("Setor: *", key="txt_setor_solicitante")
+                        respostas_formulario["Ramal_Solicitante"] = st.text_input("Fone/ramal do setor: *", key="txt_ramal_solicitante")
+                        respostas_formulario["Responsavel_Area"] = st.text_input("Gerente ou coordenador da área: *", key="txt_responsavel_area")
+                        
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    else:
+                        respostas_formulario["Motivo_Teste"] = ""
+                        respostas_formulario["Consumo_Mes"] = ""
+                        respostas_formulario["Qtd_Teste"] = ""
+                        respostas_formulario["Setores_Teste"] = ""
+                        respostas_formulario["Setor_Solicitante"] = ""
+                        respostas_formulario["Ramal_Solicitante"] = ""
+                        respostas_formulario["Responsavel_Area"] = ""
                     )
     
             # 9.2. Seção anexos
@@ -1213,6 +1246,16 @@ else:
         if enviar:
             campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario.get(campo["label"])]
             
+            valor_produto_teste = respostas_formulario.get("Este produto é um Produto de Teste / Piloto?", "NÃO")
+            if valor_produto_teste == "SIM":
+                if not respostas_formulario.get("Motivo_Teste"): campos_vazios.append("Classificação do item no HMV")
+                if not respostas_formulario.get("Consumo_Mes"): campos_vazios.append("Consumo estimado/mês")
+                if not respostas_formulario.get("Qtd_Teste"): campos_vazios.append("Quantidade do teste")
+                if not respostas_formulario.get("Setores_Teste"): campos_vazios.append("Setores do teste")
+                if not respostas_formulario.get("Setor_Solicitante"): campos_vazios.append("Setor do solicitante")
+                if not respostas_formulario.get("Ramal_Solicitante"): campos_vazios.append("Fone/ramal do setor")
+                if not respostas_formulario.get("Responsavel_Area"): campos_vazios.append("Gerente ou coordenador da área")
+
             if not fds_obrigatorio:
                 campos_vazios.append("Anexar FDS")
             
@@ -1257,14 +1300,29 @@ else:
                         nome_log = "Solicitante"
                     
                     valor_produto_teste = respostas_formulario.get("Este produto é um Produto de Teste / Piloto?", "NÃO")
-
+                    
                     respostas_formulario.pop("Este produto é um Produto de Teste / Piloto?", None)
+    
+                    dados_estruturais = {
+                        "ID": proximo_id,
+                        "Nome solicitante": user_name,
+                        "Status_Final": "Em análise",
+                        "Produto_Teste": valor_produto_teste,
+                        
+                        "Motivo_Teste": respostas_formulario.pop("Motivo_Teste", ""),
+                        "Consumo_Mes_Teste": respostas_formulario.pop("Consumo_Mes", ""),
+                        "Quantidade_Teste": respostas_formulario.pop("Qtd_Teste", ""),
+                        "Setor_Destino_Teste": respostas_formulario.pop("Setores_Teste", ""),
+                        "Setor_Solicitante": respostas_formulario.pop("Setor_Solicitante", ""),
+                        "Ramal_Solicitante": respostas_formulario.pop("Ramal_Solicitante", ""),
+                        "Responsavel_Area": respostas_formulario.pop("Responsavel_Area", "")
+                    }
 
                     dados_estruturais = {
                         "ID": proximo_id,
                         "Nome solicitante": user_name,
                         "Status_Final": "Em análise",
-                        "Produto_Teste": valor_produto_teste  # <--- MAPEA O VALOR SALVO PARA A SUA PLANILHA
+                        "Produto_Teste": valor_produto_teste
                     }
                     
                     for info in ALCADAS_INFO.values():
