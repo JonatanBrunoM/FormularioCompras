@@ -780,6 +780,11 @@ if is_aprovador:
                                                     
                                                     reprovados_count = sum(1 for v in todos_votos_valores if v.startswith("Reprovar"))
                                                     votos_total_emitidos = sum(1 for v in todos_votos_valores if v.startswith(("Aprovar", "Reprovar")))
+
+                                                    if "Status_Aprovadores" not in df_dados.columns:
+                                                        df_dados["Status_Aprovadores"] = ""
+                                                    else:
+                                                        df_dados["Status_Aprovadores"] = df_dados["Status_Aprovadores"].astype(str)
                                                     
                                                     col_prod = "Descrição do produto" if "Descrição do produto" in row else "Descricao_Produto"
                                                     descricao_produto = row.get(col_prod, "Não especificado")
@@ -798,7 +803,7 @@ if is_aprovador:
                                                             lista_emails_comite = list(set(lista_emails_comite))
                                                             
                                                             html_alerta = f"""
-                                                            <h3>⚠️ CAPROQ: Parecer Desfavorável Registrado - Chamado #{id_chamado}</h3>
+                                                            <h3>⚠️ CAPROQ: Parecer desfavorável registrado - Chamado #{id_chamado}</h3>
                                                             <p>A alçada técnica <b>{info['label']}</b> registrou uma <b>RECUSA</b> para o produto: {descricao_produto}.</p>
                                                             <p><b>Parecer do especialista:</b> {texto_parecer_limpo if texto_parecer_limpo else 'Sem justificativa detalhada.'}</p>
                                                             <p>🚨 O fluxo segue aberto para coletar os votos das outras áreas. 
@@ -806,18 +811,18 @@ if is_aprovador:
                                                             """
                                                             
                                                             for email_membro in lista_emails_comite:
-                                                                enviar_email(destinatario=email_membro, assunto=f"CAPROQ: Reunião Necessária (Recusa Registrada) - #{id_chamado}", corpo_html=html_alerta)
+                                                                enviar_email(destinatario=email_membro, assunto=f"CAPROQ: Reunião necessária (Recusa registrada) - #{id_chamado}", corpo_html=html_alerta)
 
                                                     if votos_total_emitidos == len(ALCADAS_INFO):
-                                                        df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Aguardando Homologação Admin"
+                                                        df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Aguardando homologação"
                                                     else:
                                                         if reprovados_count > 0:
-                                                            df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Reunião Necessária"
+                                                            df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Reunião necessária"
                                                         else:
                                                             df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Em deliberação"
 
                                                     conn.update(data=df_dados)
-                                                    st.success("Seu parecer técnico foi computado no colegiado com sucesso!")
+                                                    st.success("Seu parecer técnico foi computado com sucesso!")
                                                     time.sleep(1.2)
                                                     st.rerun()
 
