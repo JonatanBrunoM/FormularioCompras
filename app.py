@@ -497,13 +497,13 @@ with col_header2:
     st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Fluxo de envio de solicitações para aprovação.</p>", unsafe_allow_html=True)
 
 # ==============================================================================
-# 8. Tela aprovadores e Gerenciamento de Usuários
+# 8. Tela aprovadores e Gerenciamento de Usuários (Ajustado cirurgicamente)
 # ==============================================================================
 if is_aprovador:
     
     if st.session_state.get("is_admin", False) and st.session_state.get("pagina_atual") == "gerenciar_aprovadores":
         st.markdown("---")
-        st.title("⚙️ Configurações de Uusuários, aprovadores e alçadas")
+        st.title("⚙️ Configurações de Usuários, aprovadores e alçadas")
         st.markdown("Gerencie os acessos, perfis e alçadas técnicas diretamente integrados à aba **Usuarios** da sua planilha.")
         st.markdown("---")
         
@@ -549,7 +549,7 @@ if is_aprovador:
         
         with tab_salvar_usuario:
             st.markdown("### Salvar ou Atualizar informações de usuário")
-            st.caption("Caso o e-mail digitado já exista, o cadastro correspondente será atualizado.")
+            st.caption("Caso o e-mail digitado já exista, o cadastro correspondente será updated.")
             
             with st.form("form_usuario_sheets"):
                 email_input = st.text_input("E-mail do usuário (Chave única):").strip().lower()
@@ -651,7 +651,6 @@ if is_aprovador:
         
         for letra_col, info_alcada in ALCADAS_INFO.items():
             nome_coluna_sheets = info_alcada["coluna_sheets"]
-            # Suporte para validação se "emails" for uma lista ou se "email" for uma string
             emails_alcada = info_alcada.get("emails", [])
             if not isinstance(emails_alcada, list):
                 emails_alcada = [emails_alcada]
@@ -703,7 +702,10 @@ if is_aprovador:
                 else:
                     for _, row in pendentes.iterrows():
                         id_chamado = row["ID"]
-                        descricao_produto = str(row.get("Descrição completa do produto", "Sem descrição"))
+                        
+                        # Definição uniforme da descrição do produto
+                        col_prod = "Descrição completa do produto" if "Descrição completa do produto" in row else "Descrição do produto" if "Descrição do produto" in row else "Descricao_Produto"
+                        descricao_produto = str(row.get(col_prod, "Sem descrição"))
                         
                         with st.container(border=True):
                             st.markdown(f"#### Chamado #{id_chamado} — {descricao_produto}")
@@ -715,7 +717,7 @@ if is_aprovador:
                                 
                                 col_detalhe1, col_detalhe2 = st.columns(2)
                                 with col_detalhe1:
-                                    st.markdown(f"**Descrição do Produto:** {row.get('Descrição completa do produto', 'N/A')}")
+                                    st.markdown(f"**Descrição do Produto:** {descricao_produto}")
                                     st.markdown(f"**Apresentação/Volume:** {row.get('Apresentação/volume', 'N/A')}")
                                     st.markdown(f"**Fabricante/Fornecedor:** {row.get('Fabricante/fornecedor', 'N/A')}")
                                     st.markdown(f"**Área e Indicação de Uso:** {row.get('Área onde será utilizado e indicação detalhada de uso do produto', 'N/A')}")
@@ -798,40 +800,35 @@ if is_aprovador:
                                                     else:
                                                         df_dados["Status_Aprovadores"] = df_dados["Status_Aprovadores"].astype(str)
                                                     
-                                                    col_prod = "Descrição do produto" if "Descrição do produto" in row else "Descricao_Produto"
-                                                    descricao_produto = row.get(col_prod, "Não especificado")
+                                                    # Bloco de Alerta por E-mail (Primeira Recusa)
+                                                    if "Reprovar" in conteudo_coluna and reprovados_count == 1:
+                                                        lista_emails_comite = []
+                                                        for inf in ALCADAS_INFO.values():
+                                                            emails = inf.get("emails", [])
+                                                            if isinstance(emails, list):
+                                                                lista_emails_comite.extend(emails)
+                                                            elif isinstance(emails, str):
+                                                                lista_emails_comite.append(emails)
+                                                        lista_emails_comite = list(set(lista_emails_comite))
+                                                        
+                                                        html_alerta = f"""
+                                                        <h3>⚠️ CAPROQ: Parecer desfavorável registrado - Chamado #{id_chamado}</h3>
+                                                        <p>A alçada técnica <b>{info['label']}</b> registrou uma <b>RECUSA</b> para o produto: {descricao_produto}.</p>
+                                                        <p><b>Parecer do especialista:</b> {texto_parecer_limpo if texto_parecer_limpo else 'Sem justificativa detalhada.'}</p>
+                                                        <p>🚨 O fluxo segue aberto para coletar os votos das outras áreas. 
+                                                        Contudo, <b>será necessário agendar uma reunião de comitê</b> para debater este caso.</p>
+                                                        """
+                                                        
+                                                        for email_membro in lista_emails_comite:
+                                                            enviar_email(destinatario=email_membro, assunto=f"CAPROQ: Reunião necessária (Recusa registrada) - #{id_chamado}", corpo_html=html_alerta)
 
-                                                    if "Reprovar" in conteudo_coluna:
-                                                        if reprovados_count == 1:
-                                                            df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Reunião Necessária"
-                                                            
-                                                            lista_emails_comite = []
-                                                            for inf in ALCADAS_INFO.values():
-                                                                emails = inf.get("emails", [])
-                                                                if isinstance(emails, list):
-                                                                    lista_emails_comite.extend(emails)
-                                                                elif isinstance(emails, str):
-                                                                    lista_emails_comite.append(emails)
-                                                            lista_emails_comite = list(set(lista_emails_comite))
-                                                            
-                                                            html_alerta = f"""
-                                                            <h3>⚠️ CAPROQ: Parecer desfavorável registrado - Chamado #{id_chamado}</h3>
-                                                            <p>A alçada técnica <b>{info['label']}</b> registrou uma <b>RECUSA</b> para o produto: {descricao_produto}.</p>
-                                                            <p><b>Parecer do especialista:</b> {texto_parecer_limpo if texto_parecer_limpo else 'Sem justificativa detalhada.'}</p>
-                                                            <p>🚨 O fluxo segue aberto para coletar os votos das outras áreas. 
-                                                            Contudo, <b>será necessário agendar uma reunião de comitê</b> para debater este caso.</p>
-                                                            """
-                                                            
-                                                            for email_membro in lista_emails_comite:
-                                                                enviar_email(destinatario=email_membro, assunto=f"CAPROQ: Reunião necessária (Recusa registrada) - #{id_chamado}", corpo_html=html_alerta)
-
-                                                    if votos_total_emitidos == len(ALCADAS_INFO):
+                                                    # Matriz de decisão hierárquica corrigida para priorizar a reunião necessária
+                                                    if reprovados_count > 0:
+                                                        df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Reunião Necessária"
+                                                    elif votos_total_emitidos == len(ALCADAS_INFO):
                                                         df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Aguardando homologação"
                                                     else:
-                                                        if reprovados_count > 0:
-                                                            df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Reunião necessária"
-                                                        else:
-                                                            df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Em deliberação"
+                                                        df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Em deliberação"
 
                                                     conn.update(data=df_dados)
                                                     st.success("Seu parecer técnico foi computado com sucesso!")
