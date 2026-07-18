@@ -1135,14 +1135,11 @@ else:
             # SEÇÃO 2: Dependências e processos
             {"id": "insumos_associados", "label": "Equipamentos e/ou insumos associados ao uso do produto? Se SIM, quais?", "tipo": "area_texto", "secao": "Processos e Dependências", "obrigatorio": False},
             {"id": "sem_produto", "label": "Explique como o procedimento/atividade atual é realizado SEM este produto:", "tipo": "area_texto", "secao": "Processos e Dependências", "obrigatorio": True},
-            
-            # [PASSO 3]: Nova Pergunta de Produto de Teste injetada dinamicamente
-            {"id": "produto_teste", "label": "Este produto é um Produto de Teste / Piloto?", "tipo": "radio_horizontal_teste", "secao": "Processos e Dependências", "obrigatorio": True},
 
             # SEÇÃO 3: Avaliação de impacto e riscos
             {"id": "reducao_tempo", "label": "O produto contribui para a redução de tempo de execução dos procedimentos?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "reducao_acidentes", "label": "O produto proposto contribui para a redução do risco de acidentes de trabalho?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
-            {"id": "seguranca_paciente", "label": "O produto favorece a segurança do paciente e dos profissionais?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
+            {"id": "seguranca_paciente", "label": "O produto favorece a segurança do paciente and dos profissionais?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "reducao_infeccao", "label": "O produto proposto contribui para a redução de risco de infecção hospitalar?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "requerido_legislacao", "label": "O item é requerido pela legislação, padrões de qualidade e segurança adotados pela instituição?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
             {"id": "residuo_perigoso", "label": "O item solicitado gera resíduo perigoso?", "tipo": "radio_horizontal", "secao": "Avaliação de Impacto e Segurança", "obrigatorio": True},
@@ -1158,8 +1155,53 @@ else:
         
         respostas_formulario["Carimbo de data/hora"] = timestamp_criacao
         respostas_formulario["Endereço de e-mail"] = user_email
+
+        # Pergunta de Produto de Teste colocada fora do form para garantir reatividade imediata na tela ao clicar
+        st.markdown("<br><h4 style='color: #005691;'>Processos e Dependências (Fase Inicial)</h4>", unsafe_allow_html=True)
+        st.markdown("---")
+        valor_produto_teste = st.radio(
+            "Este produto é um Produto de Teste / Piloto? *",
+            options=["SIM", "NÃO"],
+            index=1,  # Padrão NÃO
+            horizontal=True,
+            key="produto_teste_reativo",
+            help="Selecione SIM se este produto passará por um período de testes práticos antes da compra final."
+        )
+        respostas_formulario["Este produto é um Produto de Teste / Piloto?"] = valor_produto_teste
+
+        # Dicionário auxiliar para colher respostas do bloco dinâmico de testes
+        respostas_teste_dinamico = {
+            "Motivo_Teste": "", "Consumo_Mes": "", "Qtd_Teste": "", "Setores_Teste": "",
+            "Setor_Solicitante": "", "Ramal_Solicitante": "", "Responsavel_Area": ""
+        }
+
+        if valor_produto_teste == "SIM":
+            st.markdown("<div style='background-color: #F0F4F8; padding: 18px; border-radius: 8px; border-left: 4px solid #005691; margin-bottom: 15px;'>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #005691; font-weight: bold; margin-top:0; font-size: 1.1em;'>📦 Detalhes do Piloto / Teste Prático</p>", unsafe_allow_html=True)
+            
+            respostas_teste_dinamico["Motivo_Teste"] = st.selectbox(
+                "Classificação do item no HMV: *",
+                options=["", "Produto novo/lançamento", "Melhoramento do produto", "Produto existente não usado no HMV", "Produto similar ao usado no HMV", "Suprir a falta de um produto"],
+                key="sb_motivo_teste"
+            )
+            
+            respostas_teste_dinamico["Consumo_Mes"] = st.text_input("Consumo estimado/mês: *", key="txt_consumo_mes")
+            respostas_teste_dinamico["Qtd_Teste"] = st.text_input("Quantidade do teste: *", key="txt_qtd_teste")
+            respostas_teste_dinamico["Setores_Teste"] = st.text_input("Setores do teste: *", key="txt_setores_teste")
+            
+            st.markdown("<hr style='border: 0; border-top: 1px dashed #005691; margin: 15px 0;'>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações do Solicitante</p>", unsafe_allow_html=True)
+            
+            respostas_teste_dinamico["Setor_Solicitante"] = st.text_input("Setor: *", key="txt_setor_solicitante")
+            respostas_teste_dinamico["Ramal_Solicitante"] = st.text_input("Fone/ramal do setor: *", key="txt_ramal_solicitante")
+            respostas_teste_dinamico["Responsavel_Area"] = st.text_input("Gerente ou coordenador da área: *", key="txt_responsavel_area")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # Injetando as respostas tratadas no dicionário principal
+        respostas_formulario.update(respostas_teste_dinamico)
     
-        # 9.1. Formulário
+        # 9.1. Formulário Fixo
         with st.form(key="form_requisicao_fixo", clear_on_submit=True):
             secao_atual = ""
             
@@ -1189,48 +1231,7 @@ else:
                         horizontal=True, 
                         key=campo["id"]
                     )
-                elif campo["tipo"] == "radio_horizontal_teste":
-                    val_teste = st.radio(
-                        label_final,
-                        options=["SIM", "NÃO"],
-                        index=1, # Padrão NÃO
-                        horizontal=True,
-                        key=campo["id"],
-                        help="Selecione SIM se este produto passará por um período de testes práticos antes da compra final."
-                    )
-                    respostas_formulario[campo["label"]] = val_teste
-                    
-                    if val_teste == "SIM":
-                        st.markdown("<div style='background-color: #F0F4F8; padding: 18px; border-radius: 8px; border-left: 4px solid #005691; margin-bottom: 15px;'>", unsafe_allow_html=True)
-                        st.markdown("<p style='color: #005691; font-weight: bold; margin-top:0; font-size: 1.1em;'>📦 Detalhes do Piloto / Teste Prático</p>", unsafe_allow_html=True)
-                        
-                        respostas_formulario["Motivo_Teste"] = st.selectbox(
-                            "Classificação do item no HMV: *",
-                            options=["", "Produto novo/lançamento", "Melhoramento do produto", "Produto existente não usado no HMV", "Produto similar ao usado no HMV", "Suprir a falta de um produto"],
-                            key="sb_motivo_teste"
-                        )
-                        
-                        respostas_formulario["Consumo_Mes"] = st.text_input("Consumo estimado/mês: *", key="txt_consumo_mes")
-                        respostas_formulario["Qtd_Teste"] = st.text_input("Quantidade do teste: *", key="txt_qtd_teste")
-                        respostas_formulario["Setores_Teste"] = st.text_input("Setores do teste: *", key="txt_setores_teste")
-                        
-                        st.markdown("<hr style='border: 0; border-top: 1px dashed #005691; margin: 15px 0;'>", unsafe_allow_html=True)
-                        st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações do Solicitante</p>", unsafe_allow_html=True)
-                        
-                        respostas_formulario["Setor_Solicitante"] = st.text_input("Setor: *", key="txt_setor_solicitante")
-                        respostas_formulario["Ramal_Solicitante"] = st.text_input("Fone/ramal do setor: *", key="txt_ramal_solicitante")
-                        respostas_formulario["Responsavel_Area"] = st.text_input("Gerente ou coordenador da área: *", key="txt_responsavel_area")
-                        
-                        st.markdown("</div>", unsafe_allow_html=True)
-                    else:
-                        respostas_formulario["Motivo_Teste"] = ""
-                        respostas_formulario["Consumo_Mes"] = ""
-                        respostas_formulario["Qtd_Teste"] = ""
-                        respostas_formulario["Setores_Teste"] = ""
-                        respostas_formulario["Setor_Solicitante"] = ""
-                        respostas_formulario["Ramal_Solicitante"] = ""
-                        respostas_formulario["Responsavel_Area"] = ""
-    
+            
             # 9.2. Seção anexos
             st.markdown("<br><h4 style='color: #005691;'>Arquivos e Documentações</h4>", unsafe_allow_html=True)
             st.markdown("---")
@@ -1245,7 +1246,6 @@ else:
         if enviar:
             campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario.get(campo["label"])]
             
-            valor_produto_teste = respostas_formulario.get("Este produto é um Produto de Teste / Piloto?", "NÃO")
             if valor_produto_teste == "SIM":
                 if not respostas_formulario.get("Motivo_Teste"): campos_vazios.append("Classificação do item no HMV")
                 if not respostas_formulario.get("Consumo_Mes"): campos_vazios.append("Consumo estimado/mês")
@@ -1298,30 +1298,21 @@ else:
                     if str(nome_log).strip() in ["None", ""]:
                         nome_log = "Solicitante"
                     
-                    valor_produto_teste = respostas_formulario.get("Este produto é um Produto de Teste / Piloto?", "NÃO")
-                    
                     respostas_formulario.pop("Este produto é um Produto de Teste / Piloto?", None)
     
+                    # Dicionário unificado (Correção da sobrescrita e remoção dos pops destrutivos)
                     dados_estruturais = {
                         "ID": proximo_id,
                         "Nome solicitante": user_name,
                         "Status_Final": "Em análise",
                         "Produto_Teste": valor_produto_teste,
-                        
-                        "Motivo_Teste": respostas_formulario.pop("Motivo_Teste", ""),
-                        "Consumo_Mes_Teste": respostas_formulario.pop("Consumo_Mes", ""),
-                        "Quantidade_Teste": respostas_formulario.pop("Qtd_Teste", ""),
-                        "Setor_Destino_Teste": respostas_formulario.pop("Setores_Teste", ""),
-                        "Setor_Solicitante": respostas_formulario.pop("Setor_Solicitante", ""),
-                        "Ramal_Solicitante": respostas_formulario.pop("Ramal_Solicitante", ""),
-                        "Responsavel_Area": respostas_formulario.pop("Responsavel_Area", "")
-                    }
-
-                    dados_estruturais = {
-                        "ID": proximo_id,
-                        "Nome solicitante": user_name,
-                        "Status_Final": "Em análise",
-                        "Produto_Teste": valor_produto_teste
+                        "Motivo_Teste": respostas_formulario.get("Motivo_Teste", ""),
+                        "Consumo_Mes_Teste": respostas_formulario.get("Consumo_Mes", ""),
+                        "Quantidade_Teste": respostas_formulario.get("Qtd_Teste", ""),
+                        "Setor_Destino_Teste": respostas_formulario.get("Setores_Teste", ""),
+                        "Setor_Solicitante": respostas_formulario.get("Setor_Solicitante", ""),
+                        "Ramal_Solicitante": respostas_formulario.get("Ramal_Solicitante", ""),
+                        "Responsavel_Area": respostas_formulario.get("Responsavel_Area", "")
                     }
                     
                     for info in ALCADAS_INFO.values():
