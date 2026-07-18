@@ -1156,7 +1156,6 @@ else:
         respostas_formulario["Carimbo de data/hora"] = timestamp_criacao
         respostas_formulario["Endereço de e-mail"] = user_email
 
-        # Pergunta de Produto de Teste colocada fora do form para garantir reatividade imediata na tela ao clicar
         st.markdown("<br><h4 style='color: #005691;'>Processos e Dependências (Fase Inicial)</h4>", unsafe_allow_html=True)
         st.markdown("---")
         valor_produto_teste = st.radio(
@@ -1169,36 +1168,32 @@ else:
         )
         respostas_formulario["Este produto é um Produto de Teste / Piloto?"] = valor_produto_teste
 
-        # Dicionário auxiliar para colher respostas do bloco dinâmico de testes
         respostas_teste_dinamico = {
             "Motivo_Teste": "", "Consumo_Mes": "", "Qtd_Teste": "", "Setores_Teste": "",
             "Setor_Solicitante": "", "Ramal_Solicitante": "", "Responsavel_Area": ""
         }
 
         if valor_produto_teste == "SIM":
-            st.markdown("<div style='background-color: #F0F4F8; padding: 18px; border-radius: 8px; border-left: 4px solid #005691; margin-bottom: 15px;'>", unsafe_allow_html=True)
-            st.markdown("<p style='color: #005691; font-weight: bold; margin-top:0; font-size: 1.1em;'>📦 Detalhes do Piloto / Teste Prático</p>", unsafe_allow_html=True)
-            
-            respostas_teste_dinamico["Motivo_Teste"] = st.selectbox(
-                "Classificação do item no HMV: *",
-                options=["", "Produto novo/lançamento", "Melhoramento do produto", "Produto existente não usado no HMV", "Produto similar ao usado no HMV", "Suprir a falta de um produto"],
-                key="sb_motivo_teste"
-            )
-            
-            respostas_teste_dinamico["Consumo_Mes"] = st.text_input("Consumo estimado/mês: *", key="txt_consumo_mes")
-            respostas_teste_dinamico["Qtd_Teste"] = st.text_input("Quantidade do teste: *", key="txt_qtd_teste")
-            respostas_teste_dinamico["Setores_Teste"] = st.text_input("Setores do teste: *", key="txt_setores_teste")
-            
-            st.markdown("<hr style='border: 0; border-top: 1px dashed #005691; margin: 15px 0;'>", unsafe_allow_html=True)
-            st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações do Solicitante</p>", unsafe_allow_html=True)
-            
-            respostas_teste_dinamico["Setor_Solicitante"] = st.text_input("Setor: *", key="txt_setor_solicitante")
-            respostas_teste_dinamico["Ramal_Solicitante"] = st.text_input("Fone/ramal do setor: *", key="txt_ramal_solicitante")
-            respostas_teste_dinamico["Responsavel_Area"] = st.text_input("Gerente ou coordenador da área: *", key="txt_responsavel_area")
-            
-            st.markdown("</div>", unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown("<p style='color: #005691; font-weight: bold; margin-top:0; font-size: 1.1em;'>📦 Detalhes do Piloto / Teste Prático</p>", unsafe_allow_html=True)
+                
+                respostas_teste_dinamico["Motivo_Teste"] = st.selectbox(
+                    "Classificação do item no HMV: *",
+                    options=["", "Produto novo/lançamento", "Melhoramento do produto", "Produto existente não usado no HMV", "Produto similar ao usado no HMV", "Suprir a falta de um produto"],
+                    key="sb_motivo_teste"
+                )
+                
+                respostas_teste_dinamico["Consumo_Mes"] = st.text_input("Consumo estimado/mês: *", key="txt_consumo_mes")
+                respostas_teste_dinamico["Qtd_Teste"] = st.text_input("Quantidade do teste: *", key="txt_qtd_teste")
+                respostas_teste_dinamico["Setores_Teste"] = st.text_input("Setores do teste: *", key="txt_setores_teste")
+                
+                st.markdown("<hr style='border: 0; border-top: 1px dashed #d3d3d3; margin: 15px 0;'>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações do Solicitante</p>", unsafe_allow_html=True)
+                
+                respostas_teste_dinamico["Setor_Solicitante"] = st.text_input("Setor: *", key="txt_setor_solicitante")
+                respostas_teste_dinamico["Ramal_Solicitante"] = st.text_input("Fone/ramal do setor: *", key="txt_ramal_solicitante")
+                respostas_teste_dinamico["Responsavel_Area"] = st.text_input("Gerente ou coordenador da área: *", key="txt_responsavel_area")
 
-        # Injetando as respostas tratadas no dicionário principal
         respostas_formulario.update(respostas_teste_dinamico)
     
         # 9.1. Formulário Fixo
