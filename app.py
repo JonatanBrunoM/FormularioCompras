@@ -779,20 +779,45 @@ if is_aprovador:
                                                     todos_votos_valores = [str(linha_atualizada[inf["coluna_sheets"]]) for inf in ALCADAS_INFO.values() if inf["coluna_sheets"] in df_dados.columns]
                                                     
                                                     reprovados_count = sum(1 for v in todos_votos_valores if v.startswith("Reprovar"))
-                                                    aprovados_count = sum(1 for v in todos_votos_valores if v.startswith(("Aprovar", "Aprovar com ressalva")))
+                                                    votos_total_emitidos = sum(1 for v in todos_votos_valores if v.startswith(("Aprovar", "Reprovar")))
                                                     
-                                                    if reprovados_count > 0:
-                                                        df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Reprovado"
-                                                        html_fim = f"<h3>CAPROQ: Chamado #{id_chamado} Indeferido</h3><p>O processo foi encerrado pois recebeu parecer desfavorável na alçada técnica: {info['label']}.</p><p><b>Parecer registrado:</b> {parecer_texto}</p>"
-                                                        enviar_email(destinatario=row["Endereço de e-mail"], assunto=f"CAPROQ: Processo Encerrado (Reprovado) - #{id_chamado}", corpo_html=html_fim)
-                                                    
-                                                    elif aprovados_count == len(ALCADAS_INFO):
-                                                        df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = "Aprovado"
-                                                        html_fim = f"<h3>CAPROQ: Chamado #{id_chamado} Homologado!</h3><p>A solicitação foi integralmente aprovada (com ou sem ressalvas) por todas as alçadas do comitê técnico.</p>"
-                                                        enviar_email(destinatario=row["Endereço de e-mail"], assunto=f"CAPROQ: Homologação Concluída - #{id_chamado}", corpo_html=html_fim)
-                                                    
+                                                    col_prod = "Descrição do produto" if "Descrição do produto" in row else "Descricao_Produto"
+                                                    descricao_produto = row.get(col_prod, "Não especificado")
+
+                                                    if "Reprovar" in conteudo_coluna:
+                                                        if reprovados_count == 1:
+                                                            df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Reunião Necessária"
+                                                            
+                                                            lista_emails_comite = []
+                                                            for inf in ALCADAS_INFO.values():
+                                                                emails = inf.get("emails", [])
+                                                                if isinstance(emails, list):
+                                                                    lista_emails_comite.extend(emails)
+                                                                elif isinstance(emails, str):
+                                                                    lista_emails_comite.append(emails)
+                                                            lista_emails_comite = list(set(lista_emails_comite))
+                                                            
+                                                            html_alerta = f"""
+                                                            <h3>⚠️ CAPROQ: Parecer Desfavorável Registrado - Chamado #{id_chamado}</h3>
+                                                            <p>A alçada técnica <b>{info['label']}</b> registrou uma <b>RECUSA</b> para o produto: {descricao_produto}.</p>
+                                                            <p><b>Parecer do especialista:</b> {texto_parecer_limpo if texto_parecer_limpo else 'Sem justificativa detalhada.'}</p>
+                                                            <p>🚨 O fluxo segue aberto para coletar os votos das outras áreas. 
+                                                            Contudo, <b>será necessário agendar uma reunião de comitê</b> para debater este caso.</p>
+                                                            """
+                                                            
+                                                            for email_membro in lista_emails_comite:
+                                                                enviar_email(destinatario=email_membro, assunto=f"CAPROQ: Reunião Necessária (Recusa Registrada) - #{id_chamado}", corpo_html=html_alerta)
+
+                                                    if votos_total_emitidos == len(ALCADAS_INFO):
+                                                        df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Aguardando Homologação Admin"
+                                                    else:
+                                                        if reprovados_count > 0:
+                                                            df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Reunião Necessária"
+                                                        else:
+                                                            df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Em deliberação"
+
                                                     conn.update(data=df_dados)
-                                                    st.success("Seu parecer técnico foi computado com sucesso!")
+                                                    st.success("Seu parecer técnico foi computado no colegiado com sucesso!")
                                                     time.sleep(1.2)
                                                     st.rerun()
 
