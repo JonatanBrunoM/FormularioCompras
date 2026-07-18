@@ -1258,6 +1258,8 @@ else:
                     
                     valor_produto_teste = respostas_formulario.get("Este produto é um Produto de Teste / Piloto?", "NÃO")
 
+                    respostas_formulario.pop("Este produto é um Produto de Teste / Piloto?", None)
+
                     dados_estruturais = {
                         "ID": proximo_id,
                         "Nome solicitante": user_name,
