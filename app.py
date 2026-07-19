@@ -644,7 +644,7 @@ if is_aprovador:
     # --------------------------------------------------------------------------
     # PAINEL DE CONTROLE PRINCIPAL
     # --------------------------------------------------------------------------
-    else:
+    elif st.session_state.get("pagina_atual") == "painel_principal":
         st.markdown("---")
         
         colunas_permitidas_usuario = []
