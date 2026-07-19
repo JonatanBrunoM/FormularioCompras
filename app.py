@@ -455,29 +455,30 @@ st.sidebar.markdown(avatar_html, unsafe_allow_html=True)
 # ------------------------------------------------------------------------------
 if st.session_state.get("is_admin", False):
     st.sidebar.markdown("<br>", unsafe_allow_html=True)
-    
-    if st.session_state.get("pagina_atual") == "painel_principal":
+
+    pagina = st.session_state.get("pagina_atual")
+
+    if pagina == "painel_principal":
+
         if st.sidebar.button("⚙️ Gerenciar Aprovadores", use_container_width=True):
             st.session_state["pagina_atual"] = "gerenciar_aprovadores"
             st.rerun()
-            
-    elif st.session_state.get("pagina_atual") == "gerenciar_aprovadores":
+
+        if st.sidebar.button("🛡️ Homologação Final", use_container_width=True):
+            st.session_state["pagina_atual"] = "homologacao_final"
+            st.rerun()
+
+    elif pagina == "gerenciar_aprovadores":
+
         if st.sidebar.button("⬅️ Voltar ao Painel", use_container_width=True):
             st.session_state["pagina_atual"] = "painel_principal"
             st.rerun()
 
-st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-if st.sidebar.button("Sair do Sistema", use_container_width=True):
-    try:
-        cookie_manager.set(cookie="moinhos_user_email", val="", key="logout_email")
-        cookie_manager.set(cookie="moinhos_user_name", val="", key="logout_name")
-        cookie_manager.set(cookie="moinhos_user_picture", val="", key="logout_picture")
-    except Exception:
-        pass
-    
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.rerun()
+    elif pagina == "homologacao_final":
+
+        if st.sidebar.button("⬅️ Voltar ao Painel", use_container_width=True):
+            st.session_state["pagina_atual"] = "painel_principal"
+            st.rerun()
 
 # ==============================================================================
 # 7. Tela principal
@@ -1111,7 +1112,10 @@ if is_aprovador:
     # ==============================================================================
     # 9. Segunda Etapa: Homologação e Decisão Final (Exclusivo Administradores)
     # ==============================================================================
-    if st.session_state.get("is_admin", False) and st.session_state.get("pagina_atual") != "gerenciar_aprovadores":
+    if (
+        st.session_state.get("is_admin", False)
+        and st.session_state.get("pagina_atual") == "homologacao_final"
+    ):
         st.markdown("---")
         st.title("🛡️ Painel de Homologação e Decisão Final (Admin)")
         st.markdown("Analise os pareceres técnicos das alçadas e registre a deliberação final do comitê.")
