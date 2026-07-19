@@ -1151,8 +1151,8 @@ if is_aprovador:
                     descricao_produto = str(row.get(col_prod, "Sem descrição"))
                     
                     with st.container(border=True):
-    st.markdown(f"### Chamado #{id_chamado} — {descricao_produto}")
-    st.markdown(f"**Status dos Aprovadores:** `{status_apr}`")
+                        st.markdown(f"### Chamado #{id_chamado} — {descricao_produto}")
+                        st.markdown(f"**Status dos Aprovadores:** `{status_apr}`")
 
             eh_produto_teste = (
                 str(row.get("Produto_Teste", "NÃO")).strip().upper() == "SIM"
