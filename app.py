@@ -1309,52 +1309,52 @@ if is_aprovador:
                     key=key_obs
                 )
                         
-                        if st.button(f"Firmar Decisão Final - Chamado #{id_chamado}", key=f"btn_admin_final_{id_chamado}", type="primary"):
-                            if not all([q1, q2, q3, q4]):
-                                st.error("❌ Por favor, responda a todas as 4 perguntas do questionário estratégico antes de salvar.")
-                            elif not obs_admin.strip():
-                                st.error("❌ É obrigatório preencher as considerações finais para fins de auditoria e registro de ata.")
-                            else:
-                                fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
-                                timestamp_homologacao = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
-                                
-                                tem_resposta_negativa = "Não" in [q1, q2, q3, q4]
-                                
-                                if tem_resposta_negativa or "Reunião" in str(status_apr):
-                                    status_final_texto = "Reprovar"
-                                    emoji_resultado = "❌ REPROVADO"
-                                else:
-                                    status_final_texto = "Aprovar"
-                                    emoji_resultado = "✅ APROVADO"
-                                    
-                                respostas_resumo = f"Q1:{q1}|Q2:{q2}|Q3:{q3}|Q4:{q4}"
-                                historico_admin_completo = f"{status_final_texto} ({timestamp_homologacao} - por {st.session_state.get('name', user_name)}: [{respostas_resumo}] {obs_admin.strip().replace('\n', ' ')})"
-                                
-                                df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = status_final_texto
-                                df_dados.loc[df_dados["ID"] == id_chamado, "Parecer_Final_Admin"] = historico_admin_completo
-                                
-                                email_solicitante = row.get("Endereço de e-mail", "")
-                                nome_solicitante = row.get("Nome solicitante", row.get("Nome", "Solicitante"))
-                                
-                                html_encerramento = f"""
-                                <h3>🔔 CAPROQ: Processo de Avaliação Concluído - Chamado #{id_chamado}</h3>
-                                <p>Olá, <b>{nome_solicitante}</b>,</p>
-                                <p>O processo de análise técnica e homologação estratégica do produto <b>{descricao_produto}</b> foi concluído pelo comitê.</p>
-                                <p><b>Resultado Final:</b> {emoji_resultado}</p>
-                                <p><b>Justificativa da Deliberação:</b> {obs_admin.strip()}</p>
-                                <p><br>Agradecemos a sua submissão. Este chamado encontra-se agora encerrado em nossa base de dados.</p>
-                                """
-                                
-                                if email_solicitante and "@" in str(email_solicitante):
-                                    enviar_email(destinatario=email_solicitante, assunto=f"CAPROQ: Resultado Final - Chamado #{id_chamado}", corpo_html=html_encerramento)
-                                
-                                try:
-                                    conn.update(data=df_dados)
-                                    st.success(f"🎉 Chamado #{id_chamado} deliberado e encerrado com sucesso! E-mail enviado ao solicitante.")
-                                    time.sleep(1.5)
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"❌ Erro ao salvar a deliberação final na planilha: {e}")
+                if st.button(f"Firmar Decisão Final - Chamado #{id_chamado}", key=f"btn_admin_final_{id_chamado}", type="primary"):
+                    if not all([q1, q2, q3, q4]):
+                        st.error("❌ Por favor, responda a todas as 4 perguntas do questionário estratégico antes de salvar.")
+                    elif not obs_admin.strip():
+                        st.error("❌ É obrigatório preencher as considerações finais para fins de auditoria e registro de ata.")
+                    else:
+                        fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
+                        timestamp_homologacao = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
+                        
+                        tem_resposta_negativa = "Não" in [q1, q2, q3, q4]
+                        
+                        if tem_resposta_negativa or "Reunião" in str(status_apr):
+                            status_final_texto = "Reprovar"
+                            emoji_resultado = "❌ REPROVADO"
+                        else:
+                            status_final_texto = "Aprovar"
+                            emoji_resultado = "✅ APROVADO"
+                            
+                        respostas_resumo = f"Q1:{q1}|Q2:{q2}|Q3:{q3}|Q4:{q4}"
+                        historico_admin_completo = f"{status_final_texto} ({timestamp_homologacao} - por {st.session_state.get('name', user_name)}: [{respostas_resumo}] {obs_admin.strip().replace('\n', ' ')})"
+                        
+                        df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = status_final_texto
+                        df_dados.loc[df_dados["ID"] == id_chamado, "Parecer_Final_Admin"] = historico_admin_completo
+                        
+                        email_solicitante = row.get("Endereço de e-mail", "")
+                        nome_solicitante = row.get("Nome solicitante", row.get("Nome", "Solicitante"))
+                        
+                        html_encerramento = f"""
+                        <h3>🔔 CAPROQ: Processo de Avaliação Concluído - Chamado #{id_chamado}</h3>
+                        <p>Olá, <b>{nome_solicitante}</b>,</p>
+                        <p>O processo de análise técnica e homologação estratégica do produto <b>{descricao_produto}</b> foi concluído pelo comitê.</p>
+                        <p><b>Resultado Final:</b> {emoji_resultado}</p>
+                        <p><b>Justificativa da Deliberação:</b> {obs_admin.strip()}</p>
+                        <p><br>Agradecemos a sua submissão. Este chamado encontra-se agora encerrado em nossa base de dados.</p>
+                        """
+                        
+                        if email_solicitante and "@" in str(email_solicitante):
+                            enviar_email(destinatario=email_solicitante, assunto=f"CAPROQ: Resultado Final - Chamado #{id_chamado}", corpo_html=html_encerramento)
+                        
+                        try:
+                            conn.update(data=df_dados)
+                            st.success(f"🎉 Chamado #{id_chamado} deliberado e encerrado com sucesso! E-mail enviado ao solicitante.")
+                            time.sleep(1.5)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao salvar a deliberação final na planilha: {e}")
 
 else:
 
