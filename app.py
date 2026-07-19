@@ -1216,70 +1216,98 @@ if is_aprovador:
 
                 st.markdown("---")
 
-            st.markdown("**📋 Pareceres Técnicos Registrados:**")
+                        st.markdown("**📋 Pareceres técnicos registrados:**")
 
-            cols_votos = st.columns(len(ALCADAS_INFO))
-
-            for idx, (letra_col, info) in enumerate(ALCADAS_INFO.items()):
-                col_voto = info["coluna_sheets"]
-                voto_atual = row.get(col_voto, "Pendente")
-
-                with cols_votos[idx]:
-                    if (
-                        "Aprovar" in str(voto_atual)
-                        and "ressalva" not in str(voto_atual)
-                    ):
-                        st.success(
-                            f"**{info['label']}:**\n🟢 Aprovado"
-                        )
-
-                    elif "ressalva" in str(voto_atual):
-                        st.warning(
-                            f"**{info['label']}:**\n🟡 Com Ressalva"
-                        )
-
-                    elif "Reprovar" in str(voto_atual):
-                        st.error(
-                            f"**{info['label']}:**\n🔴 Recusado"
-                        )
-
-                    else:
-                        st.caption(
-                            f"**{info['label']}:**\n⚪ {voto_atual}"
-                        )
-                        
-                        with st.expander("💬 Ver detalhes dos pareceres escritos pelas alçadas"):
+                        cols_votos = st.columns(len(ALCADAS_INFO))
+            
+                        for idx, (letra_col, info) in enumerate(ALCADAS_INFO.items()):
+                            col_voto = info["coluna_sheets"]
+                            voto_atual = row.get(col_voto, "Pendente")
+            
+                            with cols_votos[idx]:
+                                if (
+                                    "Aprovar" in str(voto_atual)
+                                    and "ressalva" not in str(voto_atual).lower()
+                                ):
+                                    st.success(
+                                        f"**{info['label']}:**\n🟢 Aprovado"
+                                    )
+            
+                                elif "ressalva" in str(voto_atual).lower():
+                                    st.warning(
+                                        f"**{info['label']}:**\n🟡 Com Ressalva"
+                                    )
+            
+                                elif "Reprovar" in str(voto_atual):
+                                    st.error(
+                                        f"**{info['label']}:**\n🔴 Recusado"
+                                    )
+            
+                                else:
+                                    st.caption(
+                                        f"**{info['label']}:**\n⚪ {voto_atual}"
+                                    )
+            
+                        with st.expander(
+                            "💬 Ver detalhes dos pareceres escritos pelas alçadas"
+                        ):
                             for letra_col, info in ALCADAS_INFO.items():
-                                voto_detalhado = row.get(info["coluna_sheets"], "Pendente")
-                                st.markdown(f"**{info['label']}:** {voto_detalhado}")
-                        
+                                voto_detalhado = row.get(
+                                    info["coluna_sheets"],
+                                    "Pendente"
+                                )
+            
+                                st.markdown(
+                                    f"**{info['label']}:** {voto_detalhado}"
+                                )
+            
                         st.markdown("---")
-                        st.markdown("#### 🎯 Questionário de Viabilidade e Alinhamento Estratégico")
-                        
-                                key_q1 = f"admin_q1_{id_chamado}"
-                                key_q2 = f"admin_q2_{id_chamado}"
-                                key_q3 = f"admin_q3_{id_chamado}"
-                                key_q4 = f"admin_q4_{id_chamado}"
-                                key_obs = f"admin_obs_{id_chamado}"
-                        
-                                q1 = st.radio(
-                                    "1. O produto apresenta claro alinhamento assistencial e ganho clínico comprovado?",
-                                    options=["Sim", "Não"], index=None, horizontal=True, key=key_q1
-                                )
-                                q2 = st.radio(
-                                    "2. Há viabilidade orçamentária e financeira para absorção deste item no fluxo atual?",
-                                    options=["Sim", "Não"], index=None, horizontal=True, key=key_q2
-                                )
-                                q3 = st.radio(
-                                    "3. A cadeia de suprimentos e logística do fornecedor atende aos requisitos mínimos de segurança?",
-                                    options=["Sim", "Não"], index=None, horizontal=True, key=key_q3
-                                )
-                                q4 = st.radio(
-                                    "4. O impacto em resíduos, infraestrutura ou engenharia clínica foi mitigado/aprovado?",
-                                    options=["Sim", "Não"], index=None, horizontal=True, key=key_q4
-                                )
-                        
-                        obs_admin = st.text_area("✍️ Considerações finais do Comitê / Justificativa do veredito:", key=key_obs)
+                        st.markdown(
+                            "#### 🎯 Questionário de viabilidade e alinhamento estratégico"
+                        )
+            
+                        key_q1 = f"admin_q1_{id_chamado}"
+                        key_q2 = f"admin_q2_{id_chamado}"
+                        key_q3 = f"admin_q3_{id_chamado}"
+                        key_q4 = f"admin_q4_{id_chamado}"
+                        key_obs = f"admin_obs_{id_chamado}"
+            
+                        q1 = st.radio(
+                            "1. O produto apresenta claro alinhamento assistencial e ganho clínico comprovado?",
+                            options=["Sim", "Não"],
+                            index=None,
+                            horizontal=True,
+                            key=key_q1
+                        )
+            
+                        q2 = st.radio(
+                            "2. Há viabilidade orçamentária e financeira para absorção deste item no fluxo atual?",
+                            options=["Sim", "Não"],
+                            index=None,
+                            horizontal=True,
+                            key=key_q2
+                        )
+            
+                        q3 = st.radio(
+                            "3. A cadeia de suprimentos e logística do fornecedor atende aos requisitos mínimos de segurança?",
+                            options=["Sim", "Não"],
+                            index=None,
+                            horizontal=True,
+                            key=key_q3
+                        )
+            
+                        q4 = st.radio(
+                            "4. O impacto em resíduos, infraestrutura ou engenharia clínica foi mitigado/aprovado?",
+                            options=["Sim", "Não"],
+                            index=None,
+                            horizontal=True,
+                            key=key_q4
+                        )
+            
+                        obs_admin = st.text_area(
+                            "✍️ Considerações finais do Comitê / Justificativa do veredito:",
+                            key=key_obs
+                        )
                         
                         if st.button(f"Firmar Decisão Final - Chamado #{id_chamado}", key=f"btn_admin_final_{id_chamado}", type="primary"):
                             if not all([q1, q2, q3, q4]):
