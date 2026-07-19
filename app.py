@@ -248,7 +248,6 @@ if not st.session_state["user_ativo"]:
     st.error("❌ Seu usuário está inativo no sistema. Procure o administrador.")
     st.stop()
 
-# --- 3.3. DICIONÁRIO DE ALÇADAS ATUALIZADO (Integração Dinâmica) ---
 ALCADAS_INFO = {
     "V": {
         "coluna_sheets": "Padronização (suprimentos)",
@@ -294,7 +293,6 @@ ALCADAS_INFO = {
     }
 }
 
-# --- 3.4. DISPARO DE E-MAIL ---
 def enviar_email(destinatario, assunto, corpo_html):
     remetente = st.secrets.get("SMTP_EMAIL", "")
     senha = st.secrets.get("SMTP_PASSWORD", "")
@@ -479,6 +477,16 @@ if st.session_state.get("is_admin", False):
         if st.sidebar.button("⬅️ Voltar ao Painel", use_container_width=True):
             st.session_state["pagina_atual"] = "painel_principal"
             st.rerun()
+
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+
+if st.sidebar.button(
+    "🚪 Sair",
+    use_container_width=True,
+    key="botao_sair_sidebar"
+):
+    st.session_state.clear()
+    st.rerun()
 
 # ==============================================================================
 # 7. Tela principal
