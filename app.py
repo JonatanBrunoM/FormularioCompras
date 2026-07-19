@@ -1201,7 +1201,7 @@ if is_aprovador:
                             f"{valor_seguro(row.get('Ramal_Solicitante'))}"
                         )
         
-                                                st.markdown(
+                        st.markdown(
                             f"**Gerente ou coordenador responsável:**  \n"
                             f"{valor_seguro(row.get('Responsavel_Area'))}"
                         )
