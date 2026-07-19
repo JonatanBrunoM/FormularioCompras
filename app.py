@@ -1216,29 +1216,29 @@ if is_aprovador:
                 col_voto = info["coluna_sheets"]
                 voto_atual = row.get(col_voto, "Pendente")
 
-                    with cols_votos[idx]:
-                        if (
-                            "Aprovar" in str(voto_atual)
-                            and "ressalva" not in str(voto_atual)
-                        ):
-                            st.success(
-                                f"**{info['label']}:**\n🟢 Aprovado"
-                            )
+                with cols_votos[idx]:
+                    if (
+                        "Aprovar" in str(voto_atual)
+                        and "ressalva" not in str(voto_atual)
+                    ):
+                        st.success(
+                            f"**{info['label']}:**\n🟢 Aprovado"
+                        )
 
-                        elif "ressalva" in str(voto_atual):
-                            st.warning(
-                                f"**{info['label']}:**\n🟡 Com Ressalva"
-                            )
+                    elif "ressalva" in str(voto_atual):
+                        st.warning(
+                            f"**{info['label']}:**\n🟡 Com Ressalva"
+                        )
 
-                        elif "Reprovar" in str(voto_atual):
-                            st.error(
-                                f"**{info['label']}:**\n🔴 Recusado"
-                            )
+                    elif "Reprovar" in str(voto_atual):
+                        st.error(
+                            f"**{info['label']}:**\n🔴 Recusado"
+                        )
 
-                        else:
-                            st.caption(
-                                f"**{info['label']}:**\n⚪ {voto_atual}"
-                            )
+                    else:
+                        st.caption(
+                            f"**{info['label']}:**\n⚪ {voto_atual}"
+                        )
                         
                         with st.expander("💬 Ver detalhes dos pareceres escritos pelas alçadas"):
                             for letra_col, info in ALCADAS_INFO.items():
