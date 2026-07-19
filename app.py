@@ -1207,8 +1207,6 @@ if is_aprovador:
                         )
         
                 st.markdown("---")
-
-    st.markdown("**📋 Pareceres Técnicos Registrados:**")
                         
                         st.markdown("**📋 Pareceres Técnicos Registrados:**")
                         cols_votos = st.columns(len(ALCADAS_INFO))
