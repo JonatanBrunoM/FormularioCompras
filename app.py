@@ -1210,11 +1210,11 @@ if is_aprovador:
 
             st.markdown("**📋 Pareceres Técnicos Registrados:**")
 
-                cols_votos = st.columns(len(ALCADAS_INFO))
+            cols_votos = st.columns(len(ALCADAS_INFO))
 
-                for idx, (letra_col, info) in enumerate(ALCADAS_INFO.items()):
-                    col_voto = info["coluna_sheets"]
-                    voto_atual = row.get(col_voto, "Pendente")
+            for idx, (letra_col, info) in enumerate(ALCADAS_INFO.items()):
+                col_voto = info["coluna_sheets"]
+                voto_atual = row.get(col_voto, "Pendente")
 
                     with cols_votos[idx]:
                         if (
