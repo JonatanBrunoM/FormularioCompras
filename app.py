@@ -497,6 +497,17 @@ with col_header2:
     st.title("Solicitação de Padronização de Produtos Químicos - CAPROQ")
     st.markdown("<p style='color: #6c757d; font-size: 1.1em; margin-top: -15px;'>Fluxo de envio de solicitações para aprovação.</p>", unsafe_allow_html=True)
 
+def valor_seguro(valor, padrao="Não informado"):
+    if pd.isna(valor):
+        return padrao
+
+    valor_texto = str(valor).strip()
+
+    if valor_texto.lower() in ["", "nan", "none"]:
+        return padrao
+
+    return valor_texto
+
 # ==============================================================================
 # 8. Tela aprovadores e Gerenciamento de Usuários (Ajustado cirurgicamente)
 # ==============================================================================
@@ -1140,8 +1151,64 @@ if is_aprovador:
                     descricao_produto = str(row.get(col_prod, "Sem descrição"))
                     
                     with st.container(border=True):
-                        st.markdown(f"### Chamado #{id_chamado} — {descricao_produto}")
-                        st.markdown(f"**Status dos Aprovadores:** `{status_apr}`")
+    st.markdown(f"### Chamado #{id_chamado} — {descricao_produto}")
+    st.markdown(f"**Status dos Aprovadores:** `{status_apr}`")
+
+            eh_produto_teste = (
+                str(row.get("Produto_Teste", "NÃO")).strip().upper() == "SIM"
+            )
+        
+            if eh_produto_teste:
+                st.warning("🧪 Este chamado refere-se a um Produto de Teste / Piloto.")
+        
+                st.markdown("#### 📦 Informações do Produto Teste")
+        
+                with st.expander(
+                    "Visualizar informações fornecidas pelo solicitante",
+                    expanded=True
+                ):
+                    col_teste_1, col_teste_2 = st.columns(2)
+        
+                    with col_teste_1:
+                        st.markdown(
+                            f"**Classificação do item no HMV:**  \n"
+                            f"{valor_seguro(row.get('Motivo_Teste'))}"
+                        )
+        
+                        st.markdown(
+                            f"**Consumo estimado por mês:**  \n"
+                            f"{valor_seguro(row.get('Consumo_Mes_Teste'))}"
+                        )
+        
+                        st.markdown(
+                            f"**Quantidade destinada ao teste:**  \n"
+                            f"{valor_seguro(row.get('Quantidade_Teste'))}"
+                        )
+        
+                        st.markdown(
+                            f"**Setores onde o teste será realizado:**  \n"
+                            f"{valor_seguro(row.get('Setor_Destino_Teste'))}"
+                        )
+        
+                    with col_teste_2:
+                        st.markdown(
+                            f"**Setor solicitante:**  \n"
+                            f"{valor_seguro(row.get('Setor_Solicitante'))}"
+                        )
+        
+                        st.markdown(
+                            f"**Telefone ou ramal do setor:**  \n"
+                            f"{valor_seguro(row.get('Ramal_Solicitante'))}"
+                        )
+        
+                        st.markdown(
+                            f"**Gerente ou coordenador responsável:**  \n"
+                            f"{valor_seguro(row.get('Responsavel_Area'))}"
+                        )
+        
+                st.markdown("---")
+
+    st.markdown("**📋 Pareceres Técnicos Registrados:**")
                         
                         st.markdown("**📋 Pareceres Técnicos Registrados:**")
                         cols_votos = st.columns(len(ALCADAS_INFO))
