@@ -1256,28 +1256,28 @@ if is_aprovador:
                         st.markdown("---")
                         st.markdown("#### 🎯 Questionário de Viabilidade e Alinhamento Estratégico")
                         
-                        key_q1 = f"admin_q1_{id_chamado}"
-                        key_q2 = f"admin_q2_{id_chamado}"
-                        key_q3 = f"admin_q3_{id_chamado}"
-                        key_q4 = f"admin_q4_{id_chamado}"
-                        key_obs = f"admin_obs_{id_chamado}"
+                                key_q1 = f"admin_q1_{id_chamado}"
+                                key_q2 = f"admin_q2_{id_chamado}"
+                                key_q3 = f"admin_q3_{id_chamado}"
+                                key_q4 = f"admin_q4_{id_chamado}"
+                                key_obs = f"admin_obs_{id_chamado}"
                         
-                        q1 = st.radio(
-                            "1. O produto apresenta claro alinhamento assistencial e ganho clínico comprovado?",
-                            options=["Sim", "Não"], index=None, horizontal=True, key=key_q1
-                        )
-                        q2 = st.radio(
-                            "2. Há viabilidade orçamentária e financeira para absorção deste item no fluxo atual?",
-                            options=["Sim", "Não"], index=None, horizontal=True, key=key_q2
-                        )
-                        q3 = st.radio(
-                            "3. A cadeia de suprimentos e logística do fornecedor atende aos requisitos mínimos de segurança?",
-                            options=["Sim", "Não"], index=None, horizontal=True, key=key_q3
-                        )
-                        q4 = st.radio(
-                            "4. O impacto em resíduos, infraestrutura ou engenharia clínica foi mitigado/aprovado?",
-                            options=["Sim", "Não"], index=None, horizontal=True, key=key_q4
-                        )
+                                q1 = st.radio(
+                                    "1. O produto apresenta claro alinhamento assistencial e ganho clínico comprovado?",
+                                    options=["Sim", "Não"], index=None, horizontal=True, key=key_q1
+                                )
+                                q2 = st.radio(
+                                    "2. Há viabilidade orçamentária e financeira para absorção deste item no fluxo atual?",
+                                    options=["Sim", "Não"], index=None, horizontal=True, key=key_q2
+                                )
+                                q3 = st.radio(
+                                    "3. A cadeia de suprimentos e logística do fornecedor atende aos requisitos mínimos de segurança?",
+                                    options=["Sim", "Não"], index=None, horizontal=True, key=key_q3
+                                )
+                                q4 = st.radio(
+                                    "4. O impacto em resíduos, infraestrutura ou engenharia clínica foi mitigado/aprovado?",
+                                    options=["Sim", "Não"], index=None, horizontal=True, key=key_q4
+                                )
                         
                         obs_admin = st.text_area("✍️ Considerações finais do Comitê / Justificativa do veredito:", key=key_obs)
                         
