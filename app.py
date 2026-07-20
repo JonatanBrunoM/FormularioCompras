@@ -1162,199 +1162,568 @@ if is_aprovador:
                         st.markdown(f"### Chamado #{id_chamado} — {descricao_produto}")
                         st.markdown(f"**Status dos Aprovadores:** `{status_apr}`")
 
-            eh_produto_teste = (
-                str(row.get("Produto_Teste", "NÃO")).strip().upper() == "SIM"
-            )
-        
-            if eh_produto_teste:
-                st.warning("🧪 Este chamado refere-se a um Produto de Teste / Piloto.")
-        
-                st.markdown("#### 📦 Informações do Produto Teste")
-        
-                with st.expander(
-                    "Visualizar informações fornecidas pelo solicitante",
-                    expanded=True
-                ):
-                    col_teste_1, col_teste_2 = st.columns(2)
-        
-                    with col_teste_1:
-                        st.markdown(
-                            f"**Classificação do item no HMV:**  \n"
-                            f"{valor_seguro(row.get('Motivo_Teste'))}"
+                        eh_produto_teste = (
+                            str(row.get("Produto_Teste", "NÃO")).strip().upper() == "SIM"
                         )
-        
-                        st.markdown(
-                            f"**Consumo estimado por mês:**  \n"
-                            f"{valor_seguro(row.get('Consumo_Mes_Teste'))}"
-                        )
-        
-                        st.markdown(
-                            f"**Quantidade destinada ao teste:**  \n"
-                            f"{valor_seguro(row.get('Quantidade_Teste'))}"
-                        )
-        
-                        st.markdown(
-                            f"**Setores onde o teste será realizado:**  \n"
-                            f"{valor_seguro(row.get('Setor_Destino_Teste'))}"
-                        )
-        
-                    with col_teste_2:
-                        st.markdown(
-                            f"**Setor solicitante:**  \n"
-                            f"{valor_seguro(row.get('Setor_Solicitante'))}"
-                        )
-        
-                        st.markdown(
-                            f"**Telefone ou ramal do setor:**  \n"
-                            f"{valor_seguro(row.get('Ramal_Solicitante'))}"
-                        )
-        
-                        st.markdown(
-                            f"**Gerente ou coordenador responsável:**  \n"
-                            f"{valor_seguro(row.get('Responsavel_Area'))}"
-                        )
-
-                st.markdown("---")
-
-                st.markdown("**📋 Pareceres técnicos registrados:**")
-
-                cols_votos = st.columns(len(ALCADAS_INFO))
-
-                for idx, (letra_col, info) in enumerate(ALCADAS_INFO.items()):
-                    col_voto = info["coluna_sheets"]
-                    voto_atual = row.get(col_voto, "Pendente")
-    
-                    with cols_votos[idx]:
-                        if (
-                            "Aprovar" in str(voto_atual)
-                            and "ressalva" not in str(voto_atual).lower()
-                        ):
-                            st.success(
-                                f"**{info['label']}:**\n🟢 Aprovado"
+                    
+                        if eh_produto_teste:
+                            st.warning("🧪 Este chamado refere-se a um Produto de Teste / Piloto.")
+                    
+                            st.markdown("#### 📦 Informações do Produto Teste")
+                    
+                            with st.expander(
+                                "Visualizar informações fornecidas pelo solicitante",
+                                expanded=True
+                            ):
+                                col_teste_1, col_teste_2 = st.columns(2)
+                    
+                                with col_teste_1:
+                                    st.markdown(
+                                        f"**Classificação do item no HMV:**  \n"
+                                        f"{valor_seguro(row.get('Motivo_Teste'))}"
+                                    )
+                    
+                                    st.markdown(
+                                        f"**Consumo estimado por mês:**  \n"
+                                        f"{valor_seguro(row.get('Consumo_Mes_Teste'))}"
+                                    )
+                    
+                                    st.markdown(
+                                        f"**Quantidade destinada ao teste:**  \n"
+                                        f"{valor_seguro(row.get('Quantidade_Teste'))}"
+                                    )
+                    
+                                    st.markdown(
+                                        f"**Setores onde o teste será realizado:**  \n"
+                                        f"{valor_seguro(row.get('Setor_Destino_Teste'))}"
+                                    )
+                    
+                                with col_teste_2:
+                                    st.markdown(
+                                        f"**Setor solicitante:**  \n"
+                                        f"{valor_seguro(row.get('Setor_Solicitante'))}"
+                                    )
+                    
+                                    st.markdown(
+                                        f"**Telefone ou ramal do setor:**  \n"
+                                        f"{valor_seguro(row.get('Ramal_Solicitante'))}"
+                                    )
+                    
+                                    st.markdown(
+                                        f"**Gerente ou coordenador responsável:**  \n"
+                                        f"{valor_seguro(row.get('Responsavel_Area'))}"
+                                    )
+            
+                        st.markdown("---")
+                        st.markdown("**📋 Pareceres técnicos registrados:**")
+            
+                            cols_votos = st.columns(len(ALCADAS_INFO))
+            
+                            for idx, (letra_col, info) in enumerate(ALCADAS_INFO.items()):
+                                col_voto = info["coluna_sheets"]
+                                voto_atual = row.get(col_voto, "Pendente")
+                
+                                with cols_votos[idx]:
+                                    if (
+                                        "Aprovar" in str(voto_atual)
+                                        and "ressalva" not in str(voto_atual).lower()
+                                    ):
+                                        st.success(
+                                            f"**{info['label']}:**\n🟢 Aprovado"
+                                        )
+                
+                                    elif "ressalva" in str(voto_atual).lower():
+                                        st.warning(
+                                            f"**{info['label']}:**\n🟡 Com Ressalva"
+                                        )
+                
+                                    elif "Reprovar" in str(voto_atual):
+                                        st.error(
+                                            f"**{info['label']}:**\n🔴 Recusado"
+                                        )
+                
+                                    else:
+                                        st.caption(
+                                            f"**{info['label']}:**\n⚪ {voto_atual}"
+                                        )
+                
+                            with st.expander(
+                                "💬 Ver detalhes dos pareceres escritos pelas alçadas"
+                            ):
+                                for letra_col, info in ALCADAS_INFO.items():
+                                    voto_detalhado = row.get(
+                                        info["coluna_sheets"],
+                                        "Pendente"
+                                    )
+                
+                                    st.markdown(
+                                        f"**{info['label']}:** {voto_detalhado}"
+                                    )
+                
+                            st.markdown("---")
+                            st.markdown("#### ✅ Encerramento e Homologação Final")
+                
+                            st.info(
+                                "Estas questões devem ser respondidas para todos os chamados, "
+                                "independentemente de o produto ter sido marcado como teste."
                             )
-    
-                        elif "ressalva" in str(voto_atual).lower():
-                            st.warning(
-                                f"**{info['label']}:**\n🟡 Com Ressalva"
+                
+                            key_produto_aprovado = (
+                                f"homologacao_produto_aprovado_{id_chamado}"
                             )
-    
-                        elif "Reprovar" in str(voto_atual):
-                            st.error(
-                                f"**{info['label']}:**\n🔴 Recusado"
+                
+                            key_produto_padronizado = (
+                                f"homologacao_produto_padronizado_{id_chamado}"
                             )
-    
-                        else:
-                            st.caption(
-                                f"**{info['label']}:**\n⚪ {voto_atual}"
+                
+                            key_codigo_padronizacao = (
+                                f"homologacao_codigo_padronizacao_{id_chamado}"
                             )
-    
-                with st.expander(
-                    "💬 Ver detalhes dos pareceres escritos pelas alçadas"
-                ):
-                    for letra_col, info in ALCADAS_INFO.items():
-                        voto_detalhado = row.get(
-                            info["coluna_sheets"],
-                            "Pendente"
-                        )
-    
-                        st.markdown(
-                            f"**{info['label']}:** {voto_detalhado}"
-                        )
-    
-                st.markdown("---")
-                st.markdown(
-                    "#### 🎯 Questionário de Viabilidade e Alinhamento Estratégico"
-                )
-    
-                key_q1 = f"admin_q1_{id_chamado}"
-                key_q2 = f"admin_q2_{id_chamado}"
-                key_q3 = f"admin_q3_{id_chamado}"
-                key_q4 = f"admin_q4_{id_chamado}"
-                key_obs = f"admin_obs_{id_chamado}"
-    
-                q1 = st.radio(
-                    "1. O produto apresenta claro alinhamento assistencial e ganho clínico comprovado?",
-                    options=["Sim", "Não"],
-                    index=None,
-                    horizontal=True,
-                    key=key_q1
-                )
-    
-                q2 = st.radio(
-                    "2. Há viabilidade orçamentária e financeira para absorção deste item no fluxo atual?",
-                    options=["Sim", "Não"],
-                    index=None,
-                    horizontal=True,
-                    key=key_q2
-                )
-    
-                q3 = st.radio(
-                    "3. A cadeia de suprimentos e logística do fornecedor atende aos requisitos mínimos de segurança?",
-                    options=["Sim", "Não"],
-                    index=None,
-                    horizontal=True,
-                    key=key_q3
-                )
-    
-                q4 = st.radio(
-                    "4. O impacto em resíduos, infraestrutura ou engenharia clínica foi mitigado/aprovado?",
-                    options=["Sim", "Não"],
-                    index=None,
-                    horizontal=True,
-                    key=key_q4
-                )
-    
-                obs_admin = st.text_area(
-                    "✍️ Considerações finais do Comitê / Justificativa do veredito:",
-                    key=key_obs
-                )
-                        
-                if st.button(f"Firmar Decisão Final - Chamado #{id_chamado}", key=f"btn_admin_final_{id_chamado}", type="primary"):
-                    if not all([q1, q2, q3, q4]):
-                        st.error("❌ Por favor, responda a todas as 4 perguntas do questionário estratégico antes de salvar.")
-                    elif not obs_admin.strip():
-                        st.error("❌ É obrigatório preencher as considerações finais para fins de auditoria e registro de ata.")
-                    else:
-                        fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
-                        timestamp_homologacao = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
-                        
-                        tem_resposta_negativa = "Não" in [q1, q2, q3, q4]
-                        
-                        if tem_resposta_negativa or "Reunião" in str(status_apr):
-                            status_final_texto = "Reprovar"
-                            emoji_resultado = "❌ REPROVADO"
-                        else:
-                            status_final_texto = "Aprovar"
-                            emoji_resultado = "✅ APROVADO"
+                
+                            key_produto_comprado = (
+                                f"homologacao_produto_comprado_{id_chamado}"
+                            )
+                
+                            key_inventario_perigosos = (
+                                f"homologacao_inventario_perigosos_{id_chamado}"
+                            )
+                
+                            key_fispq_setor = (
+                                f"homologacao_fispq_setor_{id_chamado}"
+                            )
+                
+                            key_obs = f"admin_obs_{id_chamado}"
+                
+                            produto_aprovado = st.radio(
+                                "1. Padronização: o produto foi aprovado?",
+                                options=["SIM", "NÃO"],
+                                index=None,
+                                horizontal=True,
+                                key=key_produto_aprovado
+                            )
+                
+                            produto_padronizado = st.radio(
+                                "2. Padronização: o produto foi padronizado?",
+                                options=["SIM", "NÃO"],
+                                index=None,
+                                horizontal=True,
+                                key=key_produto_padronizado
+                            )
+                
+                            codigo_padronizacao = st.text_input(
+                                "Código do produto padronizado",
+                                placeholder="Informe o código do produto",
+                                disabled=produto_padronizado != "SIM",
+                                key=key_codigo_padronizacao
+                            )
+                
+                            produto_comprado = st.radio(
+                                "3. Solicitante: o produto foi comprado?",
+                                options=["SIM", "NÃO"],
+                                index=None,
+                                horizontal=True,
+                                key=key_produto_comprado
+                            )
+                
+                            inventario_perigosos = st.radio(
+                                (
+                                    "4. Segurança Ocupacional: o produto foi incluído no "
+                                    "inventário de produtos perigosos e o inventário foi "
+                                    "atualizado no PGR?"
+                                ),
+                                options=["SIM", "NÃO", "NA"],
+                                index=None,
+                                horizontal=True,
+                                key=key_inventario_perigosos
+                            )
+                
+                            fispq_setor = st.radio(
+                                (
+                                    "5. Segurança Ocupacional: a FISPQ já está no setor "
+                                    "solicitante?"
+                                ),
+                                options=["SIM", "NÃO", "NA"],
+                                index=None,
+                                horizontal=True,
+                                key=key_fispq_setor
+                            )
+                
+                            obs_admin = st.text_area(
+                                "✍️ Considerações finais do comitê / Justificativa do veredito:",
+                                placeholder=(
+                                    "Registre observações, ressalvas, decisões de consenso "
+                                    "ou justificativas relevantes para o encerramento."
+                                ),
+                                height=140,
+                                key=key_obs
+                            )
+            
+                            respostas_finais_preenchidas = all([
+                                produto_aprovado is not None,
+                                produto_padronizado is not None,
+                                produto_comprado is not None,
+                                inventario_perigosos is not None,
+                                fispq_setor is not None
+                            ])
+                
+                            codigo_padronizacao_valido = (
+                                produto_padronizado != "SIM"
+                                or bool(str(codigo_padronizacao).strip())
+                            )
+            
+                            campos_teste_preenchidos = True
+            
+                            if eh_produto_teste:
+                                campos_teste_preenchidos = all([
+                                    bool(str(rms_produto).strip()),
+                                    validade_rms is not None,
+                                    pode_ser_rediluido is not None,
+                                    necessita_monitoramento is not None,
+                                    resultado_teste is not None,
+                                    data_resultado_teste is not None,
+                                    bool(str(parecer_resultado_teste).strip()),
+                                    indicado_padronizacao is not None,
+                                    data_indicacao_padronizacao is not None,
+                                    bool(str(parecer_indicacao_padronizacao).strip())
+                                ])
+            
+                            if produto_padronizado == "SIM":
+                                resposta_produto_padronizado = (
+                                    f"SIM - Código: {str(codigo_padronizacao).strip()}"
+                                )
+                            elif produto_padronizado == "NÃO":
+                                resposta_produto_padronizado = "NÃO"
+                            else:
+                                resposta_produto_padronizado = ""
+            
+                            dados_homologacao_padrao = {
+                                "Padronização: o produto foi aprovado?":
+                                    produto_aprovado or "",
+            
+                                "Padronização: o produto foi padronizado? Qual o cód.?":
+                                    resposta_produto_padronizado,
+            
+                                "Solicitante: o produto foi comprado?":
+                                    produto_comprado or "",
+            
+                                (
+                                    "Segurança Ocupacional: o produto foi incluído no "
+                                    "inventário de prod. perigosos? E inventário atualizado "
+                                    "no PRG?"
+                                ):
+                                    inventario_perigosos or "",
+            
+                                (
+                                    "Segurança Ocupacional: a FISPQ já está no setor "
+                                    "solicitante?"
+                                ):
+                                    fispq_setor or "",
+            
+                            }
+            
+                            dados_homologacao_teste = {}
+            
+                            if eh_produto_teste:
+                                dados_homologacao_teste = {
+                                    "RMS_Produto":
+                                        str(rms_produto).strip(),
+                
+                                    "Validade_RMS":
+                                        validade_rms.strftime("%d/%m/%Y")
+                                        if validade_rms
+                                        else "",
+                
+                                    "Pode_Ser_Rediluido":
+                                        pode_ser_rediluido or "",
+                
+                                    "Necessita_Monitoramento_Ocupacional":
+                                        necessita_monitoramento or "",
+                
+                                    "Resultado_Teste":
+                                        resultado_teste or "",
+                
+                                    "Data_Resultado_Teste":
+                                        data_resultado_teste.strftime("%d/%m/%Y")
+                                        if data_resultado_teste
+                                        else "",
+                
+                                    "Parecer_Resultado_Teste":
+                                        str(parecer_resultado_teste).strip(),
+                
+                                    "Indicado_Para_Padronizacao":
+                                        indicado_padronizacao or "",
+                
+                                    "Data_Indicacao_Padronizacao":
+                                        data_indicacao_padronizacao.strftime("%d/%m/%Y")
+                                        if data_indicacao_padronizacao
+                                        else "",
+                
+                                    "Parecer_Indicacao_Padronizacao":
+                                        str(parecer_indicacao_padronizacao).strip()
+                                }
+            
+                                dados_homologacao = {
+                                    **dados_homologacao_padrao,
+                                    **dados_homologacao_teste
+                                }
+            
+                                formulario_homologacao_valido = all([
+                                    respostas_finais_preenchidas,
+                                    codigo_padronizacao_valido,
+                                    campos_teste_preenchidos
+                                ])
+            
                             
-                        respostas_resumo = f"Q1:{q1}|Q2:{q2}|Q3:{q3}|Q4:{q4}"
-                        historico_admin_completo = f"{status_final_texto} ({timestamp_homologacao} - por {st.session_state.get('name', user_name)}: [{respostas_resumo}] {obs_admin.strip().replace('\n', ' ')})"
-                        
-                        df_dados.loc[df_dados["ID"] == id_chamado, "Status_Final"] = status_final_texto
-                        df_dados.loc[df_dados["ID"] == id_chamado, "Parecer_Final_Admin"] = historico_admin_completo
-                        
-                        email_solicitante = row.get("Endereço de e-mail", "")
-                        nome_solicitante = row.get("Nome solicitante", row.get("Nome", "Solicitante"))
-                        
-                        html_encerramento = f"""
-                        <h3>🔔 CAPROQ: Processo de Avaliação Concluído - Chamado #{id_chamado}</h3>
-                        <p>Olá, <b>{nome_solicitante}</b>,</p>
-                        <p>O processo de análise técnica e homologação estratégica do produto <b>{descricao_produto}</b> foi concluído pelo comitê.</p>
-                        <p><b>Resultado Final:</b> {emoji_resultado}</p>
-                        <p><b>Justificativa da Deliberação:</b> {obs_admin.strip()}</p>
-                        <p><br>Agradecemos a sua submissão. Este chamado encontra-se agora encerrado em nossa base de dados.</p>
-                        """
-                        
-                        if email_solicitante and "@" in str(email_solicitante):
-                            enviar_email(destinatario=email_solicitante, assunto=f"CAPROQ: Resultado Final - Chamado #{id_chamado}", corpo_html=html_encerramento)
-                        
-                        try:
-                            conn.update(data=df_dados)
-                            st.success(f"🎉 Chamado #{id_chamado} deliberado e encerrado com sucesso! E-mail enviado ao solicitante.")
-                            time.sleep(1.5)
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Erro ao salvar a deliberação final na planilha: {e}")
+                                    "Parecer_Indicacao_Padronizacao":
+                                        str(parecer_indicacao_padronizacao).strip()
+                                }
+            
+                                formulario_homologacao_valido = all([
+                                    respostas_finais_preenchidas,
+                                    codigo_padronizacao_valido,
+                                    campos_teste_preenchidos
+                                ])
+            
+                            if st.button(
+                                f"Firmar decisão final - Chamado #{id_chamado}",
+                                key=f"btn_admin_final_{id_chamado}",
+                                type="primary",
+                                use_container_width=True
+                            ):
+                            # --------------------------------------------------------------
+                            # Validação das cinco perguntas finais
+                            # --------------------------------------------------------------
+                            if not respostas_finais_preenchidas:
+                                st.error(
+                                    "❌ Por favor, responda às cinco perguntas finais "
+                                    "antes de salvar."
+                                )
+            
+                            elif not codigo_padronizacao_valido:
+                                st.error(
+                                    "❌ Informe o código do produto padronizado."
+                                )
+            
+                            elif eh_produto_teste and not campos_teste_preenchidos:
+                                st.error(
+                                    "❌ Preencha todos os campos obrigatórios da "
+                                    "avaliação técnica do Produto Teste."
+                                )
+            
+                            elif not str(obs_admin).strip():
+                                st.error(
+                                    "❌ É obrigatório preencher as considerações finais "
+                                    "para fins de auditoria e registro."
+                                )
+            
+                            else:
+                                # ----------------------------------------------------------
+                                # Data, hora e responsável pela homologação
+                                # ----------------------------------------------------------
+                                fuso_br = datetime.timezone(
+                                    datetime.timedelta(hours=-3)
+                                )
+            
+                                timestamp_homologacao = datetime.datetime.now(
+                                    fuso_br
+                                ).strftime("%d/%m/%Y %H:%M")
+            
+                                responsavel_homologacao = (
+                                    st.session_state.get("name")
+                                    or st.session_state.get("email")
+                                    or user_name
+                                )
+            
+                                # ----------------------------------------------------------
+                                # Resultado final
+                                # ----------------------------------------------------------
+                                if produto_aprovado == "SIM":
+                                    status_final_texto = "Aprovar"
+                                    emoji_resultado = "✅ APROVADO"
+                                else:
+                                    status_final_texto = "Reprovar"
+                                    emoji_resultado = "❌ REPROVADO"
+            
+                                # ----------------------------------------------------------
+                                # Resumo das cinco respostas finais
+                                # ----------------------------------------------------------
+                                respostas_resumo = (
+                                    f"Produto aprovado: {produto_aprovado} | "
+                                    f"Produto padronizado: "
+                                    f"{resposta_produto_padronizado} | "
+                                    f"Produto comprado: {produto_comprado} | "
+                                    f"Inventário de produtos perigosos/PGR: "
+                                    f"{inventario_perigosos} | "
+                                    f"FISPQ no setor solicitante: {fispq_setor}"
+                                )
+            
+                                # ----------------------------------------------------------
+                                # Resumo exclusivo do Produto Teste
+                                # ----------------------------------------------------------
+                                resumo_produto_teste = ""
+            
+                                if eh_produto_teste:
+                                    resumo_produto_teste = (
+                                        f" | RMS: {str(rms_produto).strip()} "
+                                        f"| Validade RMS: "
+                                        f"{validade_rms.strftime('%d/%m/%Y')} "
+                                        f"| Pode ser rediluído: {pode_ser_rediluido} "
+                                        f"| Monitoramento ocupacional: "
+                                        f"{necessita_monitoramento} "
+                                        f"| Resultado do teste: {resultado_teste} "
+                                        f"| Data do teste: "
+                                        f"{data_resultado_teste.strftime('%d/%m/%Y')} "
+                                        f"| Indicado para padronização: "
+                                        f"{indicado_padronizacao} "
+                                        f"| Data da indicação: "
+                                        f"{data_indicacao_padronizacao.strftime('%d/%m/%Y')}"
+                                    )
+            
+                                # ----------------------------------------------------------
+                                # Histórico consolidado da homologação
+                                # ----------------------------------------------------------
+                                historico_admin_completo = (
+                                    f"{status_final_texto} "
+                                    f"({timestamp_homologacao} - "
+                                    f"por {responsavel_homologacao}: "
+                                    f"[{respostas_resumo}{resumo_produto_teste}] "
+                                    f"{str(obs_admin).strip().replace(chr(10), ' ')})"
+                                )
+            
+                                # ----------------------------------------------------------
+                                # Localizar o chamado no DataFrame
+                                # ----------------------------------------------------------
+                                mascara_chamado = (
+                                    df_dados["ID"].astype(str)
+                                    == str(id_chamado)
+                                )
+            
+                                # ----------------------------------------------------------
+                                # Atualizar dados gerais da homologação
+                                # ----------------------------------------------------------
+                                df_dados.loc[
+                                    mascara_chamado,
+                                    "Status_Final"
+                                ] = status_final_texto
+            
+                                df_dados.loc[
+                                    mascara_chamado,
+                                    "Parecer_Final_Admin"
+                                ] = historico_admin_completo
+            
+                                df_dados.loc[
+                                    mascara_chamado,
+                                    "Data_Homologacao_Final"
+                                ] = timestamp_homologacao
+            
+                                df_dados.loc[
+                                    mascara_chamado,
+                                    "Responsavel_Homologacao_Final"
+                                ] = responsavel_homologacao
+            
+                                df_dados.loc[
+                                    mascara_chamado,
+                                    "Consideracoes_Finais_Homologacao"
+                                ] = str(obs_admin).strip()
+            
+                                # ----------------------------------------------------------
+                                # Atualizar as cinco respostas padrão
+                                # ----------------------------------------------------------
+                                for nome_coluna, valor_coluna in (
+                                    dados_homologacao_padrao.items()
+                                ):
+                                    df_dados.loc[
+                                        mascara_chamado,
+                                        nome_coluna
+                                    ] = valor_coluna
+            
+                                # ----------------------------------------------------------
+                                # Atualizar os dados exclusivos de Produto Teste
+                                # ----------------------------------------------------------
+                                if eh_produto_teste:
+                                    for nome_coluna, valor_coluna in (
+                                        dados_homologacao_teste.items()
+                                    ):
+                                        df_dados.loc[
+                                            mascara_chamado,
+                                            nome_coluna
+                                        ] = valor_coluna
+            
+                                # ----------------------------------------------------------
+                                # Preparar e-mail ao solicitante
+                                # ----------------------------------------------------------
+                                email_solicitante = row.get(
+                                    "Endereço de e-mail",
+                                    ""
+                                )
+            
+                                nome_solicitante = row.get(
+                                    "Nome solicitante",
+                                    row.get("Nome", "Solicitante")
+                                )
+            
+                                html_encerramento = f"""
+                                <h3>
+                                    🔔 CAPROQ: Processo de avaliação concluído -
+                                    Chamado #{id_chamado}
+                                </h3>
+            
+                                <p>Olá, <b>{nome_solicitante}</b>,</p>
+            
+                                <p>
+                                    O processo de análise técnica e homologação final
+                                    do produto <b>{descricao_produto}</b> foi concluído
+                                    pelo comitê.
+                                </p>
+            
+                                <p>
+                                    <b>Resultado Final:</b> {emoji_resultado}
+                                </p>
+            
+                                <p>
+                                    <b>Justificativa da Deliberação:</b>
+                                    {str(obs_admin).strip()}
+                                </p>
+            
+                                <p>
+                                    <br>
+                                    Agradecemos a sua submissão. Este chamado
+                                    encontra-se agora encerrado em nossa base de dados.
+                                </p>
+                                """
+            
+                                # ----------------------------------------------------------
+                                # Salvar e enviar e-mail
+                                # ----------------------------------------------------------
+                                try:
+                                    conn.update(data=df_dados)
+            
+                                    if (
+                                        email_solicitante
+                                        and "@" in str(email_solicitante)
+                                    ):
+                                        enviar_email(
+                                            destinatario=email_solicitante,
+                                            assunto=(
+                                                f"CAPROQ: Resultado Final - "
+                                                f"Chamado #{id_chamado}"
+                                            ),
+                                            corpo_html=html_encerramento
+                                        )
+            
+                                    st.success(
+                                        f"🎉 Chamado #{id_chamado} deliberado e "
+                                        f"encerrado com sucesso!"
+                                    )
+            
+                                    time.sleep(1.5)
+                                    st.rerun()
+            
+                                except Exception as e:
+                                    st.error(
+                                        "❌ Erro ao salvar a deliberação final "
+                                        f"na planilha: {e}"
+                                    )
 
 else:
 
@@ -1519,7 +1888,7 @@ else:
                 with c3: setores_teste = st.text_input("Setores do teste: *", key=f"final_setores_teste_{v}")
                 
                 st.markdown("<hr style='border: 0; border-top: 1px dashed #d3d3d3; margin: 15px 0;'>", unsafe_allow_html=True)
-                st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações de Contato do Solicitante</p>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #2b2b2b; font-weight: bold; margin-top:0;'>👤 Informações de contato do solicitante</p>", unsafe_allow_html=True)
                 
                 c4, c5, c6 = st.columns(3)
                 with c4: setor_solicitante = st.text_input("Setor: *", key=f"final_setor_solicitante_{v}")
@@ -1527,11 +1896,10 @@ else:
                 with c6: responsavel_area = st.text_input("Gerente ou coordenador da área: *", key=f"final_responsavel_area_{v}")
 
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("🚀 Confirmar e Concluir Envio do Produto Teste", use_container_width=True, type="primary"):
+                if st.button("Confirmar e concluir envio do produto teste", use_container_width=True, type="primary"):
                     if not all([motivo_teste, consumo_mes, qtd_teste, setores_teste, setor_solicitante, ramal_solicitante, responsavel_area]):
                         st.error("❌ Todos os campos adicionais do Produto Teste precisam ser preenchidos antes de salvar.")
                     else:
-                        # Acopla os dados complementares recolhidos no fluxo dinâmico
                         st.session_state["dados_base_coletados"]["respostas"].update({
                             "Motivo_Teste": motivo_teste,
                             "Consumo_Mes": consumo_mes,
@@ -1543,7 +1911,6 @@ else:
                         })
                         executar_envio_final = True
 
-        # BLOCO DE SALVAMENTO FINAL (Processamento e gravação no Sheets)
         if executar_envio_final and "dados_base_coletados" in st.session_state:
             cache = st.session_state["dados_base_coletados"]
             resp_form = cache["respostas"]
@@ -1653,10 +2020,8 @@ else:
                 for aprovador_email in APROVADORES:
                     enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
                 
-                # RESET COMPLETO DE ESTADOS E INCREMENTO DE VERSÃO DO FORMULÁRIO
                 st.session_state["form_version"] += 1
                 
-                # Deleta memórias temporárias
                 if "dados_base_coletados" in st.session_state:
                     del st.session_state["dados_base_coletados"]
                 
