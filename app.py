@@ -1137,244 +1137,366 @@ if is_aprovador:
     ):
         st.markdown("---")
         st.title("🛡️ Painel de Homologação e Decisão Final (Admin)")
-        st.markdown("Analise os pareceres técnicos das alçadas e registre a deliberação final do comitê.")
-        
-        if not df_dados.empty:
-            status_validos_admin = ["Aguardando homologação", "Reunião Necessária", "Reunião necessária"]
-            chamados_para_decisao = df_dados[
-                (df_dados["Status_Final"] == "Em análise") & 
-                (df_dados["Status_Aprovadores"].astype(str).str.strip().isin(status_validos_admin))
+        st.markdown(
+            "Analise os pareceres técnicos das alçadas e registre a "
+            "deliberação final do comitê."
+        )
+
+        if df_dados.empty:
+            st.info("💡 Não há dados disponíveis para homologação.")
+        elif "Status_Aprovadores" not in df_dados.columns:
+            st.warning(
+                "⚠️ A coluna 'Status_Aprovadores' não foi localizada na planilha."
+            )
+        else:
+            status_validos_admin = [
+                "Aguardando homologação",
+                "Reunião Necessária",
+                "Reunião necessária",
             ]
-            
+
+            chamados_para_decisao = df_dados[
+                (df_dados["Status_Final"] == "Em análise")
+                & (
+                    df_dados["Status_Aprovadores"]
+                    .astype(str)
+                    .str.strip()
+                    .isin(status_validos_admin)
+                )
+            ]
+
             if chamados_para_decisao.empty:
-                st.info("💡 No momento, não há chamados pendentes de homologação final ou com status de reunião definida.")
+                st.info(
+                    "💡 No momento, não há chamados pendentes de homologação "
+                    "final ou com status de reunião definida."
+                )
             else:
-                st.warning(f"⚠️ Existem {len(chamados_para_decisao)} solicitações aguardando sua deliberação final.")
-                
+                st.warning(
+                    f"⚠️ Existem {len(chamados_para_decisao)} solicitações "
+                    "aguardando sua deliberação final."
+                )
+
                 for _, row in chamados_para_decisao.iterrows():
                     id_chamado = row["ID"]
                     status_apr = row["Status_Aprovadores"]
-                    
-                    col_prod = "Descrição completa do produto" if "Descrição completa do produto" in row else "Descrição do produto" if "Descrição do produto" in row else "Descricao_Produto"
+
+                    col_prod = (
+                        "Descrição completa do produto"
+                        if "Descrição completa do produto" in row
+                        else "Descrição do produto"
+                        if "Descrição do produto" in row
+                        else "Descricao_Produto"
+                    )
                     descricao_produto = str(row.get(col_prod, "Sem descrição"))
-                    
+
                     with st.container(border=True):
-                        st.markdown(f"### Chamado #{id_chamado} — {descricao_produto}")
-                        st.markdown(f"**Status dos Aprovadores:** `{status_apr}`")
+                        st.markdown(
+                            f"### Chamado #{id_chamado} — {descricao_produto}"
+                        )
+                        st.markdown(
+                            f"**Status dos Aprovadores:** `{status_apr}`"
+                        )
 
                         eh_produto_teste = (
-                            str(row.get("Produto_Teste", "NÃO")).strip().upper() == "SIM"
+                            str(row.get("Produto_Teste", "NÃO"))
+                            .strip()
+                            .upper()
+                            == "SIM"
                         )
-                    
+
                         if eh_produto_teste:
-                            st.warning("🧪 Este chamado refere-se a um Produto de Teste / Piloto.")
-                    
-                            st.markdown("#### 📦 Informações do Produto Teste")
-                    
+                            st.warning(
+                                "🧪 Este chamado refere-se a um Produto de "
+                                "Teste / Piloto."
+                            )
+                            st.markdown(
+                                "#### 📦 Informações do Produto Teste"
+                            )
+
                             with st.expander(
                                 "Visualizar informações fornecidas pelo solicitante",
-                                expanded=True
+                                expanded=True,
                             ):
                                 col_teste_1, col_teste_2 = st.columns(2)
-                    
+
                                 with col_teste_1:
                                     st.markdown(
-                                        f"**Classificação do item no HMV:**  \n"
+                                        "**Classificação do item no HMV:**  \n"
                                         f"{valor_seguro(row.get('Motivo_Teste'))}"
                                     )
-                    
                                     st.markdown(
-                                        f"**Consumo estimado por mês:**  \n"
+                                        "**Consumo estimado por mês:**  \n"
                                         f"{valor_seguro(row.get('Consumo_Mes_Teste'))}"
                                     )
-                    
                                     st.markdown(
-                                        f"**Quantidade destinada ao teste:**  \n"
+                                        "**Quantidade destinada ao teste:**  \n"
                                         f"{valor_seguro(row.get('Quantidade_Teste'))}"
                                     )
-                    
                                     st.markdown(
-                                        f"**Setores onde o teste será realizado:**  \n"
+                                        "**Setores onde o teste será realizado:**  \n"
                                         f"{valor_seguro(row.get('Setor_Destino_Teste'))}"
                                     )
-                    
+
                                 with col_teste_2:
                                     st.markdown(
-                                        f"**Setor solicitante:**  \n"
+                                        "**Setor solicitante:**  \n"
                                         f"{valor_seguro(row.get('Setor_Solicitante'))}"
                                     )
-                    
                                     st.markdown(
-                                        f"**Telefone ou ramal do setor:**  \n"
+                                        "**Telefone ou ramal do setor:**  \n"
                                         f"{valor_seguro(row.get('Ramal_Solicitante'))}"
                                     )
-                    
                                     st.markdown(
-                                        f"**Gerente ou coordenador responsável:**  \n"
+                                        "**Gerente ou coordenador responsável:**  \n"
                                         f"{valor_seguro(row.get('Responsavel_Area'))}"
                                     )
-            
+
                         st.markdown("---")
                         st.markdown("**📋 Pareceres técnicos registrados:**")
-            
+
                         cols_votos = st.columns(len(ALCADAS_INFO))
-            
-                            for idx, (letra_col, info) in enumerate(ALCADAS_INFO.items()):
-                                col_voto = info["coluna_sheets"]
-                                voto_atual = row.get(col_voto, "Pendente")
-                
-                                with cols_votos[idx]:
-                                    if (
-                                        "Aprovar" in str(voto_atual)
-                                        and "ressalva" not in str(voto_atual).lower()
-                                    ):
-                                        st.success(
-                                            f"**{info['label']}:**\n🟢 Aprovado"
-                                        )
-                
-                                    elif "ressalva" in str(voto_atual).lower():
-                                        st.warning(
-                                            f"**{info['label']}:**\n🟡 Com Ressalva"
-                                        )
-                
-                                    elif "Reprovar" in str(voto_atual):
-                                        st.error(
-                                            f"**{info['label']}:**\n🔴 Recusado"
-                                        )
-                
-                                    else:
-                                        st.caption(
-                                            f"**{info['label']}:**\n⚪ {voto_atual}"
-                                        )
-                
-                            with st.expander(
-                                "💬 Ver detalhes dos pareceres escritos pelas alçadas"
-                            ):
-                                for letra_col, info in ALCADAS_INFO.items():
-                                    voto_detalhado = row.get(
-                                        info["coluna_sheets"],
-                                        "Pendente"
+
+                        for idx, (_, info) in enumerate(ALCADAS_INFO.items()):
+                            col_voto = info["coluna_sheets"]
+                            voto_atual = row.get(col_voto, "Pendente")
+
+                            with cols_votos[idx]:
+                                if (
+                                    "Aprovar" in str(voto_atual)
+                                    and "ressalva"
+                                    not in str(voto_atual).lower()
+                                ):
+                                    st.success(
+                                        f"**{info['label']}:**\n🟢 Aprovado"
                                     )
-                
-                                    st.markdown(
-                                        f"**{info['label']}:** {voto_detalhado}"
+                                elif "ressalva" in str(voto_atual).lower():
+                                    st.warning(
+                                        f"**{info['label']}:**\n🟡 Com Ressalva"
                                     )
-                
+                                elif "Reprovar" in str(voto_atual):
+                                    st.error(
+                                        f"**{info['label']}:**\n🔴 Recusado"
+                                    )
+                                else:
+                                    st.caption(
+                                        f"**{info['label']}:**\n⚪ {voto_atual}"
+                                    )
+
+                        with st.expander(
+                            "💬 Ver detalhes dos pareceres escritos pelas alçadas"
+                        ):
+                            for _, info in ALCADAS_INFO.items():
+                                voto_detalhado = row.get(
+                                    info["coluna_sheets"], "Pendente"
+                                )
+                                st.markdown(
+                                    f"**{info['label']}:** {voto_detalhado}"
+                                )
+
+                        if eh_produto_teste:
                             st.markdown("---")
-                            st.markdown("#### ✅ Encerramento e Homologação Final")
-                
+                            st.markdown(
+                                "#### 🧪 Avaliação Técnica do Produto Teste"
+                            )
                             st.info(
-                                "Estas questões devem ser respondidas para todos os chamados, "
-                                "independentemente de o produto ter sido marcado como teste."
+                                "Preencha os dados técnicos referentes ao teste "
+                                "realizado."
                             )
-                
-                            key_produto_aprovado = (
-                                f"homologacao_produto_aprovado_{id_chamado}"
-                            )
-                
-                            key_produto_padronizado = (
-                                f"homologacao_produto_padronizado_{id_chamado}"
-                            )
-                
-                            key_codigo_padronizacao = (
-                                f"homologacao_codigo_padronizacao_{id_chamado}"
-                            )
-                
-                            key_produto_comprado = (
-                                f"homologacao_produto_comprado_{id_chamado}"
-                            )
-                
-                            key_inventario_perigosos = (
-                                f"homologacao_inventario_perigosos_{id_chamado}"
-                            )
-                
-                            key_fispq_setor = (
-                                f"homologacao_fispq_setor_{id_chamado}"
-                            )
-                
-                            key_obs = f"admin_obs_{id_chamado}"
-                
-                            produto_aprovado = st.radio(
-                                "1. Padronização: o produto foi aprovado?",
-                                options=["SIM", "NÃO"],
-                                index=None,
-                                horizontal=True,
-                                key=key_produto_aprovado
-                            )
-                
-                            produto_padronizado = st.radio(
-                                "2. Padronização: o produto foi padronizado?",
-                                options=["SIM", "NÃO"],
-                                index=None,
-                                horizontal=True,
-                                key=key_produto_padronizado
-                            )
-                
-                            codigo_padronizacao = st.text_input(
-                                "Código do produto padronizado",
-                                placeholder="Informe o código do produto",
-                                disabled=produto_padronizado != "SIM",
-                                key=key_codigo_padronizacao
-                            )
-                
-                            produto_comprado = st.radio(
-                                "3. Solicitante: o produto foi comprado?",
-                                options=["SIM", "NÃO"],
-                                index=None,
-                                horizontal=True,
-                                key=key_produto_comprado
-                            )
-                
-                            inventario_perigosos = st.radio(
-                                (
-                                    "4. Segurança Ocupacional: o produto foi incluído no "
-                                    "inventário de produtos perigosos e o inventário foi "
-                                    "atualizado no PGR?"
-                                ),
-                                options=["SIM", "NÃO", "NA"],
-                                index=None,
-                                horizontal=True,
-                                key=key_inventario_perigosos
-                            )
-                
-                            fispq_setor = st.radio(
-                                (
-                                    "5. Segurança Ocupacional: a FISPQ já está no setor "
-                                    "solicitante?"
-                                ),
-                                options=["SIM", "NÃO", "NA"],
-                                index=None,
-                                horizontal=True,
-                                key=key_fispq_setor
-                            )
-                
-                            obs_admin = st.text_area(
-                                "✍️ Considerações finais do comitê / Justificativa do veredito:",
-                                placeholder=(
-                                    "Registre observações, ressalvas, decisões de consenso "
-                                    "ou justificativas relevantes para o encerramento."
-                                ),
-                                height=140,
-                                key=key_obs
-                            )
-            
-                            respostas_finais_preenchidas = all([
+
+                            with st.expander(
+                                "Preencher avaliação técnica do produto",
+                                expanded=True,
+                            ):
+                                col_rms_1, col_rms_2 = st.columns(2)
+
+                                with col_rms_1:
+                                    rms_produto = st.text_input(
+                                        "RMS do produto",
+                                        placeholder="Informe o RMS do produto",
+                                        key=f"rms_produto_{id_chamado}",
+                                    )
+
+                                with col_rms_2:
+                                    validade_rms = st.date_input(
+                                        "Validade do RMS",
+                                        value=None,
+                                        format="DD/MM/YYYY",
+                                        key=f"validade_rms_{id_chamado}",
+                                    )
+
+                                col_carac_1, col_carac_2 = st.columns(2)
+
+                                with col_carac_1:
+                                    pode_ser_rediluido = st.radio(
+                                        "Pode ser REDILUÍDO?",
+                                        options=["SIM", "NÃO", "NA"],
+                                        index=None,
+                                        horizontal=True,
+                                        key=f"rediluido_{id_chamado}",
+                                    )
+
+                                with col_carac_2:
+                                    necessita_monitoramento = st.radio(
+                                        "Necessário monitoramento ocupacional?",
+                                        options=["SIM", "NÃO", "NA"],
+                                        index=None,
+                                        horizontal=True,
+                                        key=f"monitoramento_{id_chamado}",
+                                    )
+
+                                resultado_teste = st.radio(
+                                    "Resultado do teste",
+                                    options=[
+                                        "APROVADO",
+                                        "REPROVADO",
+                                        "NÃO REALIZADO",
+                                    ],
+                                    index=None,
+                                    horizontal=True,
+                                    key=f"resultado_teste_{id_chamado}",
+                                )
+
+                                data_resultado_teste = st.date_input(
+                                    "Data do resultado do teste",
+                                    value=None,
+                                    format="DD/MM/YYYY",
+                                    key=f"data_teste_{id_chamado}",
+                                )
+
+                                parecer_resultado_teste = st.text_area(
+                                    "Parecer sobre o resultado do teste",
+                                    placeholder=(
+                                        "Descreva obrigatoriamente o parecer, "
+                                        "independentemente do resultado."
+                                    ),
+                                    height=120,
+                                    key=f"parecer_teste_{id_chamado}",
+                                )
+
+                                indicado_padronizacao = st.radio(
+                                    "Indicado para PADRONIZAÇÃO?",
+                                    options=["SIM", "NÃO"],
+                                    index=None,
+                                    horizontal=True,
+                                    key=f"indicado_padronizacao_{id_chamado}",
+                                )
+
+                                data_indicacao_padronizacao = st.date_input(
+                                    "Data da indicação para padronização",
+                                    value=None,
+                                    format="DD/MM/YYYY",
+                                    key=f"data_padronizacao_{id_chamado}",
+                                )
+
+                                parecer_indicacao_padronizacao = st.text_area(
+                                    "Parecer sobre a indicação para padronização",
+                                    placeholder=(
+                                        "Descreva obrigatoriamente o parecer, "
+                                        "independentemente da indicação."
+                                    ),
+                                    height=120,
+                                    key=f"parecer_padronizacao_{id_chamado}",
+                                )
+
+                        st.markdown("---")
+                        st.markdown(
+                            "#### ✅ Encerramento e Homologação Final"
+                        )
+                        st.info(
+                            "Estas questões devem ser respondidas para todos os "
+                            "chamados, independentemente de o produto ter sido "
+                            "marcado como teste."
+                        )
+
+                        produto_aprovado = st.radio(
+                            "1. Padronização: o produto foi aprovado?",
+                            options=["SIM", "NÃO"],
+                            index=None,
+                            horizontal=True,
+                            key=f"homologacao_produto_aprovado_{id_chamado}",
+                        )
+
+                        produto_padronizado = st.radio(
+                            "2. Padronização: o produto foi padronizado?",
+                            options=["SIM", "NÃO"],
+                            index=None,
+                            horizontal=True,
+                            key=f"homologacao_produto_padronizado_{id_chamado}",
+                        )
+
+                        codigo_padronizacao = st.text_input(
+                            "Código do produto padronizado",
+                            placeholder="Informe o código do produto",
+                            disabled=produto_padronizado != "SIM",
+                            key=f"homologacao_codigo_padronizacao_{id_chamado}",
+                        )
+
+                        produto_comprado = st.radio(
+                            "3. Solicitante: o produto foi comprado?",
+                            options=["SIM", "NÃO"],
+                            index=None,
+                            horizontal=True,
+                            key=f"homologacao_produto_comprado_{id_chamado}",
+                        )
+
+                        inventario_perigosos = st.radio(
+                            (
+                                "4. Segurança Ocupacional: o produto foi incluído "
+                                "no inventário de produtos perigosos e o inventário "
+                                "foi atualizado no PGR?"
+                            ),
+                            options=["SIM", "NÃO", "NA"],
+                            index=None,
+                            horizontal=True,
+                            key=f"homologacao_inventario_perigosos_{id_chamado}",
+                        )
+
+                        fispq_setor = st.radio(
+                            (
+                                "5. Segurança Ocupacional: a FISPQ já está no "
+                                "setor solicitante?"
+                            ),
+                            options=["SIM", "NÃO", "NA"],
+                            index=None,
+                            horizontal=True,
+                            key=f"homologacao_fispq_setor_{id_chamado}",
+                        )
+
+                        obs_admin = st.text_area(
+                            (
+                                "✍️ Considerações finais do comitê / "
+                                "Justificativa do veredito:"
+                            ),
+                            placeholder=(
+                                "Registre observações, ressalvas, decisões de "
+                                "consenso ou justificativas relevantes para o "
+                                "encerramento."
+                            ),
+                            height=140,
+                            key=f"admin_obs_{id_chamado}",
+                        )
+
+                        respostas_finais_preenchidas = all(
+                            [
                                 produto_aprovado is not None,
                                 produto_padronizado is not None,
                                 produto_comprado is not None,
                                 inventario_perigosos is not None,
-                                fispq_setor is not None
-                            ])
-                
-                            codigo_padronizacao_valido = (
-                                produto_padronizado != "SIM"
-                                or bool(str(codigo_padronizacao).strip())
-                            )
-            
-                            campos_teste_preenchidos = True
-            
-                            if eh_produto_teste:
-                                campos_teste_preenchidos = all([
+                                fispq_setor is not None,
+                            ]
+                        )
+
+                        codigo_padronizacao_valido = (
+                            produto_padronizado != "SIM"
+                            or bool(str(codigo_padronizacao).strip())
+                        )
+
+                        campos_teste_preenchidos = True
+                        dados_homologacao_teste = {}
+
+                        if eh_produto_teste:
+                            campos_teste_preenchidos = all(
+                                [
                                     bool(str(rms_produto).strip()),
                                     validade_rms is not None,
                                     pode_ser_rediluido is not None,
@@ -1384,320 +1506,236 @@ if is_aprovador:
                                     bool(str(parecer_resultado_teste).strip()),
                                     indicado_padronizacao is not None,
                                     data_indicacao_padronizacao is not None,
-                                    bool(str(parecer_indicacao_padronizacao).strip())
-                                ])
-            
-                            if produto_padronizado == "SIM":
-                                resposta_produto_padronizado = (
-                                    f"SIM - Código: {str(codigo_padronizacao).strip()}"
-                                )
-                            elif produto_padronizado == "NÃO":
-                                resposta_produto_padronizado = "NÃO"
-                            else:
-                                resposta_produto_padronizado = ""
-            
-                            dados_homologacao_padrao = {
-                                "Padronização: o produto foi aprovado?":
-                                    produto_aprovado or "",
-            
-                                "Padronização: o produto foi padronizado? Qual o cód.?":
-                                    resposta_produto_padronizado,
-            
-                                "Solicitante: o produto foi comprado?":
-                                    produto_comprado or "",
-            
-                                (
-                                    "Segurança Ocupacional: o produto foi incluído no "
-                                    "inventário de prod. perigosos? E inventário atualizado "
-                                    "no PRG?"
-                                ):
-                                    inventario_perigosos or "",
-            
-                                (
-                                    "Segurança Ocupacional: a FISPQ já está no setor "
-                                    "solicitante?"
-                                ):
-                                    fispq_setor or "",
-            
+                                    bool(
+                                        str(
+                                            parecer_indicacao_padronizacao
+                                        ).strip()
+                                    ),
+                                ]
+                            )
+
+                            dados_homologacao_teste = {
+                                "RMS_Produto": str(rms_produto).strip(),
+                                "Validade_RMS": (
+                                    validade_rms.strftime("%d/%m/%Y")
+                                    if validade_rms
+                                    else ""
+                                ),
+                                "Pode_Ser_Rediluido": (
+                                    pode_ser_rediluido or ""
+                                ),
+                                "Necessita_Monitoramento_Ocupacional": (
+                                    necessita_monitoramento or ""
+                                ),
+                                "Resultado_Teste": resultado_teste or "",
+                                "Data_Resultado_Teste": (
+                                    data_resultado_teste.strftime("%d/%m/%Y")
+                                    if data_resultado_teste
+                                    else ""
+                                ),
+                                "Parecer_Resultado_Teste": str(
+                                    parecer_resultado_teste
+                                ).strip(),
+                                "Indicado_Para_Padronizacao": (
+                                    indicado_padronizacao or ""
+                                ),
+                                "Data_Indicacao_Padronizacao": (
+                                    data_indicacao_padronizacao.strftime(
+                                        "%d/%m/%Y"
+                                    )
+                                    if data_indicacao_padronizacao
+                                    else ""
+                                ),
+                                "Parecer_Indicacao_Padronizacao": str(
+                                    parecer_indicacao_padronizacao
+                                ).strip(),
                             }
-            
-                            dados_homologacao_teste = {}
-            
-                            if eh_produto_teste:
-                                dados_homologacao_teste = {
-                                    "RMS_Produto":
-                                        str(rms_produto).strip(),
-                
-                                    "Validade_RMS":
-                                        validade_rms.strftime("%d/%m/%Y")
-                                        if validade_rms
-                                        else "",
-                
-                                    "Pode_Ser_Rediluido":
-                                        pode_ser_rediluido or "",
-                
-                                    "Necessita_Monitoramento_Ocupacional":
-                                        necessita_monitoramento or "",
-                
-                                    "Resultado_Teste":
-                                        resultado_teste or "",
-                
-                                    "Data_Resultado_Teste":
-                                        data_resultado_teste.strftime("%d/%m/%Y")
-                                        if data_resultado_teste
-                                        else "",
-                
-                                    "Parecer_Resultado_Teste":
-                                        str(parecer_resultado_teste).strip(),
-                
-                                    "Indicado_Para_Padronizacao":
-                                        indicado_padronizacao or "",
-                
-                                    "Data_Indicacao_Padronizacao":
-                                        data_indicacao_padronizacao.strftime("%d/%m/%Y")
-                                        if data_indicacao_padronizacao
-                                        else "",
-                
-                                    "Parecer_Indicacao_Padronizacao":
-                                        str(parecer_indicacao_padronizacao).strip()
-                                }
-            
-                                dados_homologacao = {
-                                    **dados_homologacao_padrao,
-                                    **dados_homologacao_teste
-                                }
-            
-                                formulario_homologacao_valido = all([
-                                    respostas_finais_preenchidas,
-                                    codigo_padronizacao_valido,
-                                    campos_teste_preenchidos
-                                ])
-            
-                            
-                                    "Parecer_Indicacao_Padronizacao":
-                                        str(parecer_indicacao_padronizacao).strip()
-                                }
-            
-                                formulario_homologacao_valido = all([
-                                    respostas_finais_preenchidas,
-                                    codigo_padronizacao_valido,
-                                    campos_teste_preenchidos
-                                ])
-            
-                            if st.button(
-                                f"Firmar decisão final - Chamado #{id_chamado}",
-                                key=f"btn_admin_final_{id_chamado}",
-                                type="primary",
-                                use_container_width=True
-                            ):
-                            # --------------------------------------------------------------
-                            # Validação das cinco perguntas finais
-                            # --------------------------------------------------------------
+
+                        if produto_padronizado == "SIM":
+                            resposta_produto_padronizado = (
+                                "SIM - Código: "
+                                f"{str(codigo_padronizacao).strip()}"
+                            )
+                        elif produto_padronizado == "NÃO":
+                            resposta_produto_padronizado = "NÃO"
+                        else:
+                            resposta_produto_padronizado = ""
+
+                        dados_homologacao_padrao = {
+                            "Padronização: o produto foi aprovado?": (
+                                produto_aprovado or ""
+                            ),
+                            (
+                                "Padronização: o produto foi padronizado? "
+                                "Qual o cód.?"
+                            ): resposta_produto_padronizado,
+                            "Solicitante: o produto foi comprado?": (
+                                produto_comprado or ""
+                            ),
+                            (
+                                "Segurança Ocupacional: o produto foi incluído "
+                                "no inventário de prod. perigosos? E inventário "
+                                "atualizado no PRG?"
+                            ): inventario_perigosos or "",
+                            (
+                                "Segurança Ocupacional: a FISPQ já está no "
+                                "setor solicitante?"
+                            ): fispq_setor or "",
+                        }
+
+                        if st.button(
+                            f"Firmar decisão final - Chamado #{id_chamado}",
+                            key=f"btn_admin_final_{id_chamado}",
+                            type="primary",
+                            use_container_width=True,
+                        ):
                             if not respostas_finais_preenchidas:
                                 st.error(
-                                    "❌ Por favor, responda às cinco perguntas finais "
-                                    "antes de salvar."
+                                    "❌ Por favor, responda às cinco perguntas "
+                                    "finais antes de salvar."
                                 )
-            
                             elif not codigo_padronizacao_valido:
                                 st.error(
                                     "❌ Informe o código do produto padronizado."
                                 )
-            
-                            elif eh_produto_teste and not campos_teste_preenchidos:
+                            elif (
+                                eh_produto_teste
+                                and not campos_teste_preenchidos
+                            ):
                                 st.error(
-                                    "❌ Preencha todos os campos obrigatórios da "
-                                    "avaliação técnica do Produto Teste."
+                                    "❌ Preencha todos os campos obrigatórios "
+                                    "da avaliação técnica do Produto Teste."
                                 )
-            
                             elif not str(obs_admin).strip():
                                 st.error(
-                                    "❌ É obrigatório preencher as considerações finais "
-                                    "para fins de auditoria e registro."
+                                    "❌ É obrigatório preencher as considerações "
+                                    "finais para fins de auditoria e registro."
                                 )
-            
                             else:
-                                # ----------------------------------------------------------
-                                # Data, hora e responsável pela homologação
-                                # ----------------------------------------------------------
                                 fuso_br = datetime.timezone(
                                     datetime.timedelta(hours=-3)
                                 )
-            
                                 timestamp_homologacao = datetime.datetime.now(
                                     fuso_br
                                 ).strftime("%d/%m/%Y %H:%M")
-            
+
                                 responsavel_homologacao = (
                                     st.session_state.get("name")
                                     or st.session_state.get("email")
                                     or user_name
                                 )
-            
-                                # ----------------------------------------------------------
-                                # Resultado final
-                                # ----------------------------------------------------------
+
                                 if produto_aprovado == "SIM":
                                     status_final_texto = "Aprovar"
                                     emoji_resultado = "✅ APROVADO"
                                 else:
                                     status_final_texto = "Reprovar"
                                     emoji_resultado = "❌ REPROVADO"
-            
-                                # ----------------------------------------------------------
-                                # Resumo das cinco respostas finais
-                                # ----------------------------------------------------------
+
                                 respostas_resumo = (
                                     f"Produto aprovado: {produto_aprovado} | "
-                                    f"Produto padronizado: "
+                                    "Produto padronizado: "
                                     f"{resposta_produto_padronizado} | "
                                     f"Produto comprado: {produto_comprado} | "
-                                    f"Inventário de produtos perigosos/PGR: "
+                                    "Inventário de produtos perigosos/PGR: "
                                     f"{inventario_perigosos} | "
-                                    f"FISPQ no setor solicitante: {fispq_setor}"
+                                    "FISPQ no setor solicitante: "
+                                    f"{fispq_setor}"
                                 )
-            
-                                # ----------------------------------------------------------
-                                # Resumo exclusivo do Produto Teste
-                                # ----------------------------------------------------------
+
                                 resumo_produto_teste = ""
-            
                                 if eh_produto_teste:
                                     resumo_produto_teste = (
                                         f" | RMS: {str(rms_produto).strip()} "
-                                        f"| Validade RMS: "
+                                        "| Validade RMS: "
                                         f"{validade_rms.strftime('%d/%m/%Y')} "
-                                        f"| Pode ser rediluído: {pode_ser_rediluido} "
-                                        f"| Monitoramento ocupacional: "
+                                        "| Pode ser rediluído: "
+                                        f"{pode_ser_rediluido} "
+                                        "| Monitoramento ocupacional: "
                                         f"{necessita_monitoramento} "
-                                        f"| Resultado do teste: {resultado_teste} "
-                                        f"| Data do teste: "
+                                        "| Resultado do teste: "
+                                        f"{resultado_teste} "
+                                        "| Data do teste: "
                                         f"{data_resultado_teste.strftime('%d/%m/%Y')} "
-                                        f"| Indicado para padronização: "
+                                        "| Indicado para padronização: "
                                         f"{indicado_padronizacao} "
-                                        f"| Data da indicação: "
+                                        "| Data da indicação: "
                                         f"{data_indicacao_padronizacao.strftime('%d/%m/%Y')}"
                                     )
-            
-                                # ----------------------------------------------------------
-                                # Histórico consolidado da homologação
-                                # ----------------------------------------------------------
+
                                 historico_admin_completo = (
                                     f"{status_final_texto} "
-                                    f"({timestamp_homologacao} - "
-                                    f"por {responsavel_homologacao}: "
-                                    f"[{respostas_resumo}{resumo_produto_teste}] "
+                                    f"({timestamp_homologacao} - por "
+                                    f"{responsavel_homologacao}: "
+                                    f"[{respostas_resumo}"
+                                    f"{resumo_produto_teste}] "
                                     f"{str(obs_admin).strip().replace(chr(10), ' ')})"
                                 )
-            
-                                # ----------------------------------------------------------
-                                # Localizar o chamado no DataFrame
-                                # ----------------------------------------------------------
+
                                 mascara_chamado = (
                                     df_dados["ID"].astype(str)
                                     == str(id_chamado)
                                 )
-            
-                                # ----------------------------------------------------------
-                                # Atualizar dados gerais da homologação
-                                # ----------------------------------------------------------
+
                                 df_dados.loc[
-                                    mascara_chamado,
-                                    "Status_Final"
+                                    mascara_chamado, "Status_Final"
                                 ] = status_final_texto
-            
                                 df_dados.loc[
-                                    mascara_chamado,
-                                    "Parecer_Final_Admin"
+                                    mascara_chamado, "Parecer_Final_Admin"
                                 ] = historico_admin_completo
-            
                                 df_dados.loc[
-                                    mascara_chamado,
-                                    "Data_Homologacao_Final"
+                                    mascara_chamado, "Data_Homologacao_Final"
                                 ] = timestamp_homologacao
-            
                                 df_dados.loc[
                                     mascara_chamado,
-                                    "Responsavel_Homologacao_Final"
+                                    "Responsavel_Homologacao_Final",
                                 ] = responsavel_homologacao
-            
                                 df_dados.loc[
                                     mascara_chamado,
-                                    "Consideracoes_Finais_Homologacao"
+                                    "Consideracoes_Finais_Homologacao",
                                 ] = str(obs_admin).strip()
-            
-                                # ----------------------------------------------------------
-                                # Atualizar as cinco respostas padrão
-                                # ----------------------------------------------------------
+
                                 for nome_coluna, valor_coluna in (
                                     dados_homologacao_padrao.items()
                                 ):
                                     df_dados.loc[
-                                        mascara_chamado,
-                                        nome_coluna
+                                        mascara_chamado, nome_coluna
                                     ] = valor_coluna
-            
-                                # ----------------------------------------------------------
-                                # Atualizar os dados exclusivos de Produto Teste
-                                # ----------------------------------------------------------
+
                                 if eh_produto_teste:
                                     for nome_coluna, valor_coluna in (
                                         dados_homologacao_teste.items()
                                     ):
                                         df_dados.loc[
-                                            mascara_chamado,
-                                            nome_coluna
+                                            mascara_chamado, nome_coluna
                                         ] = valor_coluna
-            
-                                # ----------------------------------------------------------
-                                # Preparar e-mail ao solicitante
-                                # ----------------------------------------------------------
+
                                 email_solicitante = row.get(
-                                    "Endereço de e-mail",
-                                    ""
+                                    "Endereço de e-mail", ""
                                 )
-            
                                 nome_solicitante = row.get(
                                     "Nome solicitante",
-                                    row.get("Nome", "Solicitante")
+                                    row.get("Nome", "Solicitante"),
                                 )
-            
+
                                 html_encerramento = f"""
-                                <h3>
-                                    🔔 CAPROQ: Processo de avaliação concluído -
-                                    Chamado #{id_chamado}
-                                </h3>
-            
+                                <h3>🔔 CAPROQ: Processo de avaliação concluído -
+                                Chamado #{id_chamado}</h3>
                                 <p>Olá, <b>{nome_solicitante}</b>,</p>
-            
-                                <p>
-                                    O processo de análise técnica e homologação final
-                                    do produto <b>{descricao_produto}</b> foi concluído
-                                    pelo comitê.
-                                </p>
-            
-                                <p>
-                                    <b>Resultado Final:</b> {emoji_resultado}
-                                </p>
-            
-                                <p>
-                                    <b>Justificativa da Deliberação:</b>
-                                    {str(obs_admin).strip()}
-                                </p>
-            
-                                <p>
-                                    <br>
-                                    Agradecemos a sua submissão. Este chamado
-                                    encontra-se agora encerrado em nossa base de dados.
-                                </p>
+                                <p>O processo de análise técnica e homologação
+                                final do produto <b>{descricao_produto}</b> foi
+                                concluído pelo comitê.</p>
+                                <p><b>Resultado Final:</b> {emoji_resultado}</p>
+                                <p><b>Justificativa da Deliberação:</b>
+                                {str(obs_admin).strip()}</p>
+                                <p><br>Agradecemos a sua submissão. Este chamado
+                                encontra-se agora encerrado em nossa base de
+                                dados.</p>
                                 """
-            
-                                # ----------------------------------------------------------
-                                # Salvar e enviar e-mail
-                                # ----------------------------------------------------------
+
                                 try:
                                     conn.update(data=df_dados)
-            
+
                                     if (
                                         email_solicitante
                                         and "@" in str(email_solicitante)
@@ -1705,20 +1743,18 @@ if is_aprovador:
                                         enviar_email(
                                             destinatario=email_solicitante,
                                             assunto=(
-                                                f"CAPROQ: Resultado Final - "
+                                                "CAPROQ: Resultado Final - "
                                                 f"Chamado #{id_chamado}"
                                             ),
-                                            corpo_html=html_encerramento
+                                            corpo_html=html_encerramento,
                                         )
-            
+
                                     st.success(
-                                        f"🎉 Chamado #{id_chamado} deliberado e "
-                                        f"encerrado com sucesso!"
+                                        f"🎉 Chamado #{id_chamado} deliberado "
+                                        "e encerrado com sucesso!"
                                     )
-            
                                     time.sleep(1.5)
                                     st.rerun()
-            
                                 except Exception as e:
                                     st.error(
                                         "❌ Erro ao salvar a deliberação final "
