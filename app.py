@@ -1677,6 +1677,32 @@ if is_aprovador:
                                     == str(id_chamado)
                                 )
 
+                                colunas_texto_homologacao = [
+                                    "Status_Final",
+                                    "Parecer_Final_Admin",
+                                    "Data_Homologacao_Final",
+                                    "Responsavel_Homologacao_Final",
+                                    "Consideracoes_Finais_Homologacao",
+                                ]
+
+                                colunas_texto_homologacao.extend(
+                                    dados_homologacao_padrao.keys()
+                                )
+
+                                if eh_produto_teste:
+                                    colunas_texto_homologacao.extend(
+                                        dados_homologacao_teste.keys()
+                                    )
+
+                                for coluna_texto in colunas_texto_homologacao:
+                                    if coluna_texto not in df_dados.columns:
+                                        df_dados[coluna_texto] = ""
+
+                                    df_dados[coluna_texto] = (
+                                        df_dados[coluna_texto]
+                                        .astype("object")
+                                    )
+
                                 df_dados.loc[
                                     mascara_chamado, "Status_Final"
                                 ] = status_final_texto
