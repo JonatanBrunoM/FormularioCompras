@@ -146,16 +146,77 @@ st.markdown("""
 # ==============================================================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-def carregar_dados():
+def carregar_dados(forcar_atualizacao=False):
     try:
-        df = conn.read(ttl=0)
+        agora = time.time()
+
+        cache_existe = "df_dados_cache" in st.session_state
+        horario_cache = st.session_state.get(
+            "df_dados_cache_timestamp",
+            0
+        )
+
+        cache_valido = (
+            cache_existe
+            and not forcar_atualizacao
+            and (agora - horario_cache) < 60
+        )
+
+        if cache_valido:
+            return st.session_state["df_dados_cache"].copy()
+
+        df = conn.read(ttl=60)
         df = df.dropna(how="all")
-        if not df.empty:
-            if "ID" in df.columns:
-                df["ID"] = df["ID"].astype(int)
+
+        if not df.empty and "ID" in df.columns:
+            df["ID"] = pd.to_numeric(
+                df["ID"],
+                errors="coerce"
+            )
+
+            df = df.dropna(subset=["ID"])
+            df["ID"] = df["ID"].astype(int)
+
+        colunas_textuais = [
+            "Status_Final",
+            "Status_Aprovadores",
+            "Parecer_Final_Admin",
+            "Data_Homologacao_Final",
+            "Responsavel_Homologacao_Final",
+            "Consideracoes_Finais_Homologacao",
+            "RMS_Produto",
+            "Validade_RMS",
+            "Pode_Ser_Rediluido",
+            "Necessita_Monitoramento_Ocupacional",
+            "Resultado_Teste",
+            "Data_Resultado_Teste",
+            "Parecer_Resultado_Teste",
+            "Indicado_Para_Padronizacao",
+            "Data_Indicacao_Padronizacao",
+            "Parecer_Indicacao_Padronizacao",
+        ]
+
+        for coluna in colunas_textuais:
+            if coluna in df.columns:
+                df[coluna] = df[coluna].astype("object")
+
+        st.session_state["df_dados_cache"] = df.copy()
+        st.session_state["df_dados_cache_timestamp"] = agora
+
         return df
+
     except Exception as e:
-        st.error(f"Erro ao conectar com a planilha de dados: {e}")
+        st.error(
+            f"Erro ao conectar com a planilha de dados: {e}"
+        )
+
+        if "df_dados_cache" in st.session_state:
+            st.warning(
+                "⚠️ A planilha não pôde ser atualizada agora. "
+                "Os últimos dados carregados serão utilizados."
+            )
+            return st.session_state["df_dados_cache"].copy()
+
         return pd.DataFrame()
 
 # --- 3.2. CARREGAMENTO DINÂMICO DE USUÁRIOS E PERMISSÕES (Aba 'Usuarios') ---
@@ -528,7 +589,10 @@ if is_aprovador:
         st.markdown("---")
         
         try:
-            df_usuarios = conn.read(worksheet="Usuarios")
+            df_usuarios = conn.read(
+                worksheet="Usuarios",
+                ttl=300
+            )
         except Exception as e:
             st.error("❌ Erro ao ler a aba 'Usuarios' no Google Sheets. Verifique se o nome da aba está correto.")
             st.info("As colunas esperadas na aba são: Email, Nome, Perfil, Alcada, Admin, Ativo, Data_Cadastro")
@@ -851,6 +915,10 @@ if is_aprovador:
                                                         df_dados.loc[df_dados["ID"] == id_chamado, "Status_Aprovadores"] = "Em deliberação"
 
                                                     conn.update(data=df_dados)
+
+                                                    st.session_state["df_dados_cache"] = df_dados.copy()
+                                                    st.session_state["df_dados_cache_timestamp"] = time.time()
+
                                                     st.success("Seu parecer técnico foi computado com sucesso!")
                                                     time.sleep(1.2)
                                                     st.rerun()
@@ -1761,6 +1829,9 @@ if is_aprovador:
 
                                 try:
                                     conn.update(data=df_dados)
+
+                                    st.session_state["df_dados_cache"] = df_dados.copy()
+                                    st.session_state["df_dados_cache_timestamp"] = time.time()
 
                                     if (
                                         email_solicitante
