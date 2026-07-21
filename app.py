@@ -648,19 +648,18 @@ if is_aprovador:
     
     if st.session_state.get("is_admin", False) and st.session_state.get("pagina_atual") == "gerenciar_aprovadores":
         st.markdown("---")
-        st.title("⚙️ Configurações de Usuários, aprovadores e alçadas")
+        st.title("⚙️ Configurações de usuários, aprovadores e alçadas")
         st.markdown("Gerencie os acessos, perfis e alçadas técnicas diretamente integrados à aba **Usuarios** da sua planilha.")
         st.markdown("---")
         
-        try:
-            df_usuarios = carregar_dados_usuarios()
+        df_usuarios = carregar_dados_usuarios()
 
         if not df_usuarios.empty:
             df_usuarios["Email"] = df_usuarios["Email"].astype(str).str.strip().str.lower()
             df_usuarios["Ativo"] = df_usuarios["Ativo"].astype(str).str.strip().str.upper()
             df_usuarios["Admin"] = df_usuarios["Admin"].astype(str).str.strip().str.upper()
         
-        st.subheader("👥 Usuários Cadastrados na Planilha")
+        st.subheader("👥 Usuários cadastrados na planilha")
         if not df_usuarios.empty:
             st.dataframe(
                 df_usuarios, 
