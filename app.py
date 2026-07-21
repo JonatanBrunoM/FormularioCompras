@@ -438,6 +438,63 @@ def enviar_email(destinatario, assunto, corpo_html):
         st.error(f"Erro ao enviar e-mail: {e}")
         return False
 
+def emails_unicos(valores):
+    resultado = []
+    vistos = set()
+    for valor in valores:
+        if isinstance(valor, (list, tuple, set)):
+            itens = valor
+        else:
+            itens = [valor]
+        for item in itens:
+            email = str(item or "").strip().lower()
+            if "@" in email and email not in vistos:
+                vistos.add(email)
+                resultado.append(email)
+    return resultado
+
+def todos_emails_aprovadores():
+    emails = []
+    for info in ALCADAS_INFO.values():
+        emails.extend(info.get("emails", []))
+    return emails_unicos(emails)
+
+def template_email_caproq(titulo, mensagem, detalhes="", destaque="#005691", botao=True):
+    url_app = "https://formulariocompras.streamlit.app"
+    bloco_botao = ""
+    if botao:
+        bloco_botao = f"""
+        <div style="margin-top:24px;">
+            <a href="{url_app}" target="_blank"
+               style="display:inline-block;background:#005691;color:#ffffff;
+                      text-decoration:none;padding:11px 18px;border-radius:6px;
+                      font-weight:600;">Acessar CAPROQ</a>
+        </div>
+        """
+
+    return f"""
+    <div style="background:#f4f6f8;padding:24px;font-family:Arial,sans-serif;color:#263238;">
+      <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e7eb;
+                  border-radius:10px;overflow:hidden;">
+        <div style="background:#005691;padding:20px 24px;">
+          <div style="color:#ffffff;font-size:13px;letter-spacing:.6px;font-weight:700;">
+            HOSPITAL MOINHOS DE VENTO · CAPROQ
+          </div>
+        </div>
+        <div style="padding:26px 28px;">
+          <h2 style="color:{destaque};font-size:21px;margin:0 0 16px;">{titulo}</h2>
+          <div style="font-size:15px;line-height:1.6;">{mensagem}</div>
+          {detalhes}
+          {bloco_botao}
+        </div>
+        <div style="border-top:1px solid #e8ecef;padding:15px 28px;color:#6c757d;
+                    font-size:12px;text-align:center;">
+          Mensagem automática do CAPROQ. Não responda a este e-mail.
+        </div>
+      </div>
+    </div>
+    """
+
 # ==============================================================================
 # 4. Configurações de login Google          
 # ==============================================================================
@@ -944,27 +1001,66 @@ if is_aprovador:
                                                     else:
                                                         df_dados["Status_Aprovadores"] = df_dados["Status_Aprovadores"].astype(str)
                                                     
-                                                    # Bloco de Alerta por E-mail (Primeira Recusa)
-                                                    if "Reprovar" in conteudo_coluna and reprovados_count == 1:
-                                                        lista_emails_comite = []
-                                                        for inf in ALCADAS_INFO.values():
-                                                            emails = inf.get("emails", [])
-                                                            if isinstance(emails, list):
-                                                                lista_emails_comite.extend(emails)
-                                                            elif isinstance(emails, str):
-                                                                lista_emails_comite.append(emails)
-                                                        lista_emails_comite = list(set(lista_emails_comite))
-                                                        
-                                                        html_alerta = f"""
-                                                        <h3>⚠️ CAPROQ: Parecer desfavorável registrado - Chamado #{id_chamado}</h3>
-                                                        <p>A alçada técnica <b>{info['label']}</b> registrou uma <b>RECUSA</b> para o produto: {descricao_produto}.</p>
-                                                        <p><b>Parecer do especialista:</b> {texto_parecer_limpo if texto_parecer_limpo else 'Sem justificativa detalhada.'}</p>
-                                                        <p>🚨 O fluxo segue aberto para coletar os votos das outras áreas. 
-                                                        Contudo, <b>será necessário agendar uma reunião de comitê</b> para debater este caso.</p>
-                                                        """
-                                                        
-                                                        for email_membro in lista_emails_comite:
-                                                            enviar_email(destinatario=email_membro, assunto=f"CAPROQ: Reunião necessária (Recusa registrada) - #{id_chamado}", corpo_html=html_alerta)
+                                                    # Notificações do parecer emitido
+                                                    email_solicitante = str(
+                                                        row.get("Endereço de e-mail", "")
+                                                    ).strip().lower()
+                                                    nome_solicitante = valor_seguro(
+                                                        row.get("Nome solicitante", row.get("Nome", "Solicitante")),
+                                                        "Solicitante",
+                                                    )
+                                                    cor_parecer = (
+                                                        "#D93025" if voto_opcao == "Reprovar"
+                                                        else "#E6A23C" if voto_opcao == "Aprovar com ressalva"
+                                                        else "#008D4C"
+                                                    )
+                                                    detalhes_parecer = f"""
+                                                    <div style="margin-top:20px;padding:16px;background:#f8f9fa;
+                                                                border-left:4px solid {cor_parecer};border-radius:4px;">
+                                                      <p style="margin:0 0 8px;"><b>Chamado:</b> #{id_chamado}</p>
+                                                      <p style="margin:0 0 8px;"><b>Área:</b> {info['label']}</p>
+                                                      <p style="margin:0 0 8px;"><b>Avaliação:</b> {voto_opcao}</p>
+                                                      <p style="margin:0;"><b>Parecer:</b> {texto_parecer_limpo or 'Sem observação adicional.'}</p>
+                                                    </div>
+                                                    """
+                                                    html_solicitante_parecer = template_email_caproq(
+                                                        titulo=f"Nova avaliação no Chamado #{id_chamado}",
+                                                        mensagem=(
+                                                            f"Olá, <b>{nome_solicitante}</b>. A área "
+                                                            f"<b>{info['label']}</b> registrou sua avaliação "
+                                                            "técnica. O chamado continua no fluxo até a "
+                                                            "homologação final dos administradores."
+                                                        ),
+                                                        detalhes=detalhes_parecer,
+                                                        destaque=cor_parecer,
+                                                    )
+                                                    if "@" in email_solicitante:
+                                                        enviar_email(
+                                                            destinatario=email_solicitante,
+                                                            assunto=f"CAPROQ: Avaliação de {info['label']} - #{id_chamado}",
+                                                            corpo_html=html_solicitante_parecer,
+                                                        )
+
+                                                    # Toda reprovação técnica alerta o comitê para reunião.
+                                                    if voto_opcao == "Reprovar":
+                                                        html_alerta = template_email_caproq(
+                                                            titulo=f"Reunião necessária · Chamado #{id_chamado}",
+                                                            mensagem=(
+                                                                f"A área <b>{info['label']}</b> registrou parecer "
+                                                                f"desfavorável para o produto <b>{descricao_produto}</b>. "
+                                                                "Os demais pareceres devem continuar normalmente, mas "
+                                                                "uma reunião do comitê deverá ser organizada antes da "
+                                                                "homologação final."
+                                                            ),
+                                                            detalhes=detalhes_parecer,
+                                                            destaque="#D93025",
+                                                        )
+                                                        for email_membro in todos_emails_aprovadores():
+                                                            enviar_email(
+                                                                destinatario=email_membro,
+                                                                assunto=f"CAPROQ: Reunião necessária - Chamado #{id_chamado}",
+                                                                corpo_html=html_alerta,
+                                                            )
 
                                                     # Matriz de decisão hierárquica corrigida para priorizar a reunião necessária
                                                     if reprovados_count > 0:
@@ -1590,6 +1686,24 @@ if is_aprovador:
                             key=f"homologacao_fispq_setor_{id_chamado}",
                         )
 
+                        st.markdown("---")
+                        decisao_final_admin = st.radio(
+                            "6. Decisão administrativa final do chamado:",
+                            options=[
+                                "Aprovado",
+                                "Aprovado com ressalva",
+                                "Reprovado",
+                            ],
+                            index=None,
+                            horizontal=True,
+                            help=(
+                                "A decisão final pertence exclusivamente aos "
+                                "administradores. Os pareceres das áreas são "
+                                "subsídios técnicos para esta deliberação."
+                            ),
+                            key=f"decisao_final_admin_{id_chamado}",
+                        )
+
                         obs_admin = st.text_area(
                             (
                                 "✍️ Considerações finais do comitê / "
@@ -1611,6 +1725,7 @@ if is_aprovador:
                                 produto_comprado is not None,
                                 inventario_perigosos is not None,
                                 fispq_setor is not None,
+                                decisao_final_admin is not None,
                             ]
                         )
 
@@ -1690,6 +1805,7 @@ if is_aprovador:
                             resposta_produto_padronizado = ""
 
                         dados_homologacao_padrao = {
+                            "Decisao_Final_Admin": decisao_final_admin or "",
                             "Padronização: o produto foi aprovado?": (
                                 produto_aprovado or ""
                             ),
@@ -1719,8 +1835,8 @@ if is_aprovador:
                         ):
                             if not respostas_finais_preenchidas:
                                 st.error(
-                                    "❌ Por favor, responda às cinco perguntas "
-                                    "finais antes de salvar."
+                                    "❌ Responda às perguntas finais e selecione "
+                                    "a decisão administrativa do chamado."
                                 )
                             elif not codigo_padronizacao_valido:
                                 st.error(
@@ -1753,12 +1869,16 @@ if is_aprovador:
                                     or user_name
                                 )
 
-                                if produto_aprovado == "SIM":
-                                    status_final_texto = "Aprovar"
+                                status_final_texto = decisao_final_admin
+                                if decisao_final_admin == "Aprovado":
                                     emoji_resultado = "✅ APROVADO"
+                                    cor_resultado = "#008D4C"
+                                elif decisao_final_admin == "Aprovado com ressalva":
+                                    emoji_resultado = "⚠️ APROVADO COM RESSALVA"
+                                    cor_resultado = "#E6A23C"
                                 else:
-                                    status_final_texto = "Reprovar"
                                     emoji_resultado = "❌ REPROVADO"
+                                    cor_resultado = "#D93025"
 
                                 respostas_resumo = (
                                     f"Produto aprovado: {produto_aprovado} | "
@@ -1872,20 +1992,33 @@ if is_aprovador:
                                     row.get("Nome", "Solicitante"),
                                 )
 
-                                html_encerramento = f"""
-                                <h3>🔔 CAPROQ: Processo de avaliação concluído -
-                                Chamado #{id_chamado}</h3>
-                                <p>Olá, <b>{nome_solicitante}</b>,</p>
-                                <p>O processo de análise técnica e homologação
-                                final do produto <b>{descricao_produto}</b> foi
-                                concluído pelo comitê.</p>
-                                <p><b>Resultado Final:</b> {emoji_resultado}</p>
-                                <p><b>Justificativa da Deliberação:</b>
-                                {str(obs_admin).strip()}</p>
-                                <p><br>Agradecemos a sua submissão. Este chamado
-                                encontra-se agora encerrado em nossa base de
-                                dados.</p>
+                                detalhes_pareceres = "".join(
+                                    f"<li><b>{inf['label']}:</b> "
+                                    f"{valor_seguro(row.get(inf['coluna_sheets'], 'Pendente'))}</li>"
+                                    for inf in ALCADAS_INFO.values()
+                                )
+                                detalhes_final = f"""
+                                <div style="margin-top:20px;padding:16px;background:#f8f9fa;
+                                            border-left:4px solid {cor_resultado};border-radius:4px;">
+                                  <p style="margin:0 0 8px;"><b>Chamado:</b> #{id_chamado}</p>
+                                  <p style="margin:0 0 8px;"><b>Produto:</b> {descricao_produto}</p>
+                                  <p style="margin:0 0 8px;"><b>Resultado final:</b> {emoji_resultado}</p>
+                                  <p style="margin:0;"><b>Deliberação:</b> {str(obs_admin).strip()}</p>
+                                </div>
+                                <h3 style="font-size:16px;margin:22px 0 8px;">Pareceres das áreas</h3>
+                                <ul style="padding-left:20px;line-height:1.55;">{detalhes_pareceres}</ul>
                                 """
+                                html_encerramento = template_email_caproq(
+                                    titulo=f"Resultado final do Chamado #{id_chamado}",
+                                    mensagem=(
+                                        f"Olá, <b>{nome_solicitante}</b>. O processo de avaliação "
+                                        f"técnica e homologação do produto <b>{descricao_produto}</b> "
+                                        "foi concluído. A decisão abaixo foi registrada pelos "
+                                        "administradores após análise dos pareceres das áreas."
+                                    ),
+                                    detalhes=detalhes_final,
+                                    destaque=cor_resultado,
+                                )
 
                                 try:
                                     conn.update(data=df_dados)
@@ -1893,14 +2026,14 @@ if is_aprovador:
                                     st.session_state["df_dados_cache"] = df_dados.copy()
                                     st.session_state["df_dados_cache_timestamp"] = time.time()
 
-                                    if (
-                                        email_solicitante
-                                        and "@" in str(email_solicitante)
-                                    ):
+                                    destinatarios_resultado = emails_unicos(
+                                        [email_solicitante, todos_emails_aprovadores()]
+                                    )
+                                    for destinatario_resultado in destinatarios_resultado:
                                         enviar_email(
-                                            destinatario=email_solicitante,
+                                            destinatario=destinatario_resultado,
                                             assunto=(
-                                                "CAPROQ: Resultado Final - "
+                                                f"CAPROQ: {status_final_texto} - "
                                                 f"Chamado #{id_chamado}"
                                             ),
                                             corpo_html=html_encerramento,
@@ -2171,50 +2304,47 @@ else:
                 
                 URL_DO_APLICATIVO = "https://formulariocompras.streamlit.app"
                 
-                html_novo_chamado = f"""
-                <div style='font-family: sans-serif; max-width: 600px; border: 1px solid #EAEAEA; border-radius: 12px; padding: 25px; background-color: #ffffff;'>
-                    <h3 style='color: #005691; margin-top: 0;'>HOSPITAL MOINHOS DE VENTO</h3>
-                    <p style='color: #2b2b2b; font-size: 1.1em;'>🔔 <b>Nova Solicitação Pendente - CAPROQ</b></p>
-                    <p style='color: #2b2b2b;'>Um novo chamado de padronização foi aberto e aguarda a sua avaliação técnica de alçada.</p>
-                    <hr style='border: 0; border-top: 1px solid #EAEAEA; margin: 15px 0;'>
-                    
-                    <p style='margin: 8px 0;'><b>ID do Chamado:</b> #{proximo_id}</p>
-                    <p style='margin: 8px 0;'><b>Solicitante:</b> {user_name} ({user_email})</p>
-                    <p style='margin: 8px 0;'><b>⚠️ É Produto de Teste?:</b> <span style='color: {"#D93025" if v_prod_teste == "SIM" else "#2b2b2b"}; font-weight: bold;'>{v_prod_teste}</span></p>
-                    <p style='margin: 8px 0;'><b>Apresentação/volume:</b> {txt_apresentacao}</p>
-                    <p style='margin: 8px 0;'><b>Área de uso:</b> {txt_area_uso}</p>
-                    <p style='margin: 8px 0;'><b>Fabricante:</b> {txt_fabricante}</p>
-                    
-                    <div style='background-color: #F8F9FA; border-left: 4px solid #005691; padding: 12px; margin: 15px 0; border-radius: 4px;'>
-                        <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>Descrição completa do produto:</p>
-                        <p style='margin: 0; white-space: pre-line; color: #333;'>{txt_descricao}</p>
-                    </div>
-
-                    <div style='background-color: #F8F9FA; border-left: 4px solid #6c757d; padding: 12px; margin: 15px 0; border-radius: 4px;'>
-                        <p style='margin: 0 0 5px 0; font-weight: bold; color: #555;'>Justificativa (Uso sem o produto):</p>
-                        <p style='margin: 0; white-space: pre-line; color: #333;'>{txt_sem_produto}</p>
-                    </div>
-                    
-                    <div style='margin-top: 20px;'>
-                """
-
-                if link_gerais_str != "Nenhum arquivo adicional":
-                    html_novo_chamado += f"""
-                        <a href='{links_gerais[0] if links_gerais else "#"}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #007bff; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-right: 10px; margin-bottom: 10px;'>📂 Abrir anexo</a>
-                    """
-
-                html_novo_chamado += f"""
-                        <a href='{URL_DO_APLICATIVO}' target='_blank' style='display: inline-block; padding: 10px 18px; background-color: #005691; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 6px; font-size: 14px; margin-bottom: 10px;'>Acessar Painel - CAPROQ</a>
-                    </div>
-                    
-                    <hr style='border: 0; border-top: 1px solid #EAEAEA; margin: 20px 0;'>
-                    <p style='color: #6c757d; font-size: 0.85em; text-align: center; margin: 0;'>Este é um disparo automático do Sistema de Gestão de Compras Moinhos.<br>Por favor, não responda a este e-mail.</p>
+                detalhes_novo_chamado = f"""
+                <div style="margin-top:20px;padding:16px;background:#f8f9fa;
+                            border-left:4px solid #005691;border-radius:4px;">
+                  <p style="margin:0 0 8px;"><b>Chamado:</b> #{proximo_id}</p>
+                  <p style="margin:0 0 8px;"><b>Solicitante:</b> {user_name} ({user_email})</p>
+                  <p style="margin:0 0 8px;"><b>Produto de teste:</b> {v_prod_teste}</p>
+                  <p style="margin:0 0 8px;"><b>Produto:</b> {txt_descricao}</p>
+                  <p style="margin:0 0 8px;"><b>Apresentação/volume:</b> {txt_apresentacao}</p>
+                  <p style="margin:0 0 8px;"><b>Área de uso:</b> {txt_area_uso}</p>
+                  <p style="margin:0;"><b>Fabricante:</b> {txt_fabricante}</p>
                 </div>
                 """
-                
-                for aprovador_email in APROVADORES:
-                    enviar_email(destinatario=aprovador_email, assunto=f"CAPROQ: Nova Solicitação Pendente - #{proximo_id}", corpo_html=html_novo_chamado)
-                
+
+                # Um e-mail individual para cada aprovador e para cada área sob sua responsabilidade.
+                disparos_abertura = set()
+                for info_alcada in ALCADAS_INFO.values():
+                    for aprovador_email in emails_unicos(info_alcada.get("emails", [])):
+                        chave_disparo = (aprovador_email, info_alcada["label"])
+                        if chave_disparo in disparos_abertura:
+                            continue
+                        disparos_abertura.add(chave_disparo)
+
+                        html_novo_chamado = template_email_caproq(
+                            titulo=f"Nova solicitação para {info_alcada['label']}",
+                            mensagem=(
+                                f"Um novo chamado CAPROQ aguarda a avaliação da área "
+                                f"<b>{info_alcada['label']}</b>. O prazo de referência "
+                                f"para esta alçada é de <b>{info_alcada['prazo_util']} dias úteis</b>."
+                            ),
+                            detalhes=detalhes_novo_chamado,
+                            destaque="#005691",
+                        )
+                        enviar_email(
+                            destinatario=aprovador_email,
+                            assunto=(
+                                f"CAPROQ: Nova solicitação · {info_alcada['label']} "
+                                f"· #{proximo_id}"
+                            ),
+                            corpo_html=html_novo_chamado,
+                        )
+
                 st.session_state["form_version"] += 1
                 
                 if "dados_base_coletados" in st.session_state:
