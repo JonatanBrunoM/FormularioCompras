@@ -221,12 +221,76 @@ def carregar_dados(forcar_atualizacao=False):
 
 # --- 3.2. CARREGAMENTO DINÂMICO DE USUÁRIOS E PERMISSÕES (Aba 'Usuarios') ---
 @st.cache_data(ttl=300)
-def carregar_dados_usuarios():
+def carregar_dados_usuarios(forcar_atualizacao=False):
     try:
-        df = conn.read(worksheet="Usuarios", ttl=300)
+        agora = time.time()
+
+        cache_existe = "df_usuarios_cache" in st.session_state
+        horario_cache = st.session_state.get(
+            "df_usuarios_cache_timestamp",
+            0
+        )
+
+        cache_valido = (
+            cache_existe
+            and not forcar_atualizacao
+            and (agora - horario_cache) < 300
+        )
+
+        if cache_valido:
+            return st.session_state["df_usuarios_cache"].copy()
+
+        df = conn.read(
+            worksheet="Usuarios",
+            ttl=300
+        )
+
+        df = df.dropna(how="all")
+
+        if not df.empty:
+            if "Email" in df.columns:
+                df["Email"] = (
+                    df["Email"]
+                    .astype(str)
+                    .str.strip()
+                    .str.lower()
+                )
+
+            if "Ativo" in df.columns:
+                df["Ativo"] = (
+                    df["Ativo"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                )
+
+            if "Admin" in df.columns:
+                df["Admin"] = (
+                    df["Admin"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                )
+
+        st.session_state["df_usuarios_cache"] = df.copy()
+        st.session_state["df_usuarios_cache_timestamp"] = agora
+
         return df
+
     except Exception as e:
-        st.error(f"Erro ao conectar com a tabela de usuários (Usando Cache): {e}")
+        if "df_usuarios_cache" in st.session_state:
+            st.warning(
+                "⚠️ Não foi possível atualizar a lista de usuários agora. "
+                "Os últimos dados carregados serão utilizados."
+            )
+
+            return st.session_state["df_usuarios_cache"].copy()
+
+        st.error(
+            "Erro ao conectar com a tabela de usuários: "
+            f"{e}"
+        )
+
         return pd.DataFrame()
 
 df_usuarios = carregar_dados_usuarios()
@@ -589,14 +653,7 @@ if is_aprovador:
         st.markdown("---")
         
         try:
-            df_usuarios = conn.read(
-                worksheet="Usuarios",
-                ttl=300
-            )
-        except Exception as e:
-            st.error("❌ Erro ao ler a aba 'Usuarios' no Google Sheets. Verifique se o nome da aba está correto.")
-            st.info("As colunas esperadas na aba são: Email, Nome, Perfil, Alcada, Admin, Ativo, Data_Cadastro")
-            df_usuarios = pd.DataFrame(columns=["Email", "Nome", "Perfil", "Alcada", "Admin", "Ativo", "Data_Cadastro"])
+            df_usuarios = carregar_dados_usuarios()
 
         if not df_usuarios.empty:
             df_usuarios["Email"] = df_usuarios["Email"].astype(str).str.strip().str.lower()
@@ -691,6 +748,8 @@ if is_aprovador:
                         
                         try:
                             conn.update(worksheet="Usuarios", data=df_usuarios)
+                            st.session_state["df_usuarios_cache"] = df_usuarios.copy()
+                            st.session_state["df_usuarios_cache_timestamp"] = time.time()
                             st.success(msg_sucesso)
                             time.sleep(1.5)
                             st.rerun()
@@ -716,6 +775,8 @@ if is_aprovador:
                             df_usuarios = df_usuarios[df_usuarios["Email"] != email_excluir]
                             try:
                                 conn.update(worksheet="Usuarios", data=df_usuarios)
+                                st.session_state["df_usuarios_cache"] = df_usuarios.copy()
+                                st.session_state["df_usuarios_cache_timestamp"] = time.time()
                                 st.success(f"🗑️ Usuário `{email_excluir}` removido com sucesso!")
                                 time.sleep(1.5)
                                 st.rerun()
@@ -2099,6 +2160,8 @@ else:
                 
                 df_dados = pd.concat([df_dados, nova_linha], ignore_index=True)
                 conn.update(data=df_dados)
+                st.session_state["df_dados_cache"] = df_dados.copy()
+                st.session_state["df_dados_cache_timestamp"] = time.time()
                 st.session_state["df_dados"] = df_dados
                 
                 txt_descricao = resp_form.get("Descrição completa do produto", "Não informado")
