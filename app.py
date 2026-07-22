@@ -458,6 +458,57 @@ def todos_emails_aprovadores():
     for info in ALCADAS_INFO.values():
         emails.extend(info.get("emails", []))
     return emails_unicos(emails)
+    
+def bloco_botoes_arquivos(link_fds="", link_anexos=""):
+    botoes = []
+
+    def adicionar_botao(rotulo, url, cor="#005691"):
+        url_limpa = str(url or "").strip()
+
+        valores_vazios = {
+            "",
+            "nan",
+            "none",
+            "não aplicável",
+            "nenhum arquivo anexado",
+            "nenhum arquivo adicional",
+        }
+
+        if url_limpa.lower() in valores_vazios:
+            return
+
+        botoes.append(
+            f'<a href="{url_limpa}" target="_blank" '
+            f'style="display:inline-block;background:{cor};color:#ffffff;'
+            'text-decoration:none;padding:11px 18px;border-radius:6px;'
+            f'font-weight:600;margin:6px 8px 0 0;">{rotulo}</a>'
+        )
+
+    adicionar_botao(
+        "Abrir FDS",
+        link_fds,
+        "#005691",
+    )
+
+    adicionar_botao(
+        "Abrir arquivos anexados",
+        link_anexos,
+        "#3f6f8f",
+    )
+
+    if not botoes:
+        return ""
+
+    return (
+        '<div style="margin-top:20px;padding-top:16px;'
+        'border-top:1px solid #e8ecef;">'
+        '<div style="font-size:14px;font-weight:700;'
+        'color:#37474f;margin-bottom:4px;">'
+        'Documentos do chamado'
+        "</div>"
+        + "".join(botoes)
+        + "</div>"
+    )
 
 def template_email_caproq(titulo, mensagem, detalhes="", destaque="#005691", botao=True):
     url_app = "https://formulariocompras.streamlit.app"
@@ -2301,6 +2352,23 @@ else:
                 txt_area_uso = resp_form.get("Área onde será utilizado e indicação detalhada de uso do produto", "Não informado")
                 txt_fabricante = resp_form.get("Fabricante/fornecedor", "Não informado")
                 txt_sem_produto = resp_form.get("Explique como o procedimento/atividade atual é realizado SEM este produto:", "Não informado")
+                link_fds_email = resp_form.get(
+                    "Anexar FDS",
+                    "",
+                )
+
+                link_anexos_email = resp_form.get(
+                    "Link_Anexo",
+                    resp_form.get(
+                        "Arquivos anexados",
+                        "",
+                    ),
+                )
+
+                botoes_documentos_email = bloco_botoes_arquivos(
+                    link_fds=link_fds_email,
+                    link_anexos=link_anexos_email,
+                )
                 
                 URL_DO_APLICATIVO = "https://formulariocompras.streamlit.app"
                 
@@ -2315,35 +2383,100 @@ else:
                   <p style="margin:0 0 8px;"><b>Área de uso:</b> {txt_area_uso}</p>
                   <p style="margin:0;"><b>Fabricante:</b> {txt_fabricante}</p>
                 </div>
+                
+                {botoes_documentos_email}
                 """
 
-                # Um e-mail individual para cada aprovador e para cada área sob sua responsabilidade.
+                emails_admin = set(
+                    emails_unicos(ADMINS)
+                )
+                
                 disparos_abertura = set()
+                
                 for info_alcada in ALCADAS_INFO.values():
-                    for aprovador_email in emails_unicos(info_alcada.get("emails", [])):
-                        chave_disparo = (aprovador_email, info_alcada["label"])
+                    emails_da_area = emails_unicos(
+                        info_alcada.get("emails", [])
+                    )
+                
+                    for aprovador_email in emails_da_area:
+                
+                        if aprovador_email in emails_admin:
+                            continue
+                
+                        chave_disparo = (
+                            aprovador_email,
+                            info_alcada["label"],
+                        )
+                
                         if chave_disparo in disparos_abertura:
                             continue
+                
                         disparos_abertura.add(chave_disparo)
-
+                
                         html_novo_chamado = template_email_caproq(
-                            titulo=f"Nova solicitação para {info_alcada['label']}",
+                            titulo=(
+                                f"Nova solicitação para "
+                                f"{info_alcada['label']}"
+                            ),
                             mensagem=(
-                                f"Um novo chamado CAPROQ aguarda a avaliação da área "
-                                f"<b>{info_alcada['label']}</b>. O prazo de referência "
-                                f"para esta alçada é de <b>{info_alcada['prazo_util']} dias úteis</b>."
+                                "Um novo chamado CAPROQ aguarda a avaliação "
+                                f"da área <b>{info_alcada['label']}</b>. "
+                                "O prazo de referência para esta alçada é de "
+                                f"<b>{info_alcada['prazo_util']} dias úteis</b>."
                             ),
                             detalhes=detalhes_novo_chamado,
                             destaque="#005691",
                         )
+                
                         enviar_email(
                             destinatario=aprovador_email,
                             assunto=(
-                                f"CAPROQ: Nova solicitação · {info_alcada['label']} "
-                                f"· #{proximo_id}"
+                                "CAPROQ: Nova solicitação · "
+                                f"{info_alcada['label']} · "
+                                f"#{proximo_id}"
                             ),
                             corpo_html=html_novo_chamado,
                         )
+
+                labels_alcadas = ", ".join(
+                    info["label"]
+                    for info in ALCADAS_INFO.values()
+                )
+                
+                detalhes_admin = detalhes_novo_chamado + f"""
+                <div style="
+                    margin-top:16px;
+                    padding:14px;
+                    background:#eef5f9;
+                    border-radius:4px;
+                    font-size:14px;
+                    line-height:1.5;
+                ">
+                    <b>Áreas participantes:</b>
+                    {labels_alcadas}
+                </div>
+                """
+                
+                for admin_email in sorted(emails_admin):
+                
+                    html_admin = template_email_caproq(
+                        titulo="Nova solicitação CAPROQ",
+                        mensagem=(
+                            "Um novo chamado foi aberto e encaminhado "
+                            "às áreas técnicas. Este é o aviso único e "
+                            "consolidado destinado aos administradores."
+                        ),
+                        detalhes=detalhes_admin,
+                        destaque="#005691",
+                    )
+                
+                    enviar_email(
+                        destinatario=admin_email,
+                        assunto=(
+                            f"CAPROQ: Novo chamado #{proximo_id}"
+                        ),
+                        corpo_html=html_admin,
+                    )
 
                 st.session_state["form_version"] += 1
                 
