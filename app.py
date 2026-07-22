@@ -2463,8 +2463,7 @@ else:
                         titulo="Nova solicitação CAPROQ",
                         mensagem=(
                             "Um novo chamado foi aberto e encaminhado "
-                            "às áreas técnicas. Este é o aviso único e "
-                            "consolidado destinado aos administradores."
+                            "às áreas técnicas. Acesse o painel para mais informações."
                         ),
                         detalhes=detalhes_admin,
                         destaque="#005691",
