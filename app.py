@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 import smtplib
 import os
-import extra_streamlit_components as stx
 import datetime
 import time
 from email.mime.text import MIMEText
@@ -102,6 +101,24 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    .block-container {
+    padding-top: 0.8rem !important;
+    padding-bottom: 1rem !important;
+    }
+
+    section.main > div {
+        padding-top: 0 !important;
+    }
+
+    header[data-testid="stHeader"] {
+    height: 0;
+    background: transparent;
+    }
+    
+    div[data-testid="stToolbar"] {
+        display: none;
+    }
+    
     [data-testid="stVerticalBlockBorderWrapper"] {
         border: none !important;
         background-color: transparent !important;
@@ -123,7 +140,7 @@ st.markdown("""
     }
 
     .login-page {
-        min-height: 75vh;
+        min-height: calc(100vh - 40px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -134,18 +151,18 @@ st.markdown("""
         width: 100%;
         max-width: 480px;
         margin: 0 auto;
-        padding: 34px 38px;
+        padding: 24px 28px;
         text-align: center;
         background: #ffffff;
         border: 1px solid #e4e9ed;
-        border-radius: 16px;
+        border-radius: 14px;
         box-shadow: 0 12px 35px rgba(0, 86, 145, 0.10);
     }
     
     .login-logo {
         width: 100%;
-        max-width: 230px;
-        margin: 0 auto 18px auto;
+        max-width: 155px;
+        margin: 0 auto 12px auto;
     }
     
     .login-title {
@@ -166,13 +183,13 @@ st.markdown("""
     .login-divider {
         width: 55px;
         height: 3px;
-        margin: 20px auto;
+        margin: 14px auto;
         background: #005691;
         border-radius: 10px;
     }
     
     .login-description {
-        margin: 0 0 20px 0;
+        margin-bottom: 14px;
         color: #47545c;
         font-size: 0.90rem;
         line-height: 1.6;
@@ -338,7 +355,6 @@ def carregar_dados(forcar_atualizacao=False):
         return pd.DataFrame()
 
 # --- 3.2. CARREGAMENTO DINÂMICO DE USUÁRIOS E PERMISSÕES (Aba 'Usuarios') ---
-@st.cache_data(ttl=300)
 def carregar_dados_usuarios(forcar_atualizacao=False):
     try:
         agora = time.time()
@@ -352,7 +368,7 @@ def carregar_dados_usuarios(forcar_atualizacao=False):
         cache_valido = (
             cache_existe
             and not forcar_atualizacao
-            and (agora - horario_cache) < 300
+            and (agora - horario_cache) < 60
         )
 
         if cache_valido:
@@ -360,7 +376,7 @@ def carregar_dados_usuarios(forcar_atualizacao=False):
 
         df = conn.read(
             worksheet="Usuarios",
-            ttl=300
+            ttl=60
         )
 
         df = df.dropna(how="all")
@@ -428,103 +444,20 @@ if "usuario_cadastrado" not in st.session_state:
 if "usuario_validado" not in st.session_state:
     st.session_state["usuario_validado"] = False
 if "pagina_atual" not in st.session_state:
-    st.session_state["pagina_atual"] = "painel_principal"
+    st.session_state["pagina_atual"] = "solicitacoes"
 
 def validar_usuario_logado(email_usuario):
-    email_usuario = str(
-        email_usuario or ""
-    ).strip().lower()
+    email_usuario = str(email_usuario or "").strip().lower()
 
     if not email_usuario:
-        return (
-            False,
-            "Não foi possível identificar o e-mail da conta Google."
-        )
-def usuario_eh_admin():
-    return bool(
-        st.session_state.get(
-            "is_admin",
-            False,
-        )
-    )
+        return False, "Não foi possível identificar o e-mail da conta Google."
 
-
-def usuario_eh_aprovador():
-    alcadas = st.session_state.get(
-        "user_alcadas",
-        [],
-    )
-
-    return bool(alcadas)
-
-
-def usuario_eh_solicitante():
-    return bool(
-        st.session_state.get(
-            "connected",
-            False,
-        )
-    )
-
-
-def usuario_tem_alcada(alcada):
-    alcada = str(
-        alcada or ""
-    ).strip().lower()
-
-    alcadas_usuario = [
-        str(item).strip().lower()
-        for item in st.session_state.get(
-            "user_alcadas",
-            [],
-        )
-    ]
-
-    return (
-        usuario_eh_admin()
-        or alcada in alcadas_usuario
-    )
-
-
-def exigir_login():
-    if not st.session_state.get(
-        "connected",
-        False,
-    ):
-        st.error(
-            "Sua sessão não está autenticada."
-        )
-        st.stop()
-
-
-def exigir_admin():
-    exigir_login()
-
-    if not usuario_eh_admin():
-        st.error(
-            "Você não possui permissão para acessar esta área."
-        )
-        st.stop()
-
-
-def exigir_aprovador():
-    exigir_login()
-
-    if not (
-        usuario_eh_aprovador()
-        or usuario_eh_admin()
-    ):
-        st.error(
-            "Esta área está disponível somente para aprovadores."
-        )
-        st.stop()
-
+    # Todo usuário autenticado entra, por padrão, como solicitante.
     st.session_state["user_nome"] = (
         st.session_state.get("name")
         or email_usuario.split("@")[0]
         or "Solicitante"
     )
-
     st.session_state["user_perfil"] = "Solicitante"
     st.session_state["user_alcadas"] = []
     st.session_state["is_admin"] = False
@@ -532,17 +465,12 @@ def exigir_aprovador():
     st.session_state["usuario_cadastrado"] = False
     st.session_state["usuario_validado"] = True
 
-    if df_usuarios.empty:
-        return True, ""
-
-    if "Email" not in df_usuarios.columns:
+    # A aba Usuarios controla apenas permissões especiais e bloqueios.
+    if df_usuarios.empty or "Email" not in df_usuarios.columns:
         return True, ""
 
     usuario_encontrado = df_usuarios[
-        df_usuarios["Email"]
-        .astype(str)
-        .str.strip()
-        .str.lower()
+        df_usuarios["Email"].astype(str).str.strip().str.lower()
         == email_usuario
     ]
 
@@ -550,45 +478,24 @@ def exigir_aprovador():
         return True, ""
 
     usuario_info = usuario_encontrado.iloc[0]
-
     usuario_ativo = (
-        str(usuario_info.get("Ativo", "Sim"))
-        .strip()
-        .lower()
-        == "sim"
+        str(usuario_info.get("Ativo", "Sim")).strip().lower() == "sim"
     )
 
     if not usuario_ativo:
         st.session_state["user_ativo"] = False
+        return False, "Seu usuário está inativo no sistema."
 
-        return (
-            False,
-            "Seu usuário está inativo no sistema."
-        )
-
-    nome_planilha = str(
-        usuario_info.get("Nome", "")
-    ).strip()
-
+    nome_planilha = str(usuario_info.get("Nome", "")).strip()
     perfil_planilha = str(
         usuario_info.get("Perfil", "Solicitante")
     ).strip()
-
     admin_planilha = (
-        str(usuario_info.get("Admin", "Não"))
-        .strip()
-        .lower()
-        == "sim"
+        str(usuario_info.get("Admin", "Não")).strip().lower() == "sim"
     )
+    alcadas_raw = str(usuario_info.get("Alcada", "Nenhum")).strip()
 
-    alcadas_raw = str(
-        usuario_info.get("Alcada", "Nenhum")
-    ).strip()
-
-    if (
-        alcadas_raw
-        and alcadas_raw.lower() != "nenhum"
-    ):
+    if alcadas_raw and alcadas_raw.lower() not in {"nenhum", "nenhuma"}:
         lista_alcadas = [
             alcada.strip()
             for alcada in alcadas_raw.split(",")
@@ -598,16 +505,9 @@ def exigir_aprovador():
         lista_alcadas = []
 
     st.session_state["user_nome"] = (
-        nome_planilha
-        or st.session_state.get("name")
-        or "Usuário"
+        nome_planilha or st.session_state.get("name") or "Usuário"
     )
-
-    st.session_state["user_perfil"] = (
-        perfil_planilha
-        or "Solicitante"
-    )
-
+    st.session_state["user_perfil"] = perfil_planilha or "Solicitante"
     st.session_state["user_alcadas"] = lista_alcadas
     st.session_state["is_admin"] = admin_planilha
     st.session_state["user_ativo"] = True
@@ -615,7 +515,44 @@ def exigir_aprovador():
     st.session_state["usuario_validado"] = True
 
     return True, ""
-    
+
+
+def usuario_eh_admin():
+    return bool(st.session_state.get("is_admin", False))
+
+
+def usuario_eh_aprovador():
+    return bool(st.session_state.get("user_alcadas", []))
+
+
+def usuario_tem_alcada(alcada):
+    alcada_normalizada = str(alcada or "").strip().lower()
+    alcadas_usuario = {
+        str(item).strip().lower()
+        for item in st.session_state.get("user_alcadas", [])
+    }
+    return usuario_eh_admin() or alcada_normalizada in alcadas_usuario
+
+
+def exigir_login():
+    if not st.session_state.get("connected", False):
+        st.error("Sua sessão não está autenticada.")
+        st.stop()
+
+
+def exigir_admin():
+    exigir_login()
+    if not usuario_eh_admin():
+        st.error("Você não possui permissão para acessar esta área.")
+        st.stop()
+
+
+def exigir_aprovador():
+    exigir_login()
+    if not (usuario_eh_aprovador() or usuario_eh_admin()):
+        st.error("Esta área está disponível somente para aprovadores.")
+        st.stop()
+
 ADMINS = []
 APROVADORES = []
 
@@ -825,29 +762,8 @@ def template_email_caproq(titulo, mensagem, detalhes="", destaque="#005691", bot
 # ==============================================================================
 # 4. Configurações de login Google          
 # ==============================================================================
-cookie_manager = stx.CookieManager()
-
 if "connected" not in st.session_state:
     st.session_state.connected = False
-if "cookies_carregados" not in st.session_state:
-    st.session_state.cookies_carregados = False
-
-cookie_email = cookie_manager.get(
-    cookie="moinhos_user_email"
-)
-
-cookie_name = cookie_manager.get(
-    cookie="moinhos_user_name"
-)
-
-cookie_picture = cookie_manager.get(
-    cookie="moinhos_user_picture"
-)
-
-if not st.session_state.cookies_carregados:
-    time.sleep(0.2)
-    st.session_state.cookies_carregados = True
-    st.rerun()
 
 client_config = {
     "web": {
@@ -891,12 +807,6 @@ if "code" in query_params and not st.session_state.get('connected'):
         st.session_state.name = user_info_service.get("name")
         st.session_state.email = user_info_service.get("email")
         st.session_state.picture = user_info_service.get("picture")
-        
-        fuso_brasilia = datetime.timezone(datetime.timedelta(hours=-3))
-        validade = datetime.datetime.now(fuso_brasilia) + datetime.timedelta(hours=5)
-        cookie_manager.set(cookie="moinhos_user_email", val=st.session_state.email, expires_at=validade)
-        cookie_manager.set(cookie="moinhos_user_name", val=st.session_state.name, expires_at=validade)
-        cookie_manager.set(cookie="moinhos_user_picture", val=st.session_state.picture, expires_at=validade)
         
         st.query_params.clear()
         st.rerun()
@@ -1027,6 +937,31 @@ if not st.session_state.connected:
 
     st.stop()
 
+# Valida o perfil em toda execução autenticada para refletir alterações da planilha.
+usuario_valido, mensagem_validacao = validar_usuario_logado(
+    st.session_state.get("email", "")
+)
+
+if not usuario_valido:
+    st.error(f"❌ {mensagem_validacao}")
+    st.info(
+        "Entre em contato com a administração do CAPROQ caso seja "
+        "necessário reativar seu acesso."
+    )
+
+    if st.button(
+        "Voltar para o login",
+        use_container_width=True,
+        key="voltar_login_usuario_inativo",
+    ):
+        st.session_state.clear()
+        st.query_params.clear()
+        st.rerun()
+
+    st.stop()
+
+exigir_login()
+
 # ==============================================================================
 # 6. Configurações da sidebar    
 # ==============================================================================
@@ -1059,68 +994,54 @@ avatar_html = f"""
 st.sidebar.markdown(avatar_html, unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
-# Menu de Configurações para Administradores
+# Navegação por perfil
 # ------------------------------------------------------------------------------
-if st.session_state.get("is_admin", False):
-    st.sidebar.markdown("<br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+pagina = st.session_state.get("pagina_atual", "painel_principal")
 
-    pagina = st.session_state.get("pagina_atual")
+if st.sidebar.button(
+    "📝 Solicitações",
+    use_container_width=True,
+    key="menu_solicitacoes",
+):
+    st.session_state["pagina_atual"] = "solicitacoes"
+    st.rerun()
 
-    if pagina == "painel_principal":
+if usuario_eh_aprovador() or usuario_eh_admin():
+    if st.sidebar.button(
+        "📥 Painel de Aprovações",
+        use_container_width=True,
+        key="menu_aprovacoes",
+    ):
+        st.session_state["pagina_atual"] = "painel_principal"
+        st.rerun()
 
-        if st.sidebar.button("⚙️ Gerenciar Aprovadores", use_container_width=True):
-            st.session_state["pagina_atual"] = "gerenciar_aprovadores"
-            st.rerun()
+if usuario_eh_admin():
+    if st.sidebar.button(
+        "🛡️ Homologação Final",
+        use_container_width=True,
+        key="menu_homologacao",
+    ):
+        st.session_state["pagina_atual"] = "homologacao_final"
+        st.rerun()
 
-        if st.sidebar.button("🛡️ Homologação Final", use_container_width=True):
-            st.session_state["pagina_atual"] = "homologacao_final"
-            st.rerun()
-
-    elif pagina == "gerenciar_aprovadores":
-
-        if st.sidebar.button("⬅️ Voltar ao Painel", use_container_width=True):
-            st.session_state["pagina_atual"] = "painel_principal"
-            st.rerun()
-
-    elif pagina == "homologacao_final":
-
-        if st.sidebar.button("⬅️ Voltar ao Painel", use_container_width=True):
-            st.session_state["pagina_atual"] = "painel_principal"
-            st.rerun()
+    if st.sidebar.button(
+        "⚙️ Gerenciar Aprovadores",
+        use_container_width=True,
+        key="menu_usuarios",
+    ):
+        st.session_state["pagina_atual"] = "gerenciar_aprovadores"
+        st.rerun()
 
 st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
 if st.sidebar.button(
     "🚪 Sair",
     use_container_width=True,
-    key="botao_sair_sidebar"
+    key="botao_sair_sidebar",
 ):
-    cookies_logout = [
-        (
-            "moinhos_user_email",
-            "logout_cookie_email",
-        ),
-        (
-            "moinhos_user_name",
-            "logout_cookie_name",
-        ),
-        (
-            "moinhos_user_picture",
-            "logout_cookie_picture",
-        ),
-    ]
-
-    for nome_cookie, chave_exclusao in cookies_logout:
-        try:
-            cookie_manager.delete(
-                cookie=nome_cookie,
-                key=chave_exclusao,
-            )
-        except Exception:
-            pass
-
     st.session_state.clear()
-    time.sleep(0.2)
+    st.query_params.clear()
     st.rerun()
 
 # ==============================================================================
@@ -1129,8 +1050,12 @@ if st.sidebar.button(
 df_dados = carregar_dados()
 
 user_email = st.session_state.get('email', '')
-user_name = st.session_state.get('name', 'Usuário')
-is_aprovador = user_email in APROVADORES
+user_name = (
+    st.session_state.get('user_nome')
+    or st.session_state.get('name')
+    or 'Usuário'
+)
+is_aprovador = usuario_eh_aprovador() or usuario_eh_admin()
 
 col_header1, col_header2 = st.columns([1, 5])
 if os.path.exists("logomoinhos.png"):
@@ -1154,9 +1079,11 @@ def valor_seguro(valor, padrao="Não informado"):
 # ==============================================================================
 # 8. Tela aprovadores e Gerenciamento de Usuários (Ajustado cirurgicamente)
 # ==============================================================================
-if is_aprovador:
+if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
+    exigir_aprovador()
     
     if st.session_state.get("is_admin", False) and st.session_state.get("pagina_atual") == "gerenciar_aprovadores":
+        exigir_admin()
         st.markdown("---")
         st.title("⚙️ Configurações de usuários, aprovadores e alçadas")
         st.markdown("Gerencie os acessos, perfis e alçadas técnicas diretamente integrados à aba **Usuarios** da sua planilha.")
@@ -1199,7 +1126,7 @@ if is_aprovador:
         
         with tab_salvar_usuario:
             st.markdown("### Salvar ou Atualizar informações de usuário")
-            st.caption("Caso o e-mail digitado já exista, o cadastro correspondente será updated.")
+            st.caption("Caso o e-mail digitado já exista, o cadastro correspondente será atualizado.")
             
             with st.form("form_usuario_sheets"):
                 email_input = st.text_input("E-mail do usuário (Chave única):").strip().lower()
@@ -1308,9 +1235,6 @@ if is_aprovador:
             emails_alcada = info_alcada.get("emails", [])
             if not isinstance(emails_alcada, list):
                 emails_alcada = [emails_alcada]
-            if "email" in info_alcada and info_alcada["email"] not in emails_alcada:
-                emails_alcada.append(info_alcada["email"])
-                
             if is_user_admin or user_email in emails_alcada:
                 colunas_permitidas_usuario.append(nome_coluna_sheets)
 
@@ -1321,7 +1245,7 @@ if is_aprovador:
                 condicao_pendente = (df_dados["Status_Final"] == "Em análise") & (
                     df_dados[colunas_validas].eq("Pendente").any(axis=1)
                 )
-                pendentes = df_dados[df_dados["Status_Final"].astype(str).str.contains("Em análise", na=False)]
+                pendentes = df_dados[condicao_pendente]
                 
                 condicao_historico = df_dados[colunas_validas].apply(
                     lambda col: col.astype(str).str.startswith(("Aprovar", "Reprovar"), na=False)
@@ -1812,6 +1736,7 @@ if is_aprovador:
         st.session_state.get("is_admin", False)
         and st.session_state.get("pagina_atual") == "homologacao_final"
     ):
+        exigir_admin()
         st.markdown("---")
         st.title("🛡️ Painel de Homologação e Decisão Final (Admin)")
         st.markdown(
