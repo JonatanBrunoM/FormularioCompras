@@ -5,6 +5,7 @@ import smtplib
 import os
 import datetime
 import time
+import base64
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from google_auth_oauthlib.flow import Flow
@@ -125,6 +126,57 @@ st.markdown("""
         width: 100%;
         max-width: 920px;
         margin: 0 auto;
+    }
+
+    .login-premium-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    width: 100%;
+    }
+    
+    .login-logo-image {
+        display: block;
+        width: 135px;
+        max-width: 100%;
+        height: auto;
+        margin: 0 auto;
+    }
+    
+    .login-google-button {
+        min-height: 44px;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        background: #005691;
+        color: #ffffff !important;
+        border: 1px solid #005691;
+        border-radius: 9px;
+        font-size: 0.91rem;
+        font-weight: 650;
+        text-decoration: none !important;
+        transition:
+            transform 0.18s ease,
+            background 0.18s ease;
+    }
+    
+    .login-google-button:hover {
+        background: #003d66;
+        border-color: #003d66;
+        color: #ffffff !important;
+        text-decoration: none !important;
+        transform: translateY(-1px);
+    }
+    
+    @media (max-width: 800px) {
+        .login-premium-grid {
+            grid-template-columns: 1fr;
+        }
+    
+        .login-brand-panel {
+            display: none;
+        }
     }
     
     .login-brand-panel {
@@ -280,6 +332,7 @@ st.markdown("""
         color: #005691 !important; 
         font-weight: 600 !important; 
     }
+    
 </style>
 """, unsafe_allow_html=True)
 
@@ -856,144 +909,116 @@ if not st.session_state.connected:
         unsafe_allow_html=True,
     )
 
-    _, col_login, _ = st.columns(
-        [0.3, 5.4, 0.3]
+    auth_url = (
+        "https://accounts.google.com/o/oauth2/auth?"
+        "response_type=code"
+        f"&client_id={st.secrets.get('GOOGLE_CLIENT_ID', '')}"
+        f"&redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI', '')}"
+        "&scope="
+        "https://www.googleapis.com/auth/userinfo.profile"
+        "%20https://www.googleapis.com/auth/userinfo.email"
+        "%20openid"
+        "%20https://www.googleapis.com/auth/drive.file"
+        "&access_type=offline"
+        "&include_granted_scopes=true"
+        "&prompt=select_account%20consent"
     )
 
-    with col_login:
-        st.markdown(
-            '<div class="login-shell">',
-            unsafe_allow_html=True,
+    erro_login = st.session_state.pop(
+        "erro_login_google",
+        None,
+    )
+
+    if erro_login:
+        st.error(
+            "Não foi possível concluir o login com o Google. "
+            "Tente novamente."
         )
 
-        col_brand, col_access = st.columns(
-            [1.05, 0.95],
-            gap=None,
-        )
+        with st.expander("Detalhes do erro"):
+            st.code(erro_login)
 
-        with col_brand:
-            st.markdown(
-                """
-                <div class="login-brand-panel">
-                    <div>
-                        <p class="login-brand-kicker">
-                            Hospital Moinhos de Vento
-                        </p>
+    logo_html = ""
 
-                        <h1 class="login-brand-title">
-                            CAPROQ
-                        </h1>
+    if os.path.exists("logomoinhos.png"):
+        with open("logomoinhos.png", "rb") as arquivo_logo:
+            logo_base64 = base64.b64encode(
+                arquivo_logo.read()
+            ).decode("utf-8")
 
-                        <p class="login-brand-text">
-                            Plataforma para solicitação, análise técnica,
-                            acompanhamento e padronização de produtos químicos.
-                        </p>
-                    </div>
+        logo_html = f"""
+        <div class="login-logo-wrap">
+            <img
+                src="data:image/png;base64,{logo_base64}"
+                alt="Hospital Moinhos de Vento"
+                class="login-logo-image"
+            >
+        </div>
+        """
 
-                    <div class="login-brand-footer">
-                        Processo integrado de avaliação por alçadas técnicas
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+    auth_url_html = auth_url.replace("&", "&amp;")
 
-        with col_access:
-            st.markdown(
-                '<div class="login-access-panel">',
-                unsafe_allow_html=True,
-            )
+    login_html = f"""
+<div class="login-shell">
+    <div class="login-premium-grid">
 
-            if os.path.exists("logomoinhos.png"):
-                st.markdown(
-                    '<div class="login-logo-wrap">',
-                    unsafe_allow_html=True,
-                )
-
-                st.image(
-                    "logomoinhos.png",
-                    width=135,
-                )
-
-                st.markdown(
-                    "</div>",
-                    unsafe_allow_html=True,
-                )
-
-            st.markdown(
-                """
-                <h2 class="login-access-title">
-                    Acesse sua conta
-                </h2>
-
-                <p class="login-access-subtitle">
-                    Entre com sua conta Google para registrar solicitações
-                    e acompanhar o fluxo de avaliação.
+        <div class="login-brand-panel">
+            <div>
+                <p class="login-brand-kicker">
+                    Hospital Moinhos de Vento
                 </p>
-                """,
-                unsafe_allow_html=True,
-            )
 
-            auth_url = (
-                "https://accounts.google.com/o/oauth2/auth?"
-                "response_type=code"
-                f"&client_id={st.secrets.get('GOOGLE_CLIENT_ID', '')}"
-                f"&redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI', '')}"
-                "&scope="
-                "https://www.googleapis.com/auth/userinfo.profile"
-                "%20https://www.googleapis.com/auth/userinfo.email"
-                "%20openid"
-                "%20https://www.googleapis.com/auth/drive.file"
-                "&access_type=offline"
-                "&include_granted_scopes=true"
-                "&prompt=select_account%20consent"
-            )
+                <h1 class="login-brand-title">
+                    CAPROQ
+                </h1>
 
-            erro_login = st.session_state.pop(
-                "erro_login_google",
-                None,
-            )
+                <p class="login-brand-text">
+                    Plataforma para solicitação, análise técnica,
+                    acompanhamento e padronização de produtos químicos.
+                </p>
+            </div>
 
-            if erro_login:
-                st.error(
-                    "Não foi possível concluir o login com o Google. "
-                    "Tente novamente."
-                )
+            <div class="login-brand-footer">
+                Processo integrado de avaliação por alçadas técnicas
+            </div>
+        </div>
 
-                with st.expander(
-                    "Detalhes do erro"
-                ):
-                    st.code(
-                        erro_login
-                    )
+        <div class="login-access-panel">
+            {logo_html}
 
-            st.link_button(
-                "Continuar com o Google",
-                auth_url,
-                use_container_width=True,
-            )
+            <h2 class="login-access-title">
+                Acesse sua conta
+            </h2>
 
-            st.markdown(
-                """
-                <div class="login-security-note">
-                    <strong>Acesso seguro</strong><br>
-                    Usuários não cadastrados entram automaticamente como
-                    solicitantes. Permissões adicionais são carregadas
-                    conforme a aba de usuários.
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            <p class="login-access-subtitle">
+                Entre com sua conta Google para registrar solicitações
+                e acompanhar o fluxo de avaliação.
+            </p>
 
-            st.markdown(
-                "</div>",
-                unsafe_allow_html=True,
-            )
+            <a
+                class="login-google-button"
+                href="{auth_url_html}"
+                target="_self"
+            >
+                Continuar com o Google
+            </a>
 
-        st.markdown(
-            "</div>",
-            unsafe_allow_html=True,
-        )
+            <div class="login-security-note">
+                <strong>Acesso seguro</strong><br>
+                Usuários não cadastrados entram automaticamente como
+                solicitantes. Permissões adicionais são carregadas
+                conforme a aba de usuários.
+            </div>
+        </div>
+
+    </div>
+</div>
+"""
+
+    st.markdown(
+        login_html,
+        unsafe_allow_html=True,
+    )
 
     st.stop()
 
