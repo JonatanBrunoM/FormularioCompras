@@ -121,137 +121,118 @@ st.markdown("""
         display: none !important;
     }
 
-    .login-shell {
-        width: 100%;
-        max-width: 920px;
-        margin: 0 auto;
-    }
-
-    .login-brand-panel {
-        min-height: 430px;
-        padding: 42px 40px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        background: linear-gradient(145deg, #005691 0%, #003d66 100%);
-        border-radius: 20px 0 0 20px;
-        box-shadow: 0 18px 50px rgba(0, 61, 102, 0.16);
-    }
-
-    .login-brand-kicker {
-        margin: 0 0 12px;
-        color: rgba(255, 255, 255, 0.78);
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-    }
-
-    .login-brand-title {
-        margin: 0;
-        color: #ffffff !important;
-        font-size: 2.35rem;
-        font-weight: 700 !important;
-        line-height: 1.05;
-    }
-
-    .login-brand-text {
-        max-width: 390px;
-        margin: 18px 0 0;
-        color: rgba(255, 255, 255, 0.86);
-        font-size: 0.98rem;
-        line-height: 1.65;
-    }
-
-    .login-brand-footer {
-        color: rgba(255, 255, 255, 0.68);
-        font-size: 0.76rem;
-    }
-
-    .login-access-panel {
-        min-height: 430px;
-        padding: 34px 38px 30px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        background: #ffffff;
-        border: 1px solid #e4e9ed;
-        border-left: 0;
-        border-radius: 0 20px 20px 0;
-        box-shadow: 0 18px 50px rgba(0, 61, 102, 0.10);
-    }
-
-    .login-logo-wrap {
-        height: 72px;
+    .login-page {
+        min-height: 75vh;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-bottom: 12px;
-        overflow: hidden;
+        padding: 30px 15px;
     }
-
-    .login-access-title {
+    
+    .login-box {
+        width: 100%;
+        max-width: 480px;
+        margin: 0 auto;
+        padding: 34px 38px;
+        text-align: center;
+        background: #ffffff;
+        border: 1px solid #e4e9ed;
+        border-radius: 16px;
+        box-shadow: 0 12px 35px rgba(0, 86, 145, 0.10);
+    }
+    
+    .login-logo {
+        width: 100%;
+        max-width: 230px;
+        margin: 0 auto 18px auto;
+    }
+    
+    .login-title {
         margin: 0;
-        color: #263238 !important;
-        font-size: 1.42rem;
-        font-weight: 700 !important;
-        text-align: center;
+        color: #005691;
+        font-size: 1.55rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
     }
-
-    .login-access-subtitle {
-        margin: 8px auto 20px;
-        max-width: 330px;
-        color: #68757d;
-        font-size: 0.88rem;
+    
+    .login-subtitle {
+        margin: 7px 0 0 0;
+        color: #5f6b73;
+        font-size: 0.95rem;
         line-height: 1.5;
-        text-align: center;
     }
-
-    .login-security-note {
-        margin-top: 16px;
-        padding: 11px 13px;
+    
+    .login-divider {
+        width: 55px;
+        height: 3px;
+        margin: 20px auto;
+        background: #005691;
+        border-radius: 10px;
+    }
+    
+    .login-description {
+        margin: 0 0 20px 0;
+        color: #47545c;
+        font-size: 0.90rem;
+        line-height: 1.6;
+    }
+    
+    .login-notice {
+        margin-top: 20px;
+        padding: 12px 14px;
         background: #f4f8fb;
-        border: 1px solid #ddeaf2;
-        border-radius: 9px;
+        border-left: 4px solid #005691;
+        border-radius: 6px;
         color: #52616a;
-        font-size: 0.77rem;
-        line-height: 1.45;
+        font-size: 0.80rem;
+        line-height: 1.5;
+        text-align: left;
     }
-
-    .login-access-panel [data-testid="stLinkButton"] a {
-        min-height: 44px;
+    
+    .login-footer {
+        margin-top: 20px;
+        color: #89949b;
+        font-size: 0.75rem;
+    }
+    
+    .login-box [data-testid="stLinkButton"] a {
+        min-height: 46px;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         background: #005691 !important;
         color: #ffffff !important;
         border: 1px solid #005691 !important;
-        border-radius: 9px !important;
+        border-radius: 8px !important;
         box-shadow: none !important;
-        font-size: 0.91rem !important;
-        font-weight: 650 !important;
+        font-size: 0.95rem !important;
+        font-weight: 600 !important;
         text-decoration: none !important;
-        transition: transform 0.18s ease, background 0.18s ease !important;
+        text-transform: none !important;
+        transition: all 0.2s ease !important;
     }
-
-    .login-access-panel [data-testid="stLinkButton"] a:hover {
+    
+    .login-box [data-testid="stLinkButton"] a:hover {
         background: #003d66 !important;
         border-color: #003d66 !important;
         color: #ffffff !important;
         text-decoration: none !important;
         transform: translateY(-1px);
     }
-
-    @media (max-width: 800px) {
-        .login-brand-panel {
-            display: none;
-        }
-
-        .login-access-panel {
+    
+    @media (max-width: 700px) {
+        .login-page {
             min-height: auto;
-            padding: 28px 24px;
-            border: 1px solid #e4e9ed;
-            border-radius: 16px;
+            padding: 20px 4px;
+        }
+    
+        .login-box {
+            padding: 26px 20px;
+            border-radius: 12px;
+        }
+    
+        .login-title {
+            font-size: 1.35rem;
         }
     }
 
@@ -824,114 +805,83 @@ if "code" in query_params and not st.session_state.get('connected'):
 # ==============================================================================
 if not st.session_state.connected:
     st.markdown(
-        """
-        <style>
-            header[data-testid="stHeader"] {
-                display: none !important;
-            }
-
-            [data-testid="stToolbar"],
-            [data-testid="stDecoration"],
-            [data-testid="stStatusWidget"] {
-                display: none !important;
-            }
-
-            [data-testid="stSidebar"] {
-                display: none !important;
-            }
-
-            .stApp {
-                background: #f3f6f8;
-            }
-
-            .main .block-container {
-                max-width: 1040px !important;
-                padding-top: 18px !important;
-                padding-bottom: 18px !important;
-            }
-
-            @media (max-height: 760px) {
-                .main .block-container {
-                    padding-top: 8px !important;
-                    padding-bottom: 8px !important;
-                }
-
-                .login-brand-panel,
-                .login-access-panel {
-                    min-height: 390px;
-                }
-            }
-        </style>
-        """,
+        '<div class="login-page">',
         unsafe_allow_html=True,
     )
 
-    auth_url = (
-        "https://accounts.google.com/o/oauth2/auth?"
-        "response_type=code"
-        f"&client_id={st.secrets.get('GOOGLE_CLIENT_ID', '')}"
-        f"&redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI', '')}"
-        "&scope="
-        "https://www.googleapis.com/auth/userinfo.profile"
-        "%20https://www.googleapis.com/auth/userinfo.email"
-        "%20openid"
-        "%20https://www.googleapis.com/auth/drive.file"
-        "&access_type=offline"
-        "&include_granted_scopes=true"
-        "&prompt=select_account%20consent"
+    col_l1, col_l2, col_l3 = st.columns(
+        [1, 1.4, 1]
     )
 
-    st.markdown('<div class="login-shell">', unsafe_allow_html=True)
-    coluna_marca, coluna_acesso = st.columns([1.08, 0.92], gap=None)
-
-    with coluna_marca:
+    with col_l2:
         st.markdown(
-            """
-            <div class="login-brand-panel">
-                <div>
-                    <p class="login-brand-kicker">Gestão e governança</p>
-                    <h1 class="login-brand-title">CAPROQ</h1>
-                    <p class="login-brand-text">
-                        Solicitação de Padronização de Produtos Químicos.
-                        Registre demandas, acompanhe avaliações técnicas e
-                        consulte o andamento de cada processo em um único ambiente.
-                    </p>
-                </div>
-                <div class="login-brand-footer">
-                    Hospital Moinhos de Vento · Ambiente seguro
-                </div>
-            </div>
-            """,
+            '<div class="login-box">',
             unsafe_allow_html=True,
         )
 
-    with coluna_acesso:
-        st.markdown('<div class="login-access-panel">', unsafe_allow_html=True)
-
         if os.path.exists("logomoinhos.png"):
-            st.markdown('<div class="login-logo-wrap">', unsafe_allow_html=True)
-            _, coluna_logo, _ = st.columns([1, 1.25, 1])
-            with coluna_logo:
-                st.image("logomoinhos.png", width=135)
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="login-logo">',
+                unsafe_allow_html=True,
+            )
+
+            st.image(
+                "logomoinhos.png",
+                use_container_width=True,
+            )
+
+            st.markdown(
+                "</div>",
+                unsafe_allow_html=True,
+            )
 
         st.markdown(
             """
-            <h2 class="login-access-title">Bem-vindo ao sistema</h2>
-            <p class="login-access-subtitle">
-                Entre com sua conta Google para iniciar uma solicitação
-                ou acessar as funções autorizadas para o seu perfil.
+            <h1 class="login-title">
+                CAPROQ
+            </h1>
+
+            <p class="login-subtitle">
+                Solicitação de Padronização de Produtos Químicos
+            </p>
+
+            <div class="login-divider"></div>
+
+            <p class="login-description">
+                Acesse o sistema para registrar novas solicitações
+                e acompanhar o processo de avaliação e padronização
+                de produtos químicos.
             </p>
             """,
             unsafe_allow_html=True,
         )
 
-        erro_login = st.session_state.pop("erro_login_google", None)
+        auth_url = (
+            "https://accounts.google.com/o/oauth2/auth?"
+            "response_type=code"
+            f"&client_id={st.secrets.get('GOOGLE_CLIENT_ID', '')}"
+            f"&redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI', '')}"
+            "&scope="
+            "https://www.googleapis.com/auth/userinfo.profile"
+            "%20https://www.googleapis.com/auth/userinfo.email"
+            "%20openid"
+            "%20https://www.googleapis.com/auth/drive.file"
+            "&access_type=offline"
+            "&include_granted_scopes=true"
+            "&prompt=select_account%20consent"
+        )
+
+        erro_login = st.session_state.pop(
+            "erro_login_google",
+            None,
+        )
+        
         if erro_login:
             st.error(
                 "Não foi possível concluir o login com o Google. "
                 "Tente novamente."
             )
+        
             with st.expander("Detalhes do erro"):
                 st.code(erro_login)
 
@@ -943,18 +893,56 @@ if not st.session_state.connected:
 
         st.markdown(
             """
-            <div class="login-security-note">
-                <strong>Acesso seguro</strong><br>
-                Usuários não cadastrados entram automaticamente como
-                solicitantes. Permissões especiais são definidas pelos administradores.
+            <div class="login-notice">
+                <strong>Acesso ao sistema</strong><br>
+                Utilize sua conta Google para acessar o sistema. Usuários não
+                cadastrados serão direcionados automaticamente ao
+                perfil de solicitante.
+            </div>
+
+            <div class="login-footer">
+                Hospital Moinhos de Vento
             </div>
             """,
             unsafe_allow_html=True,
         )
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
     st.stop()
+
+# Valida o perfil em toda execução autenticada para refletir alterações da planilha.
+usuario_valido, mensagem_validacao = validar_usuario_logado(
+    st.session_state.get("email", "")
+)
+
+if not usuario_valido:
+    st.error(f"❌ {mensagem_validacao}")
+    st.info(
+        "Entre em contato com a administração do CAPROQ caso seja "
+        "necessário reativar seu acesso."
+    )
+
+    if st.button(
+        "Voltar para o login",
+        use_container_width=True,
+        key="voltar_login_usuario_inativo",
+    ):
+        st.session_state.clear()
+        st.query_params.clear()
+        st.rerun()
+
+    st.stop()
+
+exigir_login()
 
 # ==============================================================================
 # 6. Configurações da sidebar    
