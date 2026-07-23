@@ -13,6 +13,7 @@ from google.auth.transport.requests import Request
 from streamlit_gsheets import GSheetsConnection
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
+from urllib.parse import urlencode
 import io
 
 if "form_count" not in st.session_state:
@@ -909,19 +910,25 @@ if not st.session_state.connected:
         unsafe_allow_html=True,
     )
 
+    oauth_params = {
+        "client_id": st.secrets.get("GOOGLE_CLIENT_ID", ""),
+        "redirect_uri": st.secrets.get("GOOGLE_REDIRECT_URI", ""),
+        "response_type": "code",
+        "scope": " ".join(
+            [
+                "openid",
+                "https://www.googleapis.com/auth/userinfo.email",
+                "https://www.googleapis.com/auth/userinfo.profile",
+                "https://www.googleapis.com/auth/drive.file",
+            ]
+        ),
+        "access_type": "offline",
+        "prompt": "select_account",
+    }
+
     auth_url = (
-        "https://accounts.google.com/o/oauth2/auth?"
-        "response_type=code"
-        f"&client_id={st.secrets.get('GOOGLE_CLIENT_ID', '')}"
-        f"&redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI', '')}"
-        "&scope="
-        "https://www.googleapis.com/auth/userinfo.profile"
-        "%20https://www.googleapis.com/auth/userinfo.email"
-        "%20openid"
-        "%20https://www.googleapis.com/auth/drive.file"
-        "&access_type=offline"
-        "&include_granted_scopes=true"
-        "&prompt=select_account%20consent"
+        "https://accounts.google.com/o/oauth2/v2/auth?"
+        + urlencode(oauth_params)
     )
 
     erro_login = st.session_state.pop(
@@ -956,7 +963,7 @@ if not st.session_state.connected:
         </div>
         """
 
-    auth_url_html = auth_url.replace("&", "&amp;")
+    auth_url_html = auth_url
 
     login_html = f"""
 <div class="login-shell">
