@@ -842,12 +842,13 @@ if "code" in query_params and not st.session_state.get('connected'):
         flow = Flow.from_client_config(
             client_config,
             scopes=[
-                'https://www.googleapis.com/auth/userinfo.profile', 
-                'https://www.googleapis.com/auth/userinfo.email', 
-                'openid', 
-                'https://www.googleapis.com/auth/drive.file'
+                "openid",
+                "https://www.googleapis.com/auth/userinfo.email",
+                "https://www.googleapis.com/auth/userinfo.profile",
+                "https://www.googleapis.com/auth/drive.file",
             ],
-            redirect_uri=st.secrets["GOOGLE_REDIRECT_URI"]
+            state=st.session_state.get("oauth_state"),
+            redirect_uri=st.secrets["GOOGLE_REDIRECT_URI"],
         )
         flow.fetch_token(code=query_params["code"])
         credentials = flow.credentials
@@ -868,6 +869,11 @@ if "code" in query_params and not st.session_state.get('connected'):
         st.session_state.name = user_info_service.get("name")
         st.session_state.email = user_info_service.get("email")
         st.session_state.picture = user_info_service.get("picture")
+
+        st.session_state.pop(
+            "oauth_state",
+            None,
+        )
         
         st.query_params.clear()
         st.rerun()
@@ -926,10 +932,24 @@ if not st.session_state.connected:
         "prompt": "select_account",
     }
 
-    auth_url = (
-        "https://accounts.google.com/o/oauth2/v2/auth?"
-        + urlencode(oauth_params)
+    flow_login = Flow.from_client_config(
+        client_config,
+        scopes=[
+            "openid",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+            "https://www.googleapis.com/auth/drive.file",
+        ],
+        redirect_uri=st.secrets["GOOGLE_REDIRECT_URI"],
     )
+    
+    auth_url, oauth_state = flow_login.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="select_account",
+    )
+    
+    st.session_state["oauth_state"] = oauth_state
 
     erro_login = st.session_state.pop(
         "erro_login_google",
@@ -1005,7 +1025,7 @@ if not st.session_state.connected:
             <a
                 class="login-google-button"
                 href="{auth_url_html}"
-                target="_self"
+                target="_top"
             >
                 Continuar com o Google
             </a>
