@@ -121,98 +121,126 @@ st.markdown("""
         display: none !important;
     }
 
-    .login-page {
-        min-height: 75vh;
+    .login-shell {
+        width: 100%;
+        max-width: 920px;
+        margin: 0 auto;
+    }
+    
+    .login-brand-panel {
+        min-height: 430px;
+        padding: 42px 40px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background: linear-gradient(
+            145deg,
+            #005691 0%,
+            #003d66 100%
+        );
+        border-radius: 20px 0 0 20px;
+        box-shadow: 0 18px 50px rgba(0, 61, 102, 0.16);
+    }
+    
+    .login-brand-kicker {
+        margin: 0 0 12px;
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+    
+    .login-brand-title {
+        margin: 0;
+        color: #ffffff !important;
+        font-size: 2.35rem;
+        font-weight: 700 !important;
+        line-height: 1.05;
+    }
+    
+    .login-brand-text {
+        max-width: 390px;
+        margin: 18px 0 0;
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 0.98rem;
+        line-height: 1.65;
+    }
+    
+    .login-brand-footer {
+        color: rgba(255, 255, 255, 0.68);
+        font-size: 0.76rem;
+    }
+    
+    .login-access-panel {
+        min-height: 430px;
+        padding: 34px 38px 30px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        background: #ffffff;
+        border: 1px solid #e4e9ed;
+        border-left: 0;
+        border-radius: 0 20px 20px 0;
+        box-shadow: 0 18px 50px rgba(0, 61, 102, 0.10);
+    }
+    
+    .login-logo-wrap {
+        height: 72px;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 30px 15px;
+        margin-bottom: 12px;
+        overflow: hidden;
     }
     
-    .login-box {
-        width: 100%;
-        max-width: 480px;
-        margin: 0 auto;
-        padding: 34px 38px;
-        text-align: center;
-        background: #ffffff;
-        border: 1px solid #e4e9ed;
-        border-radius: 16px;
-        box-shadow: 0 12px 35px rgba(0, 86, 145, 0.10);
-    }
-    
-    .login-logo {
-        width: 100%;
-        max-width: 230px;
-        margin: 0 auto 18px auto;
-    }
-    
-    .login-title {
+    .login-access-title {
         margin: 0;
-        color: #005691;
-        font-size: 1.55rem;
-        font-weight: 700;
-        letter-spacing: 0.02em;
+        color: #263238 !important;
+        font-size: 1.42rem;
+        font-weight: 700 !important;
+        text-align: center;
     }
     
-    .login-subtitle {
-        margin: 7px 0 0 0;
-        color: #5f6b73;
-        font-size: 0.95rem;
+    .login-access-subtitle {
+        max-width: 330px;
+        margin: 8px auto 20px;
+        color: #68757d;
+        font-size: 0.88rem;
         line-height: 1.5;
+        text-align: center;
     }
     
-    .login-divider {
-        width: 55px;
-        height: 3px;
-        margin: 20px auto;
-        background: #005691;
-        border-radius: 10px;
-    }
-    
-    .login-description {
-        margin: 0 0 20px 0;
-        color: #47545c;
-        font-size: 0.90rem;
-        line-height: 1.6;
-    }
-    
-    .login-notice {
-        margin-top: 20px;
-        padding: 12px 14px;
+    .login-security-note {
+        margin-top: 16px;
+        padding: 11px 13px;
         background: #f4f8fb;
-        border-left: 4px solid #005691;
-        border-radius: 6px;
+        border: 1px solid #ddeaf2;
+        border-radius: 9px;
         color: #52616a;
-        font-size: 0.80rem;
-        line-height: 1.5;
-        text-align: left;
+        font-size: 0.77rem;
+        line-height: 1.45;
     }
     
-    .login-footer {
-        margin-top: 20px;
-        color: #89949b;
-        font-size: 0.75rem;
-    }
-    
-    .login-box [data-testid="stLinkButton"] a {
-        min-height: 46px;
+    .login-access-panel [data-testid="stLinkButton"] a {
+        min-height: 44px;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         background: #005691 !important;
         color: #ffffff !important;
         border: 1px solid #005691 !important;
-        border-radius: 8px !important;
+        border-radius: 9px !important;
         box-shadow: none !important;
-        font-size: 0.95rem !important;
-        font-weight: 600 !important;
+        font-size: 0.91rem !important;
+        font-weight: 650 !important;
         text-decoration: none !important;
-        text-transform: none !important;
-        transition: all 0.2s ease !important;
+        transition:
+            transform 0.18s ease,
+            background 0.18s ease !important;
     }
     
-    .login-box [data-testid="stLinkButton"] a:hover {
+    .login-access-panel [data-testid="stLinkButton"] a:hover {
         background: #003d66 !important;
         border-color: #003d66 !important;
         color: #ffffff !important;
@@ -220,19 +248,16 @@ st.markdown("""
         transform: translateY(-1px);
     }
     
-    @media (max-width: 700px) {
-        .login-page {
+    @media (max-width: 800px) {
+        .login-brand-panel {
+            display: none;
+        }
+    
+        .login-access-panel {
             min-height: auto;
-            padding: 20px 4px;
-        }
-    
-        .login-box {
-            padding: 26px 20px;
-            border-radius: 12px;
-        }
-    
-        .login-title {
-            font-size: 1.35rem;
+            padding: 28px 24px;
+            border: 1px solid #e4e9ed;
+            border-radius: 16px;
         }
     }
 
@@ -919,7 +944,6 @@ if not st.session_state.connected:
 
     st.stop()
 
-# Valida o perfil em toda execução autenticada para refletir alterações da planilha.
 usuario_valido, mensagem_validacao = validar_usuario_logado(
     st.session_state.get("email", "")
 )
