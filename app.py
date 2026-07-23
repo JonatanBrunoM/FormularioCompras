@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 import smtplib
 import os
-import extra_streamlit_components as stx
 import datetime
 import time
 import base64
@@ -122,47 +121,6 @@ st.markdown("""
     [data-testid="stImage"] button {
         display: none !important;
     }
-
-    .login-box {
-        text-align: center !important;
-        margin: 0 auto !important;
-        width: 100% !important;
-        max-width: 450px;
-    }
-
-    [data-testid="stMainInterface"] .login-box > div, 
-    [data-testid="stMainInterface"] .login-box [data-testid="stMarkdown"] {
-        display: flex !important;
-        justify-content: center !important;
-        text-align: center !important;
-    }
-
-    [data-testid="stSidebar"] div, [data-testid="stSidebar"] span, [data-testid="stSidebar"] p {
-        text-align: left !important;
-        display: block !important;
-    }
-
-    .login-box a {
-        background: transparent !important;
-        color: #005691 !important;
-        border: none !important;
-        box-shadow: none !important;
-        font-weight: bold !important;
-        font-size: 1.2em !important;
-        text-transform: uppercase !important;
-        text-decoration: none !important;
-        display: inline-flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        margin: 20px auto 0 auto !important;
-        padding: 10px 0 !important;
-    }
-    
-    .login-box a:hover {
-        color: #003D66 !important;
-        text-decoration: underline !important;
-    }
-
 
     .login-shell {
         width: 100%;
@@ -864,78 +822,104 @@ def template_email_caproq(titulo, mensagem, detalhes="", destaque="#005691", bot
 # ==============================================================================
 # 4. Configurações de login Google          
 # ==============================================================================
-cookie_manager = stx.CookieManager()
-
 if "connected" not in st.session_state:
     st.session_state.connected = False
-if "cookies_carregados" not in st.session_state:
-    st.session_state.cookies_carregados = False
 
-cookie_email = cookie_manager.get(cookie="moinhos_user_email")
-cookie_name = cookie_manager.get(cookie="moinhos_user_name")
-cookie_picture = cookie_manager.get(cookie="moinhos_user_picture")
-
-if cookie_email and not st.session_state.connected:
-    st.session_state.connected = True
-    st.session_state.email = cookie_email
-    st.session_state.name = cookie_name
-    st.session_state.picture = cookie_picture
-    st.session_state.cookies_carregados = True
-    st.rerun()
-
-if cookie_email is None and not st.session_state.cookies_carregados:
-    time.sleep(0.2)
-    st.session_state.cookies_carregados = True
-    st.rerun()
 
 client_config = {
     "web": {
-        "client_id": st.secrets.get("GOOGLE_CLIENT_ID", ""),
-        "client_secret": st.secrets.get("GOOGLE_CLIENT_SECRET", ""),
+        "client_id": st.secrets.get(
+            "GOOGLE_CLIENT_ID",
+            "",
+        ),
+        "client_secret": st.secrets.get(
+            "GOOGLE_CLIENT_SECRET",
+            "",
+        ),
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
         "token_uri": "https://oauth2.googleapis.com/token",
-        "redirect_uris": [st.secrets.get("GOOGLE_REDIRECT_URI", "")],
+        "redirect_uris": [
+            st.secrets.get(
+                "GOOGLE_REDIRECT_URI",
+                "",
+            )
+        ],
     }
 }
 
+
 query_params = st.query_params
-if "code" in query_params and not st.session_state.get('connected'):
+
+if (
+    "code" in query_params
+    and not st.session_state.get("connected", False)
+):
     try:
+        codigo_google = query_params["code"]
+
+        if isinstance(codigo_google, list):
+            codigo_google = codigo_google[0]
+
         flow = Flow.from_client_config(
             client_config,
             scopes=[
-                'https://www.googleapis.com/auth/userinfo.profile', 
-                'https://www.googleapis.com/auth/userinfo.email', 
-                'openid', 
-                'https://www.googleapis.com/auth/drive.file'
+                "https://www.googleapis.com/auth/userinfo.profile",
+                "https://www.googleapis.com/auth/userinfo.email",
+                "openid",
+                "https://www.googleapis.com/auth/drive.file",
             ],
-            redirect_uri=st.secrets["GOOGLE_REDIRECT_URI"]
+            redirect_uri=st.secrets["GOOGLE_REDIRECT_URI"],
         )
-        flow.fetch_token(code=query_params["code"])
+
+        flow.fetch_token(
+            code=codigo_google
+        )
+
         credentials = flow.credentials
-        
-        st.session_state["google_credentials"] = credentials
-        
+
+        st.session_state[
+            "google_credentials"
+        ] = credentials
+
         user_info_service = requests.get(
             "https://www.googleapis.com/oauth2/v3/userinfo",
-            headers={"Authorization": f"Bearer {credentials.token}"}
+            headers={
+                "Authorization": (
+                    f"Bearer {credentials.token}"
+                )
+            },
+            timeout=20,
         ).json()
-        
+
         st.session_state.connected = True
-        st.session_state.name = user_info_service.get("name")
-        st.session_state.email = user_info_service.get("email")
-        st.session_state.picture = user_info_service.get("picture")
-        
-        fuso_brasilia = datetime.timezone(datetime.timedelta(hours=-3))
-        validade = datetime.datetime.now(fuso_brasilia) + datetime.timedelta(hours=5)
-        cookie_manager.set(cookie="moinhos_user_email", val=st.session_state.email, expires_at=validade)
-        cookie_manager.set(cookie="moinhos_user_name", val=st.session_state.name, expires_at=validade)
-        cookie_manager.set(cookie="moinhos_user_picture", val=st.session_state.picture, expires_at=validade)
-        
+        st.session_state.name = (
+            user_info_service.get("name")
+        )
+        st.session_state.email = (
+            user_info_service.get("email")
+        )
+        st.session_state.picture = (
+            user_info_service.get("picture")
+        )
+
         st.query_params.clear()
         st.rerun()
-    except Exception:
+
+    except Exception as erro:
+        st.session_state[
+            "erro_login_google"
+        ] = (
+            f"{type(erro).__name__}: {erro}"
+        )
+
+        st.session_state.connected = False
+        st.session_state.pop(
+            "google_credentials",
+            None,
+        )
+
         st.query_params.clear()
+        st.rerun()
 
 # ==============================================================================
 # 5. Confirgurações tela de Login                     
@@ -959,184 +943,67 @@ if not st.session_state.connected:
             }
 
             .block-container {
-                max-width: 1040px !important;
-                padding-top: 3rem !important;
-                padding-bottom: 2rem !important;
-            }
-
-            .st-key-login_premium {
-                border: 0 !important;
-                border-radius: 20px !important;
-                overflow: hidden !important;
-                box-shadow: 0 18px 50px rgba(0, 61, 102, 0.14) !important;
-                background: #ffffff !important;
-            }
-
-            .st-key-login_premium [data-testid="stHorizontalBlock"] {
-                gap: 0 !important;
-                align-items: stretch !important;
-            }
-
-            .st-key-login_premium [data-testid="column"]:first-child {
-                background: linear-gradient(
-                    145deg,
-                    #005691 0%,
-                    #003d66 100%
-                ) !important;
-                padding: 42px 40px !important;
-                min-height: 430px !important;
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: center !important;
-            }
-
-            .st-key-login_premium [data-testid="column"]:last-child {
-                background: #ffffff !important;
-                padding: 34px 38px 30px !important;
-                min-height: 430px !important;
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: center !important;
-            }
-
-            .login-brand-kicker {
-                margin: 0 0 12px;
-                color: rgba(255, 255, 255, 0.78);
-                font-size: 0.78rem;
-                font-weight: 700;
-                letter-spacing: 0.12em;
-                text-transform: uppercase;
-            }
-
-            .login-brand-title {
-                margin: 0;
-                color: #ffffff !important;
-                font-size: 2.35rem;
-                font-weight: 700 !important;
-                line-height: 1.05;
-            }
-
-            .login-brand-text {
-                max-width: 390px;
-                margin: 18px 0 0;
-                color: rgba(255, 255, 255, 0.86);
-                font-size: 0.98rem;
-                line-height: 1.65;
-            }
-
-            .login-brand-footer {
-                margin-top: 115px;
-                color: rgba(255, 255, 255, 0.68);
-                font-size: 0.76rem;
-            }
-
-            .login-access-title {
-                margin: 10px 0 0;
-                color: #263238 !important;
-                font-size: 1.42rem;
-                font-weight: 700 !important;
-                text-align: center;
-            }
-
-            .login-access-subtitle {
-                max-width: 330px;
-                margin: 8px auto 20px;
-                color: #68757d;
-                font-size: 0.88rem;
-                line-height: 1.5;
-                text-align: center;
-            }
-
-            .login-security-note {
-                margin-top: 16px;
-                padding: 11px 13px;
-                background: #f4f8fb;
-                border: 1px solid #ddeaf2;
-                border-radius: 9px;
-                color: #52616a;
-                font-size: 0.77rem;
-                line-height: 1.45;
-            }
-
-            .st-key-login_premium [data-testid="stLinkButton"] a {
-                min-height: 44px;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                background: #005691 !important;
-                color: #ffffff !important;
-                border: 1px solid #005691 !important;
-                border-radius: 9px !important;
-                box-shadow: none !important;
-                font-size: 0.91rem !important;
-                font-weight: 650 !important;
-                text-decoration: none !important;
-                transition:
-                    transform 0.18s ease,
-                    background 0.18s ease !important;
-            }
-
-            .st-key-login_premium [data-testid="stLinkButton"] a:hover {
-                background: #003d66 !important;
-                border-color: #003d66 !important;
-                color: #ffffff !important;
-                text-decoration: none !important;
-                transform: translateY(-1px);
-            }
-
-            .st-key-login_premium [data-testid="stImage"] {
-                display: flex !important;
-                justify-content: center !important;
-            }
-
-            .st-key-login_premium [data-testid="stImage"] img {
-                width: 135px !important;
-                max-width: 135px !important;
-                height: auto !important;
-            }
-
-            @media (max-width: 800px) {
-                .block-container {
-                    padding-top: 1.5rem !important;
-                }
-
-                .st-key-login_premium [data-testid="stHorizontalBlock"] {
-                    flex-direction: column !important;
-                }
-
-                .st-key-login_premium [data-testid="column"]:first-child {
-                    display: none !important;
-                }
-
-                .st-key-login_premium [data-testid="column"]:last-child {
-                    min-height: auto !important;
-                    padding: 28px 24px !important;
-                }
+                max-width: 100% !important;
+                padding-top: 1.2rem !important;
+                padding-bottom: 1rem !important;
             }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    # URL OAuth montada exatamente pelo método antigo funcional.
     auth_url = (
-        f"https://accounts.google.com/o/oauth2/auth?"
-        f"response_type=code&client_id={st.secrets.get('GOOGLE_CLIENT_ID','')}&"
-        f"redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI','')}&"
-        f"scope=https://www.googleapis.com/auth/userinfo.profile%20"
-        f"https://www.googleapis.com/auth/userinfo.email%20openid%20"
-        f"https://www.googleapis.com/auth/drive.file&prompt=select_account"
+        "https://accounts.google.com/o/oauth2/auth?"
+        "response_type=code"
+        f"&client_id={st.secrets.get('GOOGLE_CLIENT_ID', '')}"
+        f"&redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI', '')}"
+        "&scope="
+        "https://www.googleapis.com/auth/userinfo.profile"
+        "%20https://www.googleapis.com/auth/userinfo.email"
+        "%20openid"
+        "%20https://www.googleapis.com/auth/drive.file"
+        "&prompt=select_account"
     )
 
-    with st.container(key="login_premium"):
-        coluna_marca, coluna_acesso = st.columns(
-            [1.05, 0.95],
-            gap=None,
+    erro_login = st.session_state.pop(
+        "erro_login_google",
+        None,
+    )
+
+    if erro_login:
+        st.error(
+            "Não foi possível concluir o login com o Google."
         )
 
-        with coluna_marca:
-            st.markdown(
-                """
+        with st.expander("Detalhes técnicos"):
+            st.code(erro_login)
+
+    logo_html = ""
+
+    if os.path.exists("logomoinhos.png"):
+        with open("logomoinhos.png", "rb") as arquivo_logo:
+            logo_base64 = base64.b64encode(
+                arquivo_logo.read()
+            ).decode("utf-8")
+
+        logo_html = f"""
+        <div class="login-logo-wrap">
+            <img
+                src="data:image/png;base64,{logo_base64}"
+                alt="Hospital Moinhos de Vento"
+                class="login-logo-image"
+            >
+        </div>
+        """
+
+    auth_url_html = auth_url
+
+    login_html = f"""
+<div class="login-shell">
+    <div class="login-premium-grid">
+
+        <div class="login-brand-panel">
+            <div>
                 <p class="login-brand-kicker">
                     Hospital Moinhos de Vento
                 </p>
@@ -1149,55 +1016,72 @@ if not st.session_state.connected:
                     Plataforma para solicitação, análise técnica,
                     acompanhamento e padronização de produtos químicos.
                 </p>
+            </div>
 
-                <div class="login-brand-footer">
-                    Processo integrado de avaliação por alçadas técnicas
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            <div class="login-brand-footer">
+                Processo integrado de avaliação por alçadas técnicas
+            </div>
+        </div>
 
-        with coluna_acesso:
-            if os.path.exists("logomoinhos.png"):
-                st.image(
-                    "logomoinhos.png",
-                    width=135,
-                )
+        <div class="login-access-panel">
+            {logo_html}
 
-            st.markdown(
-                """
-                <h2 class="login-access-title">
-                    Acesse sua conta
-                </h2>
+            <h2 class="login-access-title">
+                Acesse sua conta
+            </h2>
 
-                <p class="login-access-subtitle">
-                    Entre com sua conta Google para registrar solicitações
-                    e acompanhar o fluxo de avaliação.
-                </p>
-                """,
-                unsafe_allow_html=True,
-            )
+            <p class="login-access-subtitle">
+                Entre com sua conta Google para registrar solicitações
+                e acompanhar o fluxo de avaliação.
+            </p>
 
-            # Botão nativo exatamente como no método antigo funcional.
-            st.link_button(
-                "Entrar com o Google",
-                auth_url,
-                use_container_width=True,
-            )
+            <a
+                class="login-google-button"
+                href="{auth_url_html}"
+                target="_blank" rel="noopener noreferrer"
+            >
+                Continuar com o Google
+            </a>
 
-            st.markdown(
-                """
-                <div class="login-security-note">
-                    <strong>Acesso seguro</strong><br>
-                    Usuários não cadastrados entram automaticamente como
-                    solicitantes. Permissões adicionais são carregadas
-                    conforme a aba de usuários.
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            <div class="login-security-note">
+                <strong>Acesso seguro</strong><br>
+                Usuários não cadastrados entram automaticamente como
+                solicitantes. Permissões adicionais são carregadas
+                conforme a aba de usuários.
+            </div>
+        </div>
+
+    </div>
+</div>
+"""
+
+    st.html(login_html)
 
     st.stop()
+
+usuario_valido, mensagem_validacao = validar_usuario_logado(
+    st.session_state.get("email", "")
+)
+
+if not usuario_valido:
+    st.error(f"❌ {mensagem_validacao}")
+    st.info(
+        "Entre em contato com a administração do CAPROQ caso seja "
+        "necessário reativar seu acesso."
+    )
+
+    if st.button(
+        "Voltar para o login",
+        use_container_width=True,
+        key="voltar_login_usuario_inativo",
+    ):
+        st.session_state.clear()
+        st.query_params.clear()
+        st.rerun()
+
+    st.stop()
+
+exigir_login()
 
 # ==============================================================================
 # 6. Configurações da sidebar    
@@ -1277,12 +1161,9 @@ if st.sidebar.button(
     use_container_width=True,
     key="botao_sair_sidebar",
 ):
-    try:
-        cookie_manager.set(cookie="moinhos_user_email", val="", key="logout_email")
-        cookie_manager.set(cookie="moinhos_user_name", val="", key="logout_name")
-        cookie_manager.set(cookie="moinhos_user_picture", val="", key="logout_picture")
-    except Exception:
-        pass
+    st.session_state.pop("google_credentials", None)
+    st.session_state.pop("oauth_state", None)
+    st.session_state.pop("google_auth_url", None)
 
     st.session_state.clear()
     st.query_params.clear()
