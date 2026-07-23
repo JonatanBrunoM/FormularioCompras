@@ -830,29 +830,159 @@ if "code" in query_params and not st.session_state.get('connected'):
 # ==============================================================================
 if not st.session_state.connected:
     st.markdown(
-        '<div class="login-page">',
+        """
+        <style>
+            section[data-testid="stSidebar"] {
+                display: none !important;
+            }
+
+            header[data-testid="stHeader"] {
+                height: 0 !important;
+                min-height: 0 !important;
+                background: transparent !important;
+            }
+
+            div[data-testid="stToolbar"] {
+                display: none !important;
+            }
+
+            .block-container {
+                max-width: 100% !important;
+                padding-top: 1.2rem !important;
+                padding-bottom: 1rem !important;
+            }
+        </style>
+        """,
         unsafe_allow_html=True,
     )
 
-    col_l1, col_l2, col_l3 = st.columns(
-        [1, 1.4, 1]
+    _, col_login, _ = st.columns(
+        [0.3, 5.4, 0.3]
     )
 
-    with col_l2:
+    with col_login:
         st.markdown(
-            '<div class="login-box">',
+            '<div class="login-shell">',
             unsafe_allow_html=True,
         )
 
-        if os.path.exists("logomoinhos.png"):
+        col_brand, col_access = st.columns(
+            [1.05, 0.95],
+            gap=None,
+        )
+
+        with col_brand:
             st.markdown(
-                '<div class="login-logo">',
+                """
+                <div class="login-brand-panel">
+                    <div>
+                        <p class="login-brand-kicker">
+                            Hospital Moinhos de Vento
+                        </p>
+
+                        <h1 class="login-brand-title">
+                            CAPROQ
+                        </h1>
+
+                        <p class="login-brand-text">
+                            Plataforma para solicitação, análise técnica,
+                            acompanhamento e padronização de produtos químicos.
+                        </p>
+                    </div>
+
+                    <div class="login-brand-footer">
+                        Processo integrado de avaliação por alçadas técnicas
+                    </div>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
 
-            st.image(
-                "logomoinhos.png",
+        with col_access:
+            st.markdown(
+                '<div class="login-access-panel">',
+                unsafe_allow_html=True,
+            )
+
+            if os.path.exists("logomoinhos.png"):
+                st.markdown(
+                    '<div class="login-logo-wrap">',
+                    unsafe_allow_html=True,
+                )
+
+                st.image(
+                    "logomoinhos.png",
+                    width=135,
+                )
+
+                st.markdown(
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown(
+                """
+                <h2 class="login-access-title">
+                    Acesse sua conta
+                </h2>
+
+                <p class="login-access-subtitle">
+                    Entre com sua conta Google para registrar solicitações
+                    e acompanhar o fluxo de avaliação.
+                </p>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            auth_url = (
+                "https://accounts.google.com/o/oauth2/auth?"
+                "response_type=code"
+                f"&client_id={st.secrets.get('GOOGLE_CLIENT_ID', '')}"
+                f"&redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI', '')}"
+                "&scope="
+                "https://www.googleapis.com/auth/userinfo.profile"
+                "%20https://www.googleapis.com/auth/userinfo.email"
+                "%20openid"
+                "%20https://www.googleapis.com/auth/drive.file"
+                "&access_type=offline"
+                "&include_granted_scopes=true"
+                "&prompt=select_account%20consent"
+            )
+
+            erro_login = st.session_state.pop(
+                "erro_login_google",
+                None,
+            )
+
+            if erro_login:
+                st.error(
+                    "Não foi possível concluir o login com o Google. "
+                    "Tente novamente."
+                )
+
+                with st.expander(
+                    "Detalhes do erro"
+                ):
+                    st.code(
+                        erro_login
+                    )
+
+            st.link_button(
+                "Continuar com o Google",
+                auth_url,
                 use_container_width=True,
+            )
+
+            st.markdown(
+                """
+                <div class="login-security-note">
+                    <strong>Acesso seguro</strong><br>
+                    Usuários não cadastrados entram automaticamente como
+                    solicitantes. Permissões adicionais são carregadas
+                    conforme a aba de usuários.
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
 
             st.markdown(
@@ -861,86 +991,9 @@ if not st.session_state.connected:
             )
 
         st.markdown(
-            """
-            <h1 class="login-title">
-                CAPROQ
-            </h1>
-
-            <p class="login-subtitle">
-                Solicitação de Padronização de Produtos Químicos
-            </p>
-
-            <div class="login-divider"></div>
-
-            <p class="login-description">
-                Acesse o sistema para registrar novas solicitações
-                e acompanhar o processo de avaliação e padronização
-                de produtos químicos.
-            </p>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        auth_url = (
-            "https://accounts.google.com/o/oauth2/auth?"
-            "response_type=code"
-            f"&client_id={st.secrets.get('GOOGLE_CLIENT_ID', '')}"
-            f"&redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI', '')}"
-            "&scope="
-            "https://www.googleapis.com/auth/userinfo.profile"
-            "%20https://www.googleapis.com/auth/userinfo.email"
-            "%20openid"
-            "%20https://www.googleapis.com/auth/drive.file"
-            "&access_type=offline"
-            "&include_granted_scopes=true"
-            "&prompt=select_account%20consent"
-        )
-
-        erro_login = st.session_state.pop(
-            "erro_login_google",
-            None,
-        )
-        
-        if erro_login:
-            st.error(
-                "Não foi possível concluir o login com o Google. "
-                "Tente novamente."
-            )
-        
-            with st.expander("Detalhes do erro"):
-                st.code(erro_login)
-
-        st.link_button(
-            "Entrar com a conta Google",
-            auth_url,
-            use_container_width=True,
-        )
-
-        st.markdown(
-            """
-            <div class="login-notice">
-                <strong>Acesso ao sistema</strong><br>
-                Utilize sua conta Google para acessar o sistema. Usuários não
-                cadastrados serão direcionados automaticamente ao
-                perfil de solicitante.
-            </div>
-
-            <div class="login-footer">
-                Hospital Moinhos de Vento
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
             "</div>",
             unsafe_allow_html=True,
         )
-
-    st.markdown(
-        "</div>",
-        unsafe_allow_html=True,
-    )
 
     st.stop()
 
