@@ -1015,10 +1015,7 @@ if not st.session_state.connected:
 </div>
 """
 
-    st.markdown(
-        login_html,
-        unsafe_allow_html=True,
-    )
+    st.html(login_html)
 
     st.stop()
 
