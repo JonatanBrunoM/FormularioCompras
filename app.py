@@ -826,32 +826,6 @@ if "connected" not in st.session_state:
     st.session_state["connected"] = False
 
 
-client_config = {
-    "web": {
-        "client_id": st.secrets.get(
-            "GOOGLE_CLIENT_ID",
-            "",
-        ),
-        "client_secret": st.secrets.get(
-            "GOOGLE_CLIENT_SECRET",
-            "",
-        ),
-        "auth_uri": (
-            "https://accounts.google.com/o/oauth2/auth"
-        ),
-        "token_uri": (
-            "https://oauth2.googleapis.com/token"
-        ),
-        "redirect_uris": [
-            st.secrets.get(
-                "GOOGLE_REDIRECT_URI",
-                "",
-            )
-        ],
-    }
-}
-
-
 SCOPES_GOOGLE = [
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
@@ -860,8 +834,20 @@ SCOPES_GOOGLE = [
 ]
 
 
-query_params = st.query_params
+client_config = {
+    "web": {
+        "client_id": st.secrets["GOOGLE_CLIENT_ID"],
+        "client_secret": st.secrets["GOOGLE_CLIENT_SECRET"],
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "redirect_uris": [
+            st.secrets["GOOGLE_REDIRECT_URI"]
+        ],
+    }
+}
 
+
+query_params = st.query_params
 
 if (
     "code" in query_params
@@ -878,100 +864,58 @@ if (
                 "O Google não retornou o código de autorização."
             )
 
-        oauth_state = st.session_state.get("oauth_state")
-
         flow = Flow.from_client_config(
             client_config,
             scopes=SCOPES_GOOGLE,
-            state=oauth_state,
-            redirect_uri=st.secrets[
-                "GOOGLE_REDIRECT_URI"
-            ],
+            redirect_uri=st.secrets["GOOGLE_REDIRECT_URI"],
         )
 
-        flow.fetch_token(
-            code=codigo_google
-        )
+        flow.fetch_token(code=codigo_google)
 
         credentials = flow.credentials
 
-        if not credentials or not credentials.valid:
+        if credentials is None or not credentials.valid:
             raise ValueError(
-                "O Google não retornou uma credencial válida."
+                "O Google não retornou credenciais válidas."
             )
 
-        st.session_state[
-            "google_credentials"
-        ] = credentials
-
         resposta_usuario = requests.get(
-            (
-                "https://www.googleapis.com/"
-                "oauth2/v3/userinfo"
-            ),
+            "https://www.googleapis.com/oauth2/v3/userinfo",
             headers={
-                "Authorization": (
-                    f"Bearer {credentials.token}"
-                )
+                "Authorization": f"Bearer {credentials.token}"
             },
             timeout=20,
         )
 
         resposta_usuario.raise_for_status()
+        dados_usuario = resposta_usuario.json()
 
-        user_info_service = resposta_usuario.json()
-
-        email_google = user_info_service.get("email")
+        email_google = dados_usuario.get("email")
 
         if not email_google:
             raise ValueError(
                 "O Google não retornou o e-mail da conta."
             )
 
+        st.session_state["google_credentials"] = credentials
         st.session_state["connected"] = True
         st.session_state["name"] = (
-            user_info_service.get("name")
+            dados_usuario.get("name")
             or email_google.split("@")[0]
         )
         st.session_state["email"] = email_google
-        st.session_state["picture"] = (
-            user_info_service.get("picture")
-        )
+        st.session_state["picture"] = dados_usuario.get("picture")
 
-        st.session_state.pop(
-            "oauth_state",
-            None,
-        )
-        st.session_state.pop(
-            "google_auth_url",
-            None,
-        )
-        st.session_state.pop(
-            "erro_login_google",
-            None,
-        )
+        st.session_state.pop("erro_login_google", None)
 
         st.query_params.clear()
         st.rerun()
 
     except Exception as erro:
-        st.session_state[
-            "erro_login_google"
-        ] = str(erro)
-
         st.session_state["connected"] = False
-
-        st.session_state.pop(
-            "oauth_state",
-            None,
-        )
-        st.session_state.pop(
-            "google_auth_url",
-            None,
-        )
-        st.session_state.pop(
-            "google_credentials",
-            None,
+        st.session_state.pop("google_credentials", None)
+        st.session_state["erro_login_google"] = (
+            f"{type(erro).__name__}: {erro}"
         )
 
         st.query_params.clear()
@@ -980,7 +924,7 @@ if (
 # ==============================================================================
 # 5. Confirgurações tela de Login                     
 # ==============================================================================
-if not st.session_state.connected:
+if not st.session_state.get("connected", False):
     st.markdown(
         """
         <style>
