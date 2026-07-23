@@ -836,21 +836,48 @@ client_config = {
     }
 }
 
+SCOPES_GOOGLE = [
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/drive.file",
+]
+
 query_params = st.query_params
-if "code" in query_params and not st.session_state.get('connected'):
+
+if "code" in query_params and not st.session_state.get("connected", False):
     try:
+        oauth_state = st.session_state.get("oauth_state")
+
+        if not oauth_state:
+            raise ValueError(
+                "O estado da autenticação expirou. "
+                "Retorne à tela inicial e tente novamente."
+            )
+
         flow = Flow.from_client_config(
             client_config,
-            scopes=[
-                "openid",
-                "https://www.googleapis.com/auth/userinfo.email",
-                "https://www.googleapis.com/auth/userinfo.profile",
-                "https://www.googleapis.com/auth/drive.file",
-            ],
-            state=st.session_state.get("oauth_state"),
+            scopes=SCOPES_GOOGLE,
+            state=oauth_state,
             redirect_uri=st.secrets["GOOGLE_REDIRECT_URI"],
         )
-        flow.fetch_token(code=query_params["code"])
+
+        parametros_retorno = urlencode(
+            {
+                chave: valor
+                for chave, valor in query_params.items()
+            },
+            doseq=True,
+        )
+
+        authorization_response = (
+            f"{st.secrets['GOOGLE_REDIRECT_URI']}?"
+            f"{parametros_retorno}"
+        )
+
+        flow.fetch_token(
+            authorization_response=authorization_response
+        )
         credentials = flow.credentials
 
         if not credentials.valid:
@@ -870,6 +897,13 @@ if "code" in query_params and not st.session_state.get('connected'):
         st.session_state.email = user_info_service.get("email")
         st.session_state.picture = user_info_service.get("picture")
 
+        st.session_state.pop("oauth_state", None)
+        st.session_state.pop("google_auth_url", None)
+        st.session_state.pop("erro_login_google", None)
+
+        st.query_params.clear()
+        st.rerun()
+
         st.session_state.pop(
             "oauth_state",
             None,
@@ -878,9 +912,11 @@ if "code" in query_params and not st.session_state.get('connected'):
         st.query_params.clear()
         st.rerun()
     except Exception as erro:
-        st.session_state["erro_login_google"] = str(
-            erro
-        )
+        st.session_state["erro_login_google"] = str(erro)
+
+        st.session_state.pop("oauth_state", None)
+        st.session_state.pop("google_auth_url", None)
+        st.session_state.pop("google_credentials", None)
 
         st.query_params.clear()
         st.rerun()
@@ -916,40 +952,33 @@ if not st.session_state.connected:
         unsafe_allow_html=True,
     )
 
-    oauth_params = {
-        "client_id": st.secrets.get("GOOGLE_CLIENT_ID", ""),
-        "redirect_uri": st.secrets.get("GOOGLE_REDIRECT_URI", ""),
-        "response_type": "code",
-        "scope": " ".join(
-            [
-                "openid",
-                "https://www.googleapis.com/auth/userinfo.email",
-                "https://www.googleapis.com/auth/userinfo.profile",
-                "https://www.googleapis.com/auth/drive.file",
-            ]
-        ),
-        "access_type": "offline",
-        "prompt": "select_account",
-    }
+    SCOPES_GOOGLE = [
+        "openid",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/drive.file",
+    ]
 
-    flow_login = Flow.from_client_config(
-        client_config,
-        scopes=[
-            "openid",
-            "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/userinfo.profile",
-            "https://www.googleapis.com/auth/drive.file",
-        ],
-        redirect_uri=st.secrets["GOOGLE_REDIRECT_URI"],
-    )
-    
-    auth_url, oauth_state = flow_login.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="select_account",
-    )
-    
-    st.session_state["oauth_state"] = oauth_state
+    if (
+        "google_auth_url" not in st.session_state
+        or "oauth_state" not in st.session_state
+    ):
+        flow_login = Flow.from_client_config(
+            client_config,
+            scopes=SCOPES_GOOGLE,
+            redirect_uri=st.secrets["GOOGLE_REDIRECT_URI"],
+        )
+
+        auth_url, oauth_state = flow_login.authorization_url(
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="select_account",
+        )
+
+        st.session_state["google_auth_url"] = auth_url
+        st.session_state["oauth_state"] = oauth_state
+
+    auth_url = st.session_state["google_auth_url"]
 
     erro_login = st.session_state.pop(
         "erro_login_google",
@@ -1148,6 +1177,10 @@ if st.sidebar.button(
     use_container_width=True,
     key="botao_sair_sidebar",
 ):
+    st.session_state.pop("google_credentials", None)
+    st.session_state.pop("oauth_state", None)
+    st.session_state.pop("google_auth_url", None)
+
     st.session_state.clear()
     st.query_params.clear()
     st.rerun()
