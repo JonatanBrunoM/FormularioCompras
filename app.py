@@ -9,6 +9,7 @@ import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from google_auth_oauthlib.flow import Flow
+from google.auth.transport.requests import Request
 from streamlit_gsheets import GSheetsConnection
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
@@ -20,18 +21,60 @@ if "form_count" not in st.session_state:
 # ==============================================================================
 # 1. Configuração upload de arquivos
 # ==============================================================================
+def obter_credenciais_google():
+    credentials = st.session_state.get(
+        "google_credentials"
+    )
+
+    if credentials is None:
+        return None
+
+    try:
+        if credentials.expired:
+            if credentials.refresh_token:
+                credentials.refresh(Request())
+
+                st.session_state[
+                    "google_credentials"
+                ] = credentials
+
+            else:
+                return None
+
+        if not credentials.valid:
+            return None
+
+        return credentials
+
+    except Exception as erro:
+        print(
+            "Erro ao renovar credenciais Google:",
+            erro,
+        )
+
+        return None
+
 def upload_para_google_drive(arquivo_streamlit, pasta_id=None):
     """
     Faz o upload de um arquivo do Streamlit para uma pasta específica do Google Drive.
     Usa os tokens de autenticação salvos na sessão do usuário.
     """
     try:
-        if "google_credentials" not in st.session_state:
-            st.error("Credenciais do Google não encontradas para o upload.")
+        credentials = obter_credenciais_google()
+
+        if credentials is None:
+            st.error(
+                "Sua autorização do Google expirou. "
+                "Saia do sistema e entre novamente."
+            )
+
             return None
-            
-        creds = st.session_state["google_credentials"]
-        service = build('drive', 'v3', credentials=creds)
+
+        service = build(
+            "drive",
+            "v3",
+            credentials=credentials,
+        )
         
         file_metadata = {'name': arquivo_streamlit.name}
         if pasta_id:
@@ -79,44 +122,119 @@ st.markdown("""
         display: none !important;
     }
 
-    .login-box {
-        text-align: center !important;
-        margin: 0 auto !important;
-        width: 100% !important;
-        max-width: 450px;
-    }
-
-    [data-testid="stMainInterface"] .login-box > div, 
-    [data-testid="stMainInterface"] .login-box [data-testid="stMarkdown"] {
-        display: flex !important;
-        justify-content: center !important;
-        text-align: center !important;
-    }
-
-    [data-testid="stSidebar"] div, [data-testid="stSidebar"] span, [data-testid="stSidebar"] p {
-        text-align: left !important;
-        display: block !important;
-    }
-
-    .login-box a {
-        background: transparent !important;
-        color: #005691 !important;
-        border: none !important;
-        box-shadow: none !important;
-        font-weight: bold !important;
-        font-size: 1.2em !important;
-        text-transform: uppercase !important;
-        text-decoration: none !important;
-        display: inline-flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        margin: 20px auto 0 auto !important;
-        padding: 10px 0 !important;
+    .login-page {
+        min-height: 75vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 30px 15px;
     }
     
-    .login-box a:hover {
-        color: #003D66 !important;
-        text-decoration: underline !important;
+    .login-box {
+        width: 100%;
+        max-width: 480px;
+        margin: 0 auto;
+        padding: 34px 38px;
+        text-align: center;
+        background: #ffffff;
+        border: 1px solid #e4e9ed;
+        border-radius: 16px;
+        box-shadow: 0 12px 35px rgba(0, 86, 145, 0.10);
+    }
+    
+    .login-logo {
+        width: 100%;
+        max-width: 230px;
+        margin: 0 auto 18px auto;
+    }
+    
+    .login-title {
+        margin: 0;
+        color: #005691;
+        font-size: 1.55rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+    
+    .login-subtitle {
+        margin: 7px 0 0 0;
+        color: #5f6b73;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+    
+    .login-divider {
+        width: 55px;
+        height: 3px;
+        margin: 20px auto;
+        background: #005691;
+        border-radius: 10px;
+    }
+    
+    .login-description {
+        margin: 0 0 20px 0;
+        color: #47545c;
+        font-size: 0.90rem;
+        line-height: 1.6;
+    }
+    
+    .login-notice {
+        margin-top: 20px;
+        padding: 12px 14px;
+        background: #f4f8fb;
+        border-left: 4px solid #005691;
+        border-radius: 6px;
+        color: #52616a;
+        font-size: 0.80rem;
+        line-height: 1.5;
+        text-align: left;
+    }
+    
+    .login-footer {
+        margin-top: 20px;
+        color: #89949b;
+        font-size: 0.75rem;
+    }
+    
+    .login-box [data-testid="stLinkButton"] a {
+        min-height: 46px;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: #005691 !important;
+        color: #ffffff !important;
+        border: 1px solid #005691 !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        font-size: 0.95rem !important;
+        font-weight: 600 !important;
+        text-decoration: none !important;
+        text-transform: none !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    .login-box [data-testid="stLinkButton"] a:hover {
+        background: #003d66 !important;
+        border-color: #003d66 !important;
+        color: #ffffff !important;
+        text-decoration: none !important;
+        transform: translateY(-1px);
+    }
+    
+    @media (max-width: 700px) {
+        .login-page {
+            min-height: auto;
+            padding: 20px 4px;
+        }
+    
+        .login-box {
+            padding: 26px 20px;
+            border-radius: 12px;
+        }
+    
+        .login-title {
+            font-size: 1.35rem;
+        }
     }
 
     /* ==========================================
@@ -305,9 +423,199 @@ if "is_admin" not in st.session_state:
     st.session_state["is_admin"] = False
 if "user_ativo" not in st.session_state:
     st.session_state["user_ativo"] = True
+if "usuario_cadastrado" not in st.session_state:
+    st.session_state["usuario_cadastrado"] = False
+if "usuario_validado" not in st.session_state:
+    st.session_state["usuario_validado"] = False
 if "pagina_atual" not in st.session_state:
     st.session_state["pagina_atual"] = "painel_principal"
 
+def validar_usuario_logado(email_usuario):
+    email_usuario = str(
+        email_usuario or ""
+    ).strip().lower()
+
+    if not email_usuario:
+        return (
+            False,
+            "Não foi possível identificar o e-mail da conta Google."
+        )
+def usuario_eh_admin():
+    return bool(
+        st.session_state.get(
+            "is_admin",
+            False,
+        )
+    )
+
+
+def usuario_eh_aprovador():
+    alcadas = st.session_state.get(
+        "user_alcadas",
+        [],
+    )
+
+    return bool(alcadas)
+
+
+def usuario_eh_solicitante():
+    return bool(
+        st.session_state.get(
+            "connected",
+            False,
+        )
+    )
+
+
+def usuario_tem_alcada(alcada):
+    alcada = str(
+        alcada or ""
+    ).strip().lower()
+
+    alcadas_usuario = [
+        str(item).strip().lower()
+        for item in st.session_state.get(
+            "user_alcadas",
+            [],
+        )
+    ]
+
+    return (
+        usuario_eh_admin()
+        or alcada in alcadas_usuario
+    )
+
+
+def exigir_login():
+    if not st.session_state.get(
+        "connected",
+        False,
+    ):
+        st.error(
+            "Sua sessão não está autenticada."
+        )
+        st.stop()
+
+
+def exigir_admin():
+    exigir_login()
+
+    if not usuario_eh_admin():
+        st.error(
+            "Você não possui permissão para acessar esta área."
+        )
+        st.stop()
+
+
+def exigir_aprovador():
+    exigir_login()
+
+    if not (
+        usuario_eh_aprovador()
+        or usuario_eh_admin()
+    ):
+        st.error(
+            "Esta área está disponível somente para aprovadores."
+        )
+        st.stop()
+
+    st.session_state["user_nome"] = (
+        st.session_state.get("name")
+        or email_usuario.split("@")[0]
+        or "Solicitante"
+    )
+
+    st.session_state["user_perfil"] = "Solicitante"
+    st.session_state["user_alcadas"] = []
+    st.session_state["is_admin"] = False
+    st.session_state["user_ativo"] = True
+    st.session_state["usuario_cadastrado"] = False
+    st.session_state["usuario_validado"] = True
+
+    if df_usuarios.empty:
+        return True, ""
+
+    if "Email" not in df_usuarios.columns:
+        return True, ""
+
+    usuario_encontrado = df_usuarios[
+        df_usuarios["Email"]
+        .astype(str)
+        .str.strip()
+        .str.lower()
+        == email_usuario
+    ]
+
+    if usuario_encontrado.empty:
+        return True, ""
+
+    usuario_info = usuario_encontrado.iloc[0]
+
+    usuario_ativo = (
+        str(usuario_info.get("Ativo", "Sim"))
+        .strip()
+        .lower()
+        == "sim"
+    )
+
+    if not usuario_ativo:
+        st.session_state["user_ativo"] = False
+
+        return (
+            False,
+            "Seu usuário está inativo no sistema."
+        )
+
+    nome_planilha = str(
+        usuario_info.get("Nome", "")
+    ).strip()
+
+    perfil_planilha = str(
+        usuario_info.get("Perfil", "Solicitante")
+    ).strip()
+
+    admin_planilha = (
+        str(usuario_info.get("Admin", "Não"))
+        .strip()
+        .lower()
+        == "sim"
+    )
+
+    alcadas_raw = str(
+        usuario_info.get("Alcada", "Nenhum")
+    ).strip()
+
+    if (
+        alcadas_raw
+        and alcadas_raw.lower() != "nenhum"
+    ):
+        lista_alcadas = [
+            alcada.strip()
+            for alcada in alcadas_raw.split(",")
+            if alcada.strip()
+        ]
+    else:
+        lista_alcadas = []
+
+    st.session_state["user_nome"] = (
+        nome_planilha
+        or st.session_state.get("name")
+        or "Usuário"
+    )
+
+    st.session_state["user_perfil"] = (
+        perfil_planilha
+        or "Solicitante"
+    )
+
+    st.session_state["user_alcadas"] = lista_alcadas
+    st.session_state["is_admin"] = admin_planilha
+    st.session_state["user_ativo"] = True
+    st.session_state["usuario_cadastrado"] = True
+    st.session_state["usuario_validado"] = True
+
+    return True, ""
+    
 ADMINS = []
 APROVADORES = []
 
@@ -340,38 +648,6 @@ if not df_usuarios.empty:
             APROVADORES.append(email_u)
 
     APROVADORES = list(set(ADMINS + APROVADORES))
-
-    if st.session_state["user_nome"] == "Novo Solicitante":
-        email_atual_seguro = ""
-        if "email" in st.session_state:
-            email_atual_seguro = st.session_state["email"]
-        elif 'user_email' in locals():
-            email_atual_seguro = user_email
-
-        if email_atual_seguro:
-            user_row = df_usuarios[df_usuarios["Email"].str.lower() == email_atual_seguro.lower()]
-            
-            if not user_row.empty:
-                usuario_info = user_row.iloc[0]
-                status_ativo = str(usuario_info.get("Ativo", "Não")).strip().lower() == "sim"
-                
-                if status_ativo:
-                    st.session_state["user_nome"] = usuario_info.get("Nome", "Usuário")
-                    st.session_state["user_perfil"] = usuario_info.get("Perfil", "Solicitante")
-                    st.session_state["is_admin"] = str(usuario_info.get("Admin", "Não")).strip().lower() == "sim"
-                    st.session_state["user_ativo"] = True
-                    
-                    alcada_raw = str(usuario_info.get("Alcada", "Nenhum"))
-                    if alcada_raw and alcada_raw.lower() != "nenhum":
-                        st.session_state["user_alcadas"] = [a.strip() for a in alcada_raw.split(",")]
-                    else:
-                        st.session_state["user_alcadas"] = []
-                else:
-                    st.session_state["user_ativo"] = False
-
-if not st.session_state["user_ativo"]:
-    st.error("❌ Seu usuário está inativo no sistema. Procure o administrador.")
-    st.stop()
 
 ALCADAS_INFO = {
     "V": {
@@ -556,19 +832,19 @@ if "connected" not in st.session_state:
 if "cookies_carregados" not in st.session_state:
     st.session_state.cookies_carregados = False
 
-cookie_email = cookie_manager.get(cookie="moinhos_user_email")
-cookie_name = cookie_manager.get(cookie="moinhos_user_name")
-cookie_picture = cookie_manager.get(cookie="moinhos_user_picture")
+cookie_email = cookie_manager.get(
+    cookie="moinhos_user_email"
+)
 
-if cookie_email and not st.session_state.connected:
-    st.session_state.connected = True
-    st.session_state.email = cookie_email
-    st.session_state.name = cookie_name
-    st.session_state.picture = cookie_picture
-    st.session_state.cookies_carregados = True
-    st.rerun()
+cookie_name = cookie_manager.get(
+    cookie="moinhos_user_name"
+)
 
-if cookie_email is None and not st.session_state.cookies_carregados:
+cookie_picture = cookie_manager.get(
+    cookie="moinhos_user_picture"
+)
+
+if not st.session_state.cookies_carregados:
     time.sleep(0.2)
     st.session_state.cookies_carregados = True
     st.rerun()
@@ -598,6 +874,11 @@ if "code" in query_params and not st.session_state.get('connected'):
         )
         flow.fetch_token(code=query_params["code"])
         credentials = flow.credentials
+
+        if not credentials.valid:
+            raise ValueError(
+                "O Google não retornou uma credencial válida."
+            )
         
         st.session_state["google_credentials"] = credentials
         
@@ -619,39 +900,131 @@ if "code" in query_params and not st.session_state.get('connected'):
         
         st.query_params.clear()
         st.rerun()
-    except Exception:
+    except Exception as erro:
+        st.session_state["erro_login_google"] = str(
+            erro
+        )
+
         st.query_params.clear()
+        st.rerun()
 
 # ==============================================================================
 # 5. Confirgurações tela de Login                     
 # ==============================================================================
 if not st.session_state.connected:
-    col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
-    
+    st.markdown(
+        '<div class="login-page">',
+        unsafe_allow_html=True,
+    )
+
+    col_l1, col_l2, col_l3 = st.columns(
+        [1, 1.4, 1]
+    )
+
     with col_l2:
-        st.markdown('<div class="login-box">', unsafe_allow_html=True)
-        
+        st.markdown(
+            '<div class="login-box">',
+            unsafe_allow_html=True,
+        )
+
         if os.path.exists("logomoinhos.png"):
-            img_col1, img_col2, img_col3 = st.columns([1, 2, 1])
-            with img_col2:
-                st.image("logomoinhos.png", use_container_width=True)
-        
-        st.markdown("<h3 style='text-align: center; margin-top: 20px; font-size: 1.3em; color: #005691; font-weight: 600;'>CAPROQ</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #6c757d; font-size: 0.9em; margin-top: -5px;'>Solicitação de Padronização de Produtos Químicos</p>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        
+            st.markdown(
+                '<div class="login-logo">',
+                unsafe_allow_html=True,
+            )
+
+            st.image(
+                "logomoinhos.png",
+                use_container_width=True,
+            )
+
+            st.markdown(
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown(
+            """
+            <h1 class="login-title">
+                CAPROQ
+            </h1>
+
+            <p class="login-subtitle">
+                Solicitação de Padronização de Produtos Químicos
+            </p>
+
+            <div class="login-divider"></div>
+
+            <p class="login-description">
+                Acesse o sistema para registrar novas solicitações
+                e acompanhar o processo de avaliação e padronização
+                de produtos químicos.
+            </p>
+            """,
+            unsafe_allow_html=True,
+        )
+
         auth_url = (
-            f"https://accounts.google.com/o/oauth2/auth?"
-            f"response_type=code&client_id={st.secrets.get('GOOGLE_CLIENT_ID','')}&"
-            f"redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI','')}&"
-            f"scope=https://www.googleapis.com/auth/userinfo.profile%20https://www.googleapis.com/auth/userinfo.email%20openid%20https://www.googleapis.com/auth/drive.file&prompt=select_account"
+            "https://accounts.google.com/o/oauth2/auth?"
+            "response_type=code"
+            f"&client_id={st.secrets.get('GOOGLE_CLIENT_ID', '')}"
+            f"&redirect_uri={st.secrets.get('GOOGLE_REDIRECT_URI', '')}"
+            "&scope="
+            "https://www.googleapis.com/auth/userinfo.profile"
+            "%20https://www.googleapis.com/auth/userinfo.email"
+            "%20openid"
+            "%20https://www.googleapis.com/auth/drive.file"
+            "&access_type=offline"
+            "&include_granted_scopes=true"
+            "&prompt=select_account%20consent"
+        )
+
+        erro_login = st.session_state.pop(
+            "erro_login_google",
+            None,
         )
         
-        b_col1, b_col2, b_col3 = st.columns([0.5, 2, 0.5])
-        with b_col2:
-            st.link_button("Entrar com o Google", auth_url, use_container_width=True)
-            
-        st.markdown('</div>', unsafe_allow_html=True)
+        if erro_login:
+            st.error(
+                "Não foi possível concluir o login com o Google. "
+                "Tente novamente."
+            )
+        
+            with st.expander("Detalhes do erro"):
+                st.code(erro_login)
+
+        st.link_button(
+            "Entrar com a conta Google",
+            auth_url,
+            use_container_width=True,
+        )
+
+        st.markdown(
+            """
+            <div class="login-notice">
+                <strong>Acesso ao sistema</strong><br>
+                Utilize sua conta Google para acessar o sistema. Usuários não
+                cadastrados serão direcionados automaticamente ao
+                perfil de solicitante.
+            </div>
+
+            <div class="login-footer">
+                Hospital Moinhos de Vento
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
     st.stop()
 
 # ==============================================================================
@@ -660,7 +1033,11 @@ if not st.session_state.connected:
 st.sidebar.markdown("<h3 style='font-size: 1.2em; margin-bottom: 5px; color: #005691;'>Hospital Moinhos de Vento</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='color: #6c757d; font-size: 0.85em; margin-top:-10px; margin-bottom: 15px;'>Formulário - CAPROQ</p>", unsafe_allow_html=True)
 
-user_name = st.session_state.get('name') or 'Usuário'
+user_name = (
+    st.session_state.get("user_nome")
+    or st.session_state.get("name")
+    or "Usuário"
+)
 user_email = st.session_state.get('email') or ''
 user_picture = st.session_state.get('picture') or 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
 
@@ -682,7 +1059,7 @@ avatar_html = f"""
 st.sidebar.markdown(avatar_html, unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
-# Menu de Configurações para Administradores <<<
+# Menu de Configurações para Administradores
 # ------------------------------------------------------------------------------
 if st.session_state.get("is_admin", False):
     st.sidebar.markdown("<br>", unsafe_allow_html=True)
@@ -718,7 +1095,32 @@ if st.sidebar.button(
     use_container_width=True,
     key="botao_sair_sidebar"
 ):
+    cookies_logout = [
+        (
+            "moinhos_user_email",
+            "logout_cookie_email",
+        ),
+        (
+            "moinhos_user_name",
+            "logout_cookie_name",
+        ),
+        (
+            "moinhos_user_picture",
+            "logout_cookie_picture",
+        ),
+    ]
+
+    for nome_cookie, chave_exclusao in cookies_logout:
+        try:
+            cookie_manager.delete(
+                cookie=nome_cookie,
+                key=chave_exclusao,
+            )
+        except Exception:
+            pass
+
     st.session_state.clear()
+    time.sleep(0.2)
     st.rerun()
 
 # ==============================================================================
