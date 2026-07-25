@@ -859,6 +859,173 @@ st.markdown("""
             grid-template-columns: 1fr;
         }
     }
+
+
+    /* ==========================================
+       DESIGN SYSTEM — PAINEL DE APROVAÇÕES
+       ========================================== */
+
+    .caproq-page-hero {
+        position: relative;
+        overflow: hidden;
+        margin: 0.25rem 0 1rem;
+        padding: 1.15rem 1.3rem;
+        border: 1px solid rgba(0, 86, 145, 0.22);
+        border-radius: 16px;
+        background:
+            linear-gradient(135deg, rgba(0, 86, 145, 0.14), rgba(0, 61, 102, 0.05)),
+            var(--secondary-background-color);
+        box-shadow: 0 8px 26px rgba(0, 61, 102, 0.08);
+    }
+
+    .caproq-page-hero::after {
+        content: "";
+        position: absolute;
+        top: -55px;
+        right: -45px;
+        width: 165px;
+        height: 165px;
+        border-radius: 50%;
+        background: rgba(0, 86, 145, 0.08);
+        pointer-events: none;
+    }
+
+    .caproq-page-kicker {
+        margin: 0 0 0.3rem;
+        color: var(--primary-color);
+        font-size: 0.69rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+
+    .caproq-page-title {
+        margin: 0;
+        color: var(--text-color) !important;
+        font-size: clamp(1.35rem, 2.6vw, 2rem);
+        font-weight: 780;
+        line-height: 1.15;
+    }
+
+    .caproq-page-subtitle {
+        max-width: 760px;
+        margin: 0.4rem 0 0;
+        color: var(--text-color);
+        opacity: 0.70;
+        font-size: 0.88rem;
+        line-height: 1.5;
+    }
+
+    .caproq-section-intro {
+        margin: 0.25rem 0 0.9rem;
+        padding: 0.85rem 0.95rem;
+        border-left: 4px solid var(--primary-color);
+        border-radius: 0 10px 10px 0;
+        background: rgba(0, 86, 145, 0.07);
+    }
+
+    .caproq-section-intro-title {
+        margin: 0;
+        color: var(--text-color);
+        font-size: 1rem;
+        font-weight: 750;
+    }
+
+    .caproq-section-intro-text {
+        margin: 0.24rem 0 0;
+        color: var(--text-color);
+        opacity: 0.68;
+        font-size: 0.78rem;
+        line-height: 1.45;
+    }
+
+    /* Cartões de métricas */
+    div[data-testid="stMetric"] {
+        min-height: 108px;
+        padding: 0.9rem 1rem;
+        border: 1px solid rgba(128, 128, 128, 0.20);
+        border-radius: 14px;
+        background: var(--secondary-background-color);
+        box-shadow: 0 5px 18px rgba(0, 0, 0, 0.05);
+    }
+
+    div[data-testid="stMetric"] label {
+        color: var(--text-color) !important;
+        opacity: 0.66;
+        font-size: 0.72rem !important;
+        font-weight: 700 !important;
+    }
+
+    div[data-testid="stMetricValue"] {
+        color: var(--text-color) !important;
+        font-size: 1.65rem !important;
+        font-weight: 780 !important;
+    }
+
+    /* Abas principais */
+    div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+        gap: 0.35rem;
+        padding: 0.35rem;
+        border: 1px solid rgba(128, 128, 128, 0.18);
+        border-radius: 12px;
+        background: var(--secondary-background-color);
+    }
+
+    div[data-testid="stTabs"] [data-baseweb="tab"] {
+        min-height: 39px;
+        padding: 0.45rem 0.8rem;
+        border-radius: 9px;
+        color: var(--text-color);
+        font-size: 0.76rem;
+        font-weight: 650;
+    }
+
+    div[data-testid="stTabs"] [aria-selected="true"] {
+        background: rgba(0, 86, 145, 0.12) !important;
+        color: var(--primary-color) !important;
+    }
+
+    div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+        display: none;
+    }
+
+    /* Containers internos e tabelas */
+    div[data-testid="stDataFrame"] {
+        overflow: hidden;
+        border: 1px solid rgba(128, 128, 128, 0.18);
+        border-radius: 12px;
+    }
+
+    div[data-testid="stPlotlyChart"] {
+        padding: 0.35rem;
+        border: 1px solid rgba(128, 128, 128, 0.18);
+        border-radius: 13px;
+        background: var(--secondary-background-color);
+    }
+
+    .caproq-panel-divider {
+        height: 1px;
+        margin: 1rem 0;
+        background: var(--text-color);
+        opacity: 0.12;
+    }
+
+    @media (max-width: 760px) {
+        .caproq-page-hero {
+            padding: 1rem;
+            border-radius: 13px;
+        }
+
+        div[data-testid="stMetric"] {
+            min-height: 94px;
+        }
+
+        div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+            overflow-x: auto;
+            flex-wrap: nowrap;
+        }
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -2040,7 +2207,19 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
     # PAINEL DE CONTROLE PRINCIPAL
     # --------------------------------------------------------------------------
     elif st.session_state.get("pagina_atual") == "painel_principal":
-        st.markdown("---")
+        st.markdown(
+            """
+<div class="caproq-page-hero">
+    <p class="caproq-page-kicker">Central técnica · CAPROQ</p>
+    <h1 class="caproq-page-title">Painel de Aprovações</h1>
+    <p class="caproq-page-subtitle">
+        Consulte solicitações, acompanhe o andamento das alçadas e registre
+        decisões técnicas em um ambiente único e organizado.
+    </p>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
         
         colunas_permitidas_usuario = []
         is_user_admin = user_email in ADMINS
@@ -2071,28 +2250,49 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                 pendentes = pd.DataFrame()
                 historico_aprovador = pd.DataFrame()
             
+            total_aprovados = len(
+                df_dados[df_dados["Status_Final"] == "Aprovado"]
+            )
+            total_reprovados = len(
+                df_dados[df_dados["Status_Final"] == "Reprovado"]
+            )
+
             m1, m2, m3 = st.columns(3)
-            with m1: st.metric("Suas Pendências de Área", len(pendentes))
-            with m2: st.metric("Aprovados Gerais no Sheets", len(df_dados[df_dados["Status_Final"] == "Aprovado"]))
-            with m3: st.metric("Reprovados Gerais no Sheets", len(df_dados[df_dados["Status_Final"] == "Reprovado"]))
-            
-            st.markdown("---")
-            
+            with m1:
+                st.metric("Pendências da sua área", len(pendentes))
+            with m2:
+                st.metric("Chamados aprovados", total_aprovados)
+            with m3:
+                st.metric("Chamados reprovados", total_reprovados)
+
+            st.markdown(
+                '<div class="caproq-panel-divider"></div>',
+                unsafe_allow_html=True,
+            )
+
             tab_pendentes, tab_hist_aprovador, tab_logs, tab_indicadores = st.tabs([
-                "Minhas pendências", 
-                "Histórico de decisões",
-                "Log de atividades",
-                "Indicadores"
+                "📥 Minhas pendências",
+                "📋 Histórico de decisões",
+                "🕒 Log de atividades",
+                "📊 Indicadores",
             ])
             
             # ----------------------------------------------------------------------
             # 8.1. Aba "Minhas pendências"
             # ----------------------------------------------------------------------
             with tab_pendentes:
-                st.markdown("### Solicitações aguardando seu parecer técnico")
-                st.caption(
-                    "Abra um chamado para consultar os dados completos, acompanhar "
-                    "as avaliações das alçadas e registrar seu parecer."
+
+                st.markdown(
+                    """
+<div class="caproq-section-intro">
+    <p class="caproq-section-intro-title">Solicitações aguardando seu parecer</p>
+    <p class="caproq-section-intro-text">
+        Abra um chamado para consultar os dados completos, acompanhar o placar
+        das alçadas e registrar sua decisão técnica.
+    </p>
+</div>
+""",
+                    unsafe_allow_html=True,
                 )
 
                 if pendentes.empty:
@@ -2505,8 +2705,19 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
             # 8.2. Aba "Histórico de decisões"
             # ----------------------------------------------------------------------
             with tab_hist_aprovador:
-                st.markdown("### 📋 Acompanhamento e histórico de deliberações")
-                st.caption("Veja abaixo o andamento detalhado e os prazos de resposta de cada alçada técnica.")
+
+                st.markdown(
+                    """
+<div class="caproq-section-intro">
+    <p class="caproq-section-intro-title">Acompanhamento e histórico de deliberações</p>
+    <p class="caproq-section-intro-text">
+        Consulte decisões já registradas, situação das áreas e prazos de resposta
+        de cada alçada técnica.
+    </p>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
                 
                 if historico_aprovador.empty:
                     st.info("Sua alçada técnica atual ainda não emitiu votos históricos no sistema.")
@@ -2582,8 +2793,19 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
             # 8.3. Aba "Log de atividades"
             # ----------------------------------------------------------------------
             with tab_logs:
-                st.markdown("### 📜 Linha de Tempo e Auditoria Geral dos Processos")
-                st.caption("Abaixo consta o histórico completo desde a abertura do chamado para fins de conformidade e auditoria.")
+
+                st.markdown(
+                    """
+<div class="caproq-section-intro">
+    <p class="caproq-section-intro-title">Linha do tempo e auditoria dos processos</p>
+    <p class="caproq-section-intro-text">
+        Acompanhe os registros desde a abertura do chamado até o encerramento,
+        com foco em rastreabilidade e conformidade.
+    </p>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
                 
                 for _, row in df_dados.iterrows():
                     id_c = int(row['ID'])
@@ -2622,8 +2844,19 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
             # 8.4. Aba "Indicadores"
             # ----------------------------------------------------------------------
             with tab_indicadores:
-                st.markdown("### Painel analítico (CAPROQ)")
-                st.markdown("Confira os indicadores de desempenho, volumetria e distribuição de pareceres do comitê.")
+
+                st.markdown(
+                    """
+<div class="caproq-section-intro">
+    <p class="caproq-section-intro-title">Painel analítico do CAPROQ</p>
+    <p class="caproq-section-intro-text">
+        Visualize volumetria, distribuição das decisões e desempenho do fluxo
+        técnico do comitê.
+    </p>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
                 
                 col_data = None
                 for c in df_dados.columns:
@@ -2645,7 +2878,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                 else:
                     qtd_semana = qtd_mes = qtd_ano = len(df_dados)
                 
-                st.markdown("**Volumetria temporal de requisições**")
+                st.markdown('<div class="caproq-section-title">Volumetria temporal</div>', unsafe_allow_html=True)
                 kpi_t1, kpi_t2, kpi_t3, kpi_t4 = st.columns(4)
                 with kpi_t1: st.metric("Últimos 7 dias (Semanal)", qtd_semana)
                 with kpi_t2: st.metric("Últimos 30 dias (Mensal)", qtd_mes)
@@ -2654,7 +2887,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                 
                 st.markdown("---")
                 
-                st.markdown("**Distribuição estatística de deliberações (Mensal)**")
+                st.markdown('<div class="caproq-section-title">Distribuição mensal das deliberações</div>', unsafe_allow_html=True)
                 col_graph1, col_graph2 = st.columns(2)
                 
                 df_recorte_mensal = df_mes if col_data else df_dados
@@ -2725,7 +2958,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                 st.markdown("---")
                 
                 # 8.5. Separação de dados por área
-                st.markdown("**Performance de fluxo por alçada (Histórico)**")
+                st.markdown('<div class="caproq-section-title">Performance histórica por alçada</div>', unsafe_allow_html=True)
                 
                 dados_areas = []
                 for letra_col, info in ALCADAS_INFO.items():
