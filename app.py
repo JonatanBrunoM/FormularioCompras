@@ -3840,13 +3840,140 @@ else:
 # ==============================================================================
 # 10. Tela solicitantes
 # ==============================================================================
-    st.markdown("---")
+    st.markdown("""
+    <style>
+    .caproq-request-hero {
+        padding: 26px 28px;
+        border: 1px solid color-mix(in srgb, #005691 24%, transparent);
+        border-radius: 18px;
+        background: linear-gradient(135deg, color-mix(in srgb, #005691 12%, transparent), color-mix(in srgb, #ffffff 94%, transparent));
+        margin: 4px 0 18px 0;
+        box-shadow: 0 12px 30px rgba(0, 86, 145, .08);
+    }
+    .caproq-request-kicker {
+        color: #005691;
+        font-size: .78rem;
+        font-weight: 800;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        margin-bottom: 7px;
+    }
+    .caproq-request-title {
+        font-size: clamp(1.55rem, 2.8vw, 2.35rem);
+        font-weight: 800;
+        line-height: 1.12;
+        margin: 0;
+    }
+    .caproq-request-subtitle {
+        margin: 9px 0 0 0;
+        opacity: .76;
+        max-width: 760px;
+        line-height: 1.55;
+    }
+    .caproq-steps {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 8px;
+        margin: 0 0 18px 0;
+    }
+    .caproq-step {
+        min-height: 68px;
+        border: 1px solid color-mix(in srgb, #005691 18%, transparent);
+        border-radius: 13px;
+        padding: 10px 9px;
+        background: color-mix(in srgb, #005691 5%, transparent);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .caproq-step-number {
+        min-width: 27px;
+        height: 27px;
+        border-radius: 50%;
+        background: #005691;
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .78rem;
+        font-weight: 800;
+    }
+    .caproq-step-label {
+        font-size: .78rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .caproq-form-section {
+        margin: 22px 0 13px 0;
+        padding: 15px 17px;
+        border-left: 5px solid #005691;
+        border-radius: 0 13px 13px 0;
+        background: color-mix(in srgb, #005691 7%, transparent);
+    }
+    .caproq-form-section-title {
+        font-size: 1.03rem;
+        font-weight: 800;
+        margin: 0;
+    }
+    .caproq-form-section-help {
+        font-size: .84rem;
+        opacity: .72;
+        margin-top: 4px;
+    }
+    .caproq-required-note {
+        margin: 4px 0 13px 0;
+        font-size: .82rem;
+        opacity: .7;
+    }
+    .caproq-test-banner {
+        padding: 16px 18px;
+        border-radius: 14px;
+        background: color-mix(in srgb, #e6a23c 13%, transparent);
+        border: 1px solid color-mix(in srgb, #e6a23c 32%, transparent);
+        margin-bottom: 15px;
+    }
+    .caproq-test-title {font-weight: 800; margin-bottom: 4px;}
+    .caproq-test-copy {font-size: .88rem; opacity: .78;}
+    div[data-testid="stForm"] {
+        border: 1px solid color-mix(in srgb, #005691 17%, transparent);
+        border-radius: 18px;
+        padding: 1.05rem 1.15rem 1.2rem 1.15rem;
+        background: color-mix(in srgb, var(--background-color, #ffffff) 97%, #005691 3%);
+        box-shadow: 0 12px 28px rgba(0, 86, 145, .05);
+    }
+    div[data-testid="stFileUploader"] {
+        border-radius: 14px;
+        padding: 4px 8px;
+        background: color-mix(in srgb, #005691 4%, transparent);
+    }
+    @media (max-width: 900px) {
+        .caproq-steps {grid-template-columns: repeat(3, minmax(0, 1fr));}
+    }
+    @media (max-width: 560px) {
+        .caproq-request-hero {padding: 21px 18px;}
+        .caproq-steps {grid-template-columns: repeat(2, minmax(0, 1fr));}
+        div[data-testid="stForm"] {padding: .75rem;}
+    }
+    </style>
+    <div class="caproq-request-hero">
+        <div class="caproq-request-kicker">Hospital Moinhos de Vento · CAPROQ</div>
+        <h1 class="caproq-request-title">Solicitação de padronização de produtos químicos</h1>
+        <p class="caproq-request-subtitle">Registre as informações do produto, sua utilização e os documentos técnicos para iniciar o fluxo de avaliação pelas alçadas responsáveis.</p>
+    </div>
+    <div class="caproq-steps">
+        <div class="caproq-step"><span class="caproq-step-number">1</span><span class="caproq-step-label">Classificação</span></div>
+        <div class="caproq-step"><span class="caproq-step-number">2</span><span class="caproq-step-label">Dados do produto</span></div>
+        <div class="caproq-step"><span class="caproq-step-number">3</span><span class="caproq-step-label">Processos e uso</span></div>
+        <div class="caproq-step"><span class="caproq-step-number">4</span><span class="caproq-step-label">Impacto e segurança</span></div>
+        <div class="caproq-step"><span class="caproq-step-number">5</span><span class="caproq-step-label">Documentos</span></div>
+        <div class="caproq-step"><span class="caproq-step-number">6</span><span class="caproq-step-label">Envio</span></div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    tab_novo, tab_status = st.tabs(["Nova solicitação de compra", "Status e histórico dos meus pedidos"])
+    tab_novo, tab_status = st.tabs(["📝 Nova solicitação", "📚 Meus chamados"])
     
     with tab_novo:
-        st.markdown("Formulário de requisição padrão")
-        st.markdown("Preencha as informações abaixo para iniciar o processo.")
+        st.markdown("<div class='caproq-required-note'>Os campos identificados com <b>*</b> são obrigatórios.</div>", unsafe_allow_html=True)
         
         PASTA_DRIVE_ID = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R"
         
@@ -3891,8 +4018,12 @@ else:
         # 9.1. Formulário Base Obrigatório - clear_on_submit=True garante limpeza visual nativa
         with st.form(key=f"form_requisicao_fixo_{v}", clear_on_submit=True):
             
-            st.markdown("<br><h4 style='color: #005691;'>Processos e Dependências (Fase Inicial)</h4>", unsafe_allow_html=True)
-            st.markdown("---")
+            st.markdown("""
+            <div class="caproq-form-section">
+                <div class="caproq-form-section-title">🧭 Classificação inicial</div>
+                <div class="caproq-form-section-help">Informe se o item seguirá o fluxo padrão ou se será avaliado como produto de teste ou piloto.</div>
+            </div>
+            """, unsafe_allow_html=True)
             valor_produto_teste = st.radio(
                 "Este produto é um Produto de Teste / Piloto? *",
                 options=["SIM", "NÃO"],
@@ -3908,8 +4039,25 @@ else:
             for campo in CONFIG_CAMPOS:
                 if campo["secao"] != secao_atual:
                     secao_atual = campo["secao"]
-                    st.markdown(f"<br><h4 style='color: #005691;'>{secao_atual}</h4>", unsafe_allow_html=True)
-                    st.markdown("---")
+                    secoes_visuais = {
+                        "Dados do Produto": ("📦", "Dados do produto", "Descreva o item, a apresentação, o fabricante e a finalidade de uso."),
+                        "Processos e Dependências": ("⚙️", "Processos e dependências", "Explique o processo atual e eventuais equipamentos ou insumos relacionados."),
+                        "Avaliação de Impacto e Segurança": ("🛡️", "Impacto e segurança", "Avalie os ganhos esperados e os possíveis impactos assistenciais, ocupacionais e ambientais."),
+                        "Studies e Viabilidade": ("📊", "Estudos e viabilidade", "Informe a existência de evidências científicas e análises de custo-efetividade."),
+                    }
+                    icone_secao, titulo_secao, ajuda_secao = secoes_visuais.get(
+                        secao_atual,
+                        ("📌", secao_atual, "Preencha as informações desta etapa."),
+                    )
+                    st.markdown(
+                        f"""
+                        <div class="caproq-form-section">
+                            <div class="caproq-form-section-title">{icone_secao} {titulo_secao}</div>
+                            <div class="caproq-form-section-help">{ajuda_secao}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
                 
                 label_final = f"{campo['label']} *" if campo["obrigatorio"] else campo["label"]
                 
@@ -3933,17 +4081,26 @@ else:
                     )
             
             # 9.2. Seção anexos
-            st.markdown("<br><h4 style='color: #005691;'>Arquivos e Documentações</h4>", unsafe_allow_html=True)
-            st.markdown("---")
+            st.markdown("""
+            <div class="caproq-form-section">
+                <div class="caproq-form-section-title">📎 Documentos técnicos</div>
+                <div class="caproq-form-section-help">Anexe a FDS obrigatória e, quando disponíveis, registro ANVISA, laudos, ficha técnica, catálogo e estudos.</div>
+            </div>
+            """, unsafe_allow_html=True)
             
             arquivos_gerais = st.file_uploader("Arquivos anexados (Registro ANVISA, Laudo Técnico, Ficha Técnico, Fabricante):", accept_multiple_files=True, key=f"up_arquivos_gerais_{v}")
             fds_obrigatorio = st.file_uploader("Anexar FDS (Obrigatório) *", key=f"up_fds_obrigatorio_{v}")
             arquivo_estudos = st.file_uploader("Anexo arquivo de estudos científicos e de custo-efetividade:", key=f"up_arquivo_estudos_{v}")
     
-            st.markdown("---")
+            st.markdown("""
+            <div class="caproq-form-section">
+                <div class="caproq-form-section-title">✅ Revisão e envio</div>
+                <div class="caproq-form-section-help">Revise as respostas e os anexos. Após o envio, o chamado será encaminhado automaticamente às alçadas técnicas.</div>
+            </div>
+            """, unsafe_allow_html=True)
             
             # Botão de envio padrão - Aciona a validação em 1 clique
-            enviar_formulario = st.form_submit_button("Enviar solicitação", use_container_width=True)
+            enviar_formulario = st.form_submit_button("Enviar solicitação para avaliação", use_container_width=True, type="primary")
             
         # Controle interno de salvamento final
         executar_envio_final = False
@@ -3983,8 +4140,12 @@ else:
         if "dados_base_coletados" in st.session_state and st.session_state["dados_base_coletados"]["valor_produto_teste"] == "SIM":
             st.markdown("<br>", unsafe_allow_html=True)
             with st.container(border=True):
-                st.markdown("<h4 style='color: #005691; margin-top:0;'>📦 Informações Complementares: Produto Teste / Piloto</h4>", unsafe_allow_html=True)
-                st.warning("⚠️ **Identificamos que este é um Produto de Teste.** Preencha os detalhes finais abaixo para concluir o chamado:")
+                st.markdown("""
+                <div class="caproq-test-banner">
+                    <div class="caproq-test-title">🧪 Informações complementares do produto de teste</div>
+                    <div class="caproq-test-copy">O formulário principal foi validado. Complete os dados operacionais e de contato abaixo para concluir o envio.</div>
+                </div>
+                """, unsafe_allow_html=True)
                 
                 motivo_teste = st.selectbox(
                     "Classificação do item no HMV: *",
@@ -4221,7 +4382,12 @@ else:
         
     # 9.3. Aba status
     with tab_status:
-        st.markdown("Seus pedidos e andamento")
+        st.markdown("""
+        <div class="caproq-form-section" style="margin-top:8px;">
+            <div class="caproq-form-section-title">📚 Status e histórico dos meus chamados</div>
+            <div class="caproq-form-section-help">Acompanhe o andamento das avaliações técnicas, os pareceres registrados e a decisão final de cada solicitação.</div>
+        </div>
+        """, unsafe_allow_html=True)
         if not df_dados.empty and "Endereço de e-mail" in df_dados.columns:
             meus_pedidos = df_dados[df_dados["Endereço de e-mail"] == user_email]
             if meus_pedidos.empty:
