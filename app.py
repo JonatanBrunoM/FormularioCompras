@@ -2066,73 +2066,239 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
     
     if st.session_state.get("is_admin", False) and st.session_state.get("pagina_atual") == "gerenciar_aprovadores":
         exigir_admin()
-        st.markdown("---")
-        st.title("⚙️ Configurações de usuários, aprovadores e alçadas")
-        st.markdown("Gerencie os acessos, perfis e alçadas técnicas diretamente integrados à aba **Usuarios** da sua planilha.")
-        st.markdown("---")
-        
+
+        st.markdown(
+            """
+<style>
+.caproq-admin-hero {
+    padding: 1.55rem 1.65rem;
+    border: 1px solid rgba(0, 86, 145, .16);
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(0, 86, 145, .12), rgba(0, 86, 145, .03));
+    margin-bottom: 1rem;
+}
+.caproq-admin-kicker {
+    margin: 0 0 .35rem 0;
+    color: #005691;
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+.caproq-admin-title {
+    margin: 0;
+    font-size: clamp(1.65rem, 3vw, 2.35rem);
+    line-height: 1.12;
+}
+.caproq-admin-subtitle {
+    margin: .6rem 0 0 0;
+    max-width: 880px;
+    opacity: .76;
+    line-height: 1.55;
+}
+.caproq-admin-section {
+    margin: 1.2rem 0 .65rem 0;
+}
+.caproq-admin-section h3 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+.caproq-admin-section p {
+    margin: .25rem 0 0 0;
+    opacity: .7;
+    font-size: .9rem;
+}
+.caproq-admin-note {
+    padding: .9rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 86, 145, .14);
+    background: rgba(0, 86, 145, .045);
+    margin-bottom: .8rem;
+}
+.caproq-admin-danger {
+    padding: .95rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(198, 40, 40, .24);
+    background: rgba(198, 40, 40, .06);
+    margin-bottom: .8rem;
+}
+@media (prefers-color-scheme: dark) {
+    .caproq-admin-hero,
+    .caproq-admin-note {
+        border-color: rgba(120, 190, 235, .20);
+        background: rgba(0, 86, 145, .12);
+    }
+}
+</style>
+<div class="caproq-admin-hero">
+    <p class="caproq-admin-kicker">Administração · CAPROQ</p>
+    <h1 class="caproq-admin-title">Gestão de usuários e alçadas</h1>
+    <p class="caproq-admin-subtitle">
+        Controle acessos, perfis administrativos e responsabilidades técnicas
+        vinculadas à aba <strong>Usuarios</strong> do Google Sheets.
+    </p>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+
         df_usuarios = carregar_dados_usuarios()
 
         if not df_usuarios.empty:
             df_usuarios["Email"] = df_usuarios["Email"].astype(str).str.strip().str.lower()
             df_usuarios["Ativo"] = df_usuarios["Ativo"].astype(str).str.strip().str.upper()
             df_usuarios["Admin"] = df_usuarios["Admin"].astype(str).str.strip().str.upper()
-        
-        st.subheader("👥 Usuários cadastrados na planilha")
+
+        total_usuarios = len(df_usuarios) if not df_usuarios.empty else 0
+        total_ativos = int((df_usuarios["Ativo"] == "SIM").sum()) if not df_usuarios.empty else 0
+        total_admins = int((df_usuarios["Admin"] == "SIM").sum()) if not df_usuarios.empty else 0
+        total_aprovadores = int((df_usuarios["Perfil"].astype(str).str.lower() == "aprovador").sum()) if not df_usuarios.empty and "Perfil" in df_usuarios.columns else 0
+
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        col_m1.metric("Usuários cadastrados", total_usuarios)
+        col_m2.metric("Usuários ativos", total_ativos)
+        col_m3.metric("Aprovadores", total_aprovadores)
+        col_m4.metric("Administradores", total_admins)
+
+        st.markdown(
+            """
+<div class="caproq-admin-section">
+    <h3>👥 Diretório de usuários</h3>
+    <p>Visualize os cadastros existentes e confira rapidamente perfis, alçadas e situação de acesso.</p>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+
         if not df_usuarios.empty:
+            col_busca, col_status, col_perfil = st.columns([2.2, 1, 1])
+            with col_busca:
+                busca_usuario = st.text_input(
+                    "Buscar usuário",
+                    placeholder="Nome ou e-mail",
+                    key="busca_usuario_admin",
+                )
+            with col_status:
+                filtro_status = st.selectbox(
+                    "Status",
+                    ["Todos", "Ativos", "Inativos"],
+                    key="filtro_status_usuario_admin",
+                )
+            with col_perfil:
+                perfis_disponiveis = sorted(
+                    [p for p in df_usuarios.get("Perfil", pd.Series(dtype=str)).dropna().astype(str).unique() if p.strip()]
+                )
+                filtro_perfil = st.selectbox(
+                    "Perfil",
+                    ["Todos"] + perfis_disponiveis,
+                    key="filtro_perfil_usuario_admin",
+                )
+
+            df_exibicao = df_usuarios.copy()
+            if busca_usuario.strip():
+                termo = busca_usuario.strip().lower()
+                mascara_busca = (
+                    df_exibicao["Email"].astype(str).str.lower().str.contains(termo, na=False)
+                    | df_exibicao["Nome"].astype(str).str.lower().str.contains(termo, na=False)
+                )
+                df_exibicao = df_exibicao[mascara_busca]
+
+            if filtro_status == "Ativos":
+                df_exibicao = df_exibicao[df_exibicao["Ativo"] == "SIM"]
+            elif filtro_status == "Inativos":
+                df_exibicao = df_exibicao[df_exibicao["Ativo"] != "SIM"]
+
+            if filtro_perfil != "Todos":
+                df_exibicao = df_exibicao[df_exibicao["Perfil"].astype(str) == filtro_perfil]
+
+            st.caption(f"Exibindo {len(df_exibicao)} de {total_usuarios} usuários.")
             st.dataframe(
-                df_usuarios, 
+                df_exibicao,
                 column_config={
                     "Email": st.column_config.TextColumn("E-mail"),
-                    "Nome": st.column_config.TextColumn("Nome Completo"),
+                    "Nome": st.column_config.TextColumn("Nome completo"),
                     "Perfil": st.column_config.TextColumn("Perfil"),
-                    "Alcada": st.column_config.TextColumn("Alçadas Associadas"),
-                    "Admin": st.column_config.TextColumn("Administrador (SIM/NÃO)"),
-                    "Ativo": st.column_config.TextColumn("Status Ativo (SIM/NÃO)"),
-                    "Data_Cadastro": st.column_config.TextColumn("Data de Cadastro")
+                    "Alcada": st.column_config.TextColumn("Alçadas associadas"),
+                    "Admin": st.column_config.TextColumn("Administrador"),
+                    "Ativo": st.column_config.TextColumn("Ativo"),
+                    "Data_Cadastro": st.column_config.TextColumn("Cadastro"),
                 },
-                use_container_width=True, 
-                hide_index=True
+                use_container_width=True,
+                hide_index=True,
             )
         else:
             st.warning("⚠️ Nenhum usuário encontrado na aba 'Usuarios' do Google Sheets.")
-        
-        st.markdown("---")
-        
+
+        st.markdown(
+            """
+<div class="caproq-admin-section">
+    <h3>⚙️ Ações administrativas</h3>
+    <p>Cadastre, atualize ou remova usuários mantendo o controle centralizado no Google Sheets.</p>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+
         tab_salvar_usuario, tab_excluir_usuario = st.tabs([
-            "💾 Cadastrar / Alterar Usuário", 
-            "❌ Remover Usuário"
+            "➕ Cadastrar ou atualizar",
+            "🗑️ Remover usuário",
         ])
-        
-        lista_alcadas_disponiveis = [ALCADAS_INFO[chave].get("label", chave) for chave in ALCADAS_INFO.keys()]
-        
+
+        lista_alcadas_disponiveis = [
+            ALCADAS_INFO[chave].get("label", chave) for chave in ALCADAS_INFO.keys()
+        ]
+
         with tab_salvar_usuario:
-            st.markdown("### Salvar ou Atualizar informações de usuário")
-            st.caption("Caso o e-mail digitado já exista, o cadastro correspondente será atualizado.")
-            
+            st.markdown(
+                """
+<div class="caproq-admin-note">
+    <strong>Cadastro inteligente:</strong> quando o e-mail já existir, o registro será atualizado sem criar duplicidade.
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+
             with st.form("form_usuario_sheets"):
-                email_input = st.text_input("E-mail do usuário (Chave única):").strip().lower()
-                nome_input = st.text_input("Nome completo:")
-                perfil_input = st.selectbox("Perfil de acesso:", ["Aprovador", "Solicitante", "Visualizador"])
-                
-                st.markdown("**Selecione as alçadas técnicas deste usuário:**")
+                st.markdown("#### Identificação do usuário")
+                col_ident1, col_ident2 = st.columns(2)
+                with col_ident1:
+                    email_input = st.text_input(
+                        "E-mail do usuário *",
+                        placeholder="nome@empresa.com.br",
+                    ).strip().lower()
+                with col_ident2:
+                    nome_input = st.text_input(
+                        "Nome completo *",
+                        placeholder="Nome e sobrenome",
+                    )
+
+                st.markdown("#### Perfil e permissões")
+                col_permissao1, col_permissao2, col_permissao3 = st.columns(3)
+                with col_permissao1:
+                    perfil_input = st.selectbox(
+                        "Perfil de acesso",
+                        ["Aprovador", "Solicitante", "Visualizador"],
+                    )
+                with col_permissao2:
+                    is_admin_input = st.selectbox("Administrador", ["NÃO", "SIM"])
+                with col_permissao3:
+                    is_ativo_input = st.selectbox("Usuário ativo", ["SIM", "NÃO"])
+
+                st.markdown("#### Alçadas técnicas")
+                st.caption("Selecione somente as áreas pelas quais o usuário será responsável.")
                 alcadas_selecionadas = []
-                
                 col_checkboxes = st.columns(2)
                 for idx, nome_alcada in enumerate(lista_alcadas_disponiveis):
-                    col_index = idx % 2
-                    with col_checkboxes[col_index]:
+                    with col_checkboxes[idx % 2]:
                         if st.checkbox(nome_alcada, key=f"check_alcada_{nome_alcada}"):
                             alcadas_selecionadas.append(nome_alcada)
-                
-                col_status1, col_status2 = st.columns(2)
-                with col_status1:
-                    is_admin_input = st.selectbox("É Administrador?", ["NÃO", "SIM"])
-                with col_status2:
-                    is_ativo_input = st.selectbox("Usuário Ativo?", ["SIM", "NÃO"])
-                
-                botao_salvar_usr = st.form_submit_button("Salvar Usuário na Planilha", use_container_width=True)
-                
+
+                botao_salvar_usr = st.form_submit_button(
+                    "💾 Salvar usuário",
+                    use_container_width=True,
+                    type="primary",
+                )
+
                 if botao_salvar_usr:
                     if not email_input or "@" not in email_input:
                         st.error("❌ Forneça um e-mail válido para identificação.")
@@ -2140,10 +2306,10 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                         st.error("❌ O nome do usuário não pode ficar em branco.")
                     else:
                         string_alcadas = ", ".join(alcadas_selecionadas) if alcadas_selecionadas else "Nenhuma"
-                        
+
                         fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
                         data_atual_str = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
-                        
+
                         nova_linha = {
                             "Email": email_input,
                             "Nome": nome_input,
@@ -2151,9 +2317,9 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                             "Alcada": string_alcadas,
                             "Admin": is_admin_input,
                             "Ativo": is_ativo_input,
-                            "Data_Cadastro": data_atual_str
+                            "Data_Cadastro": data_atual_str,
                         }
-                        
+
                         if not df_usuarios.empty and email_input in df_usuarios["Email"].values:
                             idx_existente = df_usuarios[df_usuarios["Email"] == email_input].index[0]
                             for col, valor in nova_linha.items():
@@ -2163,7 +2329,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                             df_nova_linha = pd.DataFrame([nova_linha])
                             df_usuarios = pd.concat([df_usuarios, df_nova_linha], ignore_index=True)
                             msg_sucesso = f"🎉 Usuário `{email_input}` cadastrado com sucesso!"
-                        
+
                         try:
                             conn.update(worksheet="Usuarios", data=df_usuarios)
                             st.session_state["df_usuarios_cache"] = df_usuarios.copy()
@@ -2174,18 +2340,35 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                         except Exception as e:
                             st.error(f"❌ Erro ao salvar dados na aba 'Usuarios': {e}")
 
-        # 2. EXCLUIR USUÁRIO
         with tab_excluir_usuario:
-            st.markdown("### Remover usuário do sistema")
-            st.warning("⚠️ Esta ação removerá o usuário da base de dados do sistema.")
-            
+            st.markdown(
+                """
+<div class="caproq-admin-danger">
+    <strong>Atenção:</strong> a remoção apaga o registro da base do sistema. Para apenas bloquear o acesso, prefira atualizar o usuário como <strong>inativo</strong>.
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+
             if not df_usuarios.empty:
-                emails_exclusao = df_usuarios["Email"].tolist()
+                opcoes_exclusao = {
+                    f"{valor_seguro(row.get('Nome'))} · {row.get('Email', '')}": row.get("Email", "")
+                    for _, row in df_usuarios.iterrows()
+                }
                 with st.form("form_excluir_usuario"):
-                    email_excluir = st.selectbox("Selecione o e-mail para remover:", options=emails_exclusao)
-                    confirmar_exclusao = st.checkbox("Confirmo que desejo apagar o registro deste usuário.")
-                    botao_excluir_usr = st.form_submit_button("Excluir", use_container_width=True)
-                    
+                    usuario_excluir_label = st.selectbox(
+                        "Selecione o usuário para remover",
+                        options=list(opcoes_exclusao.keys()),
+                    )
+                    email_excluir = opcoes_exclusao[usuario_excluir_label]
+                    confirmar_exclusao = st.checkbox(
+                        "Confirmo que desejo apagar permanentemente este registro."
+                    )
+                    botao_excluir_usr = st.form_submit_button(
+                        "🗑️ Remover usuário",
+                        use_container_width=True,
+                    )
+
                     if botao_excluir_usr:
                         if not confirmar_exclusao:
                             st.error("❌ Marque a caixa de confirmação para poder prosseguir.")
@@ -2202,7 +2385,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                 st.error(f"❌ Erro ao salvar as alterações de exclusão no Sheets: {e}")
             else:
                 st.info("Nenhum usuário cadastrado para remoção.")
-                        
+
     # --------------------------------------------------------------------------
     # PAINEL DE CONTROLE PRINCIPAL
     # --------------------------------------------------------------------------
