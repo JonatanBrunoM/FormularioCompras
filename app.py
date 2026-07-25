@@ -322,76 +322,105 @@ st.markdown("""
         2.1 SIDEBAR E COMPONENTES INTERNOS
        ========================================== */
     section[data-testid="stSidebar"] {
-        background:
-            linear-gradient(
-                180deg,
-                #ffffff 0%,
-                #f5f8fa 100%
-            ) !important;
-        border-right: 1px solid #e1e8ed;
+        background: var(--secondary-background-color) !important;
+        border-right: 1px solid rgba(128, 128, 128, 0.20);
+        color: var(--text-color) !important;
     }
     
-    section[data-testid="stSidebar"] > div {
-        padding-top: 1rem;
+    section[data-testid="stSidebar"] > div:first-child {
+        height: 100vh;
+        overflow-y: auto;
+        overflow-x: hidden;
     }
+    
+    section[data-testid="stSidebar"] div[data-testid="stSidebarContent"] {
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+    
+    section[data-testid="stSidebar"] ::-webkit-scrollbar {
+        width: 5px;
+    }
+    
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-thumb {
+        background: rgba(128, 128, 128, 0.28);
+        border-radius: 999px;
+    }
+    
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-thumb:hover {
+        background: rgba(128, 128, 128, 0.45);
+    }
+    
+    /* ------------------------------------------
+       Cabeçalho institucional
+       ------------------------------------------ */
     
     .sidebar-brand-card {
-        padding: 16px 15px 14px;
-        margin-bottom: 14px;
-        border-radius: 14px;
+        padding: 14px 14px 12px;
+        margin-bottom: 10px;
+        border-radius: 13px;
         background:
             linear-gradient(
                 135deg,
                 #005691 0%,
                 #003d66 100%
             );
-        box-shadow: 0 8px 22px rgba(0, 61, 102, 0.16);
+        box-shadow: 0 6px 18px rgba(0, 61, 102, 0.22);
     }
     
     .sidebar-brand-kicker {
-        margin: 0 0 4px;
+        margin: 0 0 3px;
         color: rgba(255, 255, 255, 0.72);
-        font-size: 0.67rem;
+        font-size: 0.62rem;
         font-weight: 700;
-        letter-spacing: 0.10em;
+        letter-spacing: 0.09em;
         text-transform: uppercase;
     }
     
     .sidebar-brand-title {
         margin: 0;
         color: #ffffff !important;
-        font-size: 1.33rem;
+        font-size: 1.22rem;
         font-weight: 750;
-        line-height: 1.15;
+        line-height: 1.1;
     }
     
     .sidebar-brand-subtitle {
-        margin: 5px 0 0;
+        margin: 4px 0 0;
         color: rgba(255, 255, 255, 0.82);
-        font-size: 0.76rem;
-        line-height: 1.35;
+        font-size: 0.70rem;
+        line-height: 1.3;
     }
+    
+    /* ------------------------------------------
+       Card do usuário
+       ------------------------------------------ */
     
     .sidebar-user-card {
         display: flex;
         align-items: center;
-        gap: 11px;
-        padding: 12px;
-        margin-bottom: 7px;
-        border: 1px solid #dde5ea;
-        border-radius: 12px;
-        background: #ffffff;
-        box-shadow: 0 3px 10px rgba(38, 50, 56, 0.04);
+        gap: 9px;
+        padding: 10px;
+        margin-bottom: 5px;
+        border: 1px solid rgba(128, 128, 128, 0.22);
+        border-radius: 11px;
+        background: var(--background-color);
+        color: var(--text-color);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     }
     
     .sidebar-user-avatar {
-        width: 44px;
-        height: 44px;
-        flex: 0 0 44px;
+        width: 39px;
+        height: 39px;
+        flex: 0 0 39px;
         border-radius: 50%;
         object-fit: cover;
-        border: 2px solid #005691;
-        box-shadow: 0 2px 7px rgba(0, 86, 145, 0.18);
+        border: 2px solid var(--primary-color);
+        box-shadow: 0 2px 6px rgba(0, 86, 145, 0.20);
     }
     
     .sidebar-user-info {
@@ -401,50 +430,60 @@ st.markdown("""
     }
     
     .sidebar-user-name {
-        color: #263238;
-        font-size: 0.88rem;
+        color: var(--text-color);
+        font-size: 0.82rem;
         font-weight: 700;
-        line-height: 1.3;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    .sidebar-user-email {
-        margin-top: 2px;
-        color: #71808a;
-        font-size: 0.71rem;
         line-height: 1.25;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
     
+    .sidebar-user-email {
+        margin-top: 1px;
+        color: var(--text-color);
+        opacity: 0.65;
+        font-size: 0.66rem;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    /* ------------------------------------------
+       Identificação do perfil
+       ------------------------------------------ */
+    
     .sidebar-role-badge {
         display: inline-flex;
         align-items: center;
         width: fit-content;
-        margin: 0 0 15px 2px;
-        padding: 5px 9px;
-        border: 1px solid #d9e8f1;
+        margin: 0 0 10px 2px;
+        padding: 4px 8px;
+        border: 1px solid rgba(0, 86, 145, 0.25);
         border-radius: 999px;
-        background: #edf6fb;
-        color: #005691;
-        font-size: 0.67rem;
+        background: rgba(0, 86, 145, 0.10);
+        color: var(--primary-color);
+        font-size: 0.61rem;
         font-weight: 700;
-        letter-spacing: 0.035em;
+        letter-spacing: 0.03em;
         text-transform: uppercase;
     }
+    
+    /* ------------------------------------------
+       Títulos das seções
+       ------------------------------------------ */
     
     .sidebar-section-label {
         display: flex;
         align-items: center;
-        gap: 7px;
-        margin: 18px 2px 8px;
-        color: #73818a;
-        font-size: 0.68rem;
+        gap: 6px;
+        margin: 11px 2px 5px;
+        color: var(--text-color);
+        opacity: 0.62;
+        font-size: 0.61rem;
         font-weight: 750;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.075em;
         text-transform: uppercase;
     }
     
@@ -452,18 +491,29 @@ st.markdown("""
         content: "";
         height: 1px;
         flex: 1;
-        background: #dfe6ea;
+        background: var(--text-color);
+        opacity: 0.13;
     }
     
-    section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
-        min-height: 43px;
+    /* ------------------------------------------
+       Botões de navegação
+       ------------------------------------------ */
+    
+    section[data-testid="stSidebar"]
+    div[data-testid="stButton"] {
+        margin-bottom: 2px;
+    }
+    
+    section[data-testid="stSidebar"]
+    div[data-testid="stButton"] > button {
+        min-height: 37px;
         justify-content: flex-start;
-        padding-left: 14px;
+        padding: 0.35rem 0.75rem;
         border: 1px solid transparent;
-        border-radius: 10px;
+        border-radius: 9px;
         background: transparent;
-        color: #39464d;
-        font-size: 0.84rem;
+        color: var(--text-color);
+        font-size: 0.78rem;
         font-weight: 600;
         box-shadow: none;
         transition:
@@ -473,24 +523,35 @@ st.markdown("""
             transform 0.18s ease;
     }
     
-    section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
-        border-color: #d7e6ef;
-        background: #eaf4f9;
-        color: #005691;
+    section[data-testid="stSidebar"]
+    div[data-testid="stButton"] > button:hover {
+        border-color: rgba(0, 86, 145, 0.30);
+        background: rgba(0, 86, 145, 0.10);
+        color: var(--primary-color);
         transform: translateX(2px);
     }
     
-    section[data-testid="stSidebar"] div[data-testid="stLinkButton"] a {
-        min-height: 43px;
+    /* ------------------------------------------
+       Links externos
+       ------------------------------------------ */
+    
+    section[data-testid="stSidebar"]
+    div[data-testid="stLinkButton"] {
+        margin-bottom: 3px;
+    }
+    
+    section[data-testid="stSidebar"]
+    div[data-testid="stLinkButton"] a {
+        min-height: 37px;
         display: flex !important;
         align-items: center !important;
         justify-content: flex-start !important;
-        padding-left: 14px !important;
-        border: 1px solid #dbe5eb !important;
-        border-radius: 10px !important;
-        background: #ffffff !important;
-        color: #3d4b52 !important;
-        font-size: 0.82rem !important;
+        padding: 0.35rem 0.75rem !important;
+        border: 1px solid rgba(128, 128, 128, 0.22) !important;
+        border-radius: 9px !important;
+        background: var(--background-color) !important;
+        color: var(--text-color) !important;
+        font-size: 0.76rem !important;
         font-weight: 600 !important;
         text-decoration: none !important;
         box-shadow: none !important;
@@ -501,46 +562,153 @@ st.markdown("""
             transform 0.18s ease !important;
     }
     
-    section[data-testid="stSidebar"] div[data-testid="stLinkButton"] a:hover {
-        border-color: #005691 !important;
-        background: #edf6fb !important;
-        color: #005691 !important;
+    section[data-testid="stSidebar"]
+    div[data-testid="stLinkButton"] a:hover {
+        border-color: var(--primary-color) !important;
+        background: rgba(0, 86, 145, 0.10) !important;
+        color: var(--primary-color) !important;
         transform: translateX(2px);
     }
     
+    /* ------------------------------------------
+       Rodapé e saída
+       ------------------------------------------ */
+    
     .sidebar-divider {
         height: 1px;
-        margin: 17px 0 12px;
-        background: #dfe6ea;
+        margin: 11px 0 8px;
+        background: var(--text-color);
+        opacity: 0.13;
     }
     
     .sidebar-footer {
-        margin-top: 10px;
-        padding: 9px 4px 0;
-        color: #8a979e;
-        font-size: 0.64rem;
-        line-height: 1.45;
+        margin-top: 6px;
+        padding: 5px 4px 0;
+        color: var(--text-color);
+        opacity: 0.52;
+        font-size: 0.57rem;
+        line-height: 1.35;
         text-align: center;
     }
     
-    /* Botão Sair */
     section[data-testid="stSidebar"]
-    div.st-key-botao_sair_sidebar
-    button {
-        justify-content: center;
-        margin-top: 3px;
-        border: 1px solid #efcfd2;
-        background: #fff8f8;
-        color: #a12b35;
+    div.st-key-botao_sair_sidebar {
+        margin-top: 2px;
     }
     
     section[data-testid="stSidebar"]
-    div.st-key-botao_sair_sidebar
-    button:hover {
+    div.st-key-botao_sair_sidebar button {
+        min-height: 36px;
+        justify-content: center;
+        border: 1px solid rgba(200, 69, 80, 0.40);
+        background: rgba(200, 69, 80, 0.08);
+        color: #d65a63;
+    }
+    
+    section[data-testid="stSidebar"]
+    div.st-key-botao_sair_sidebar button:hover {
         border-color: #c84550;
         background: #c84550;
         color: #ffffff;
         transform: none;
+    }
+    
+    /* ==========================================
+       AJUSTES PARA TELAS MAIS BAIXAS
+       ========================================== */
+    
+    @media (max-height: 850px) {
+    
+        .sidebar-brand-card {
+            padding: 11px 12px 10px;
+            margin-bottom: 7px;
+        }
+    
+        .sidebar-brand-title {
+            font-size: 1.10rem;
+        }
+    
+        .sidebar-brand-subtitle {
+            font-size: 0.64rem;
+        }
+    
+        .sidebar-user-card {
+            padding: 8px;
+        }
+    
+        .sidebar-user-avatar {
+            width: 35px;
+            height: 35px;
+            flex-basis: 35px;
+        }
+    
+        .sidebar-role-badge {
+            margin-bottom: 7px;
+            padding: 3px 7px;
+        }
+    
+        .sidebar-section-label {
+            margin-top: 8px;
+            margin-bottom: 4px;
+        }
+    
+        section[data-testid="stSidebar"]
+        div[data-testid="stButton"] > button,
+        section[data-testid="stSidebar"]
+        div[data-testid="stLinkButton"] a {
+            min-height: 34px;
+            font-size: 0.73rem !important;
+        }
+    
+        .sidebar-divider {
+            margin: 8px 0 6px;
+        }
+    
+        .sidebar-footer {
+            font-size: 0.53rem;
+        }
+    }
+    
+    /* Telas muito baixas */
+    @media (max-height: 700px) {
+    
+        .sidebar-brand-subtitle {
+            display: none;
+        }
+    
+        .sidebar-user-email {
+            display: none;
+        }
+    
+        .sidebar-brand-card {
+            padding: 9px 11px;
+        }
+    
+        .sidebar-user-card {
+            padding: 7px 8px;
+        }
+    
+        .sidebar-role-badge {
+            margin-bottom: 5px;
+        }
+    
+        .sidebar-section-label {
+            margin-top: 6px;
+            margin-bottom: 3px;
+        }
+    
+        section[data-testid="stSidebar"]
+        div[data-testid="stButton"] > button,
+        section[data-testid="stSidebar"]
+        div[data-testid="stLinkButton"] a {
+            min-height: 31px;
+            padding-top: 0.20rem !important;
+            padding-bottom: 0.20rem !important;
+        }
+    
+        .sidebar-footer {
+            display: none;
+        }
     }
     
 </style>
