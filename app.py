@@ -3015,11 +3015,82 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
         and st.session_state.get("pagina_atual") == "homologacao_final"
     ):
         exigir_admin()
-        st.markdown("---")
-        st.title("🛡️ Painel de Homologação e Decisão Final (Admin)")
+
         st.markdown(
-            "Analise os pareceres técnicos das alçadas e registre a "
-            "deliberação final do comitê."
+            """
+            <style>
+            .caproq-homolog-header {
+                padding: 1.45rem 1.55rem;
+                border: 1px solid rgba(49, 130, 206, .20);
+                border-radius: 18px;
+                background: linear-gradient(135deg, rgba(0, 86, 145, .13), rgba(0, 86, 145, .03));
+                margin: .25rem 0 1.1rem;
+            }
+            .caproq-homolog-kicker {
+                font-size: .74rem; font-weight: 800; letter-spacing: .13em;
+                text-transform: uppercase; opacity: .72; margin-bottom: .35rem;
+            }
+            .caproq-homolog-title {
+                font-size: 1.7rem; font-weight: 800; line-height: 1.15; margin: 0;
+            }
+            .caproq-homolog-subtitle {
+                margin-top: .45rem; opacity: .78; line-height: 1.5;
+            }
+            .caproq-summary-grid {
+                display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: .7rem; margin: .8rem 0 1rem;
+            }
+            .caproq-summary-card {
+                padding: .8rem .9rem; border-radius: 13px;
+                border: 1px solid rgba(128,128,128,.20);
+                background: rgba(128,128,128,.055); min-height: 74px;
+            }
+            .caproq-summary-label {
+                font-size: .70rem; font-weight: 800; letter-spacing: .06em;
+                text-transform: uppercase; opacity: .62; margin-bottom: .28rem;
+            }
+            .caproq-summary-value { font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+            .caproq-score-grid {
+                display:grid; grid-template-columns:repeat(auto-fit,minmax(135px,1fr));
+                gap:.55rem; margin:.65rem 0 1rem;
+            }
+            .caproq-score-card {
+                padding:.72rem .75rem; border-radius:12px; border:1px solid var(--score-border);
+                background:var(--score-bg);
+            }
+            .caproq-score-label { font-size:.72rem; font-weight:800; opacity:.75; margin-bottom:.25rem; }
+            .caproq-score-status { font-size:.84rem; font-weight:800; }
+            .caproq-section-title {
+                margin: 1.1rem 0 .6rem; padding-left:.7rem; border-left:4px solid #005691;
+                font-size:1.02rem; font-weight:800;
+            }
+            .caproq-parecer-card {
+                padding:.85rem .95rem; margin:.55rem 0; border-radius:12px;
+                border:1px solid rgba(128,128,128,.18); background:rgba(128,128,128,.045);
+            }
+            .caproq-parecer-head { font-weight:800; margin-bottom:.35rem; }
+            .caproq-parecer-text { opacity:.82; line-height:1.5; overflow-wrap:anywhere; }
+            .caproq-decision-box {
+                margin:1.2rem 0 .7rem; padding:1rem 1.1rem; border-radius:14px;
+                border:1px solid rgba(0,86,145,.28); background:rgba(0,86,145,.07);
+            }
+            @media (max-width: 900px) {
+                .caproq-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+            }
+            @media (max-width: 560px) {
+                .caproq-summary-grid { grid-template-columns:1fr; }
+                .caproq-homolog-title { font-size:1.35rem; }
+            }
+            </style>
+            <div class="caproq-homolog-header">
+                <div class="caproq-homolog-kicker">CAPROQ · Governança técnica</div>
+                <div class="caproq-homolog-title">🛡️ Homologação e decisão final</div>
+                <div class="caproq-homolog-subtitle">
+                    Consolide os pareceres das alçadas, registre as validações finais e formalize a decisão institucional sobre o produto.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
         if df_dados.empty:
@@ -3051,9 +3122,23 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                     "final ou com status de reunião definida."
                 )
             else:
-                st.warning(
-                    f"⚠️ Existem {len(chamados_para_decisao)} solicitações "
-                    "aguardando sua deliberação final."
+                total_homologacao = len(chamados_para_decisao)
+                total_reuniao = chamados_para_decisao[
+                    chamados_para_decisao["Status_Aprovadores"]
+                    .astype(str)
+                    .str.lower()
+                    .str.contains("reunião|reuniao", regex=True)
+                ].shape[0]
+                total_teste = chamados_para_decisao.get(
+                    "Produto_Teste", pd.Series(index=chamados_para_decisao.index, dtype=str)
+                ).astype(str).str.strip().str.upper().eq("SIM").sum()
+
+                metrica_1, metrica_2, metrica_3 = st.columns(3)
+                metrica_1.metric("Aguardando decisão", total_homologacao)
+                metrica_2.metric("Produtos de teste", int(total_teste))
+                metrica_3.metric("Com reunião indicada", total_reuniao)
+                st.caption(
+                    "Abra um chamado para visualizar o resumo executivo, os pareceres técnicos e o formulário de decisão final."
                 )
 
                 for _, row in chamados_para_decisao.iterrows():
@@ -3069,19 +3154,51 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                     )
                     descricao_produto = str(row.get(col_prod, "Sem descrição"))
 
-                    with st.container(border=True):
-                        st.markdown(
-                            f"### Chamado #{id_chamado} — {descricao_produto}"
-                        )
-                        st.markdown(
-                            f"**Status dos Aprovadores:** `{status_apr}`"
-                        )
+                    data_abertura = row.get(
+                        "Carimbo de data/hora", row.get("Timestamp", "")
+                    )
+                    try:
+                        data_abertura_formatada = pd.to_datetime(
+                            data_abertura, dayfirst=True
+                        ).strftime("%d/%m/%Y às %H:%M")
+                    except Exception:
+                        data_abertura_formatada = valor_seguro(data_abertura)
 
+                    titulo_homologacao = (
+                        f"Chamado #{id_chamado} · {descricao_produto} · "
+                        f"{data_abertura_formatada}"
+                    )
+
+                    with st.expander(titulo_homologacao, expanded=False):
                         eh_produto_teste = (
                             str(row.get("Produto_Teste", "NÃO"))
                             .strip()
                             .upper()
                             == "SIM"
+                        )
+
+                        nome_solicitante_resumo = valor_seguro(
+                            row.get("Nome solicitante", row.get("Nome", "Não informado"))
+                        )
+                        setor_solicitante_resumo = valor_seguro(
+                            row.get("Setor_Solicitante", row.get("Setor", "Não informado"))
+                        )
+                        fornecedor_resumo = valor_seguro(
+                            row.get("Fornecedor", row.get("Nome do fornecedor", "Não informado"))
+                        )
+                        tipo_resumo = "Produto de teste / piloto" if eh_produto_teste else "Solicitação padrão"
+                        status_seguro = escape(valor_seguro(status_apr))
+                        st.markdown(
+                            f"""
+                            <div class="caproq-summary-grid">
+                                <div class="caproq-summary-card"><div class="caproq-summary-label">Solicitante</div><div class="caproq-summary-value">{escape(nome_solicitante_resumo)}</div></div>
+                                <div class="caproq-summary-card"><div class="caproq-summary-label">Setor</div><div class="caproq-summary-value">{escape(setor_solicitante_resumo)}</div></div>
+                                <div class="caproq-summary-card"><div class="caproq-summary-label">Fornecedor</div><div class="caproq-summary-value">{escape(fornecedor_resumo)}</div></div>
+                                <div class="caproq-summary-card"><div class="caproq-summary-label">Modalidade</div><div class="caproq-summary-value">{escape(tipo_resumo)}</div></div>
+                            </div>
+                            <div class="caproq-decision-box"><b>Status do fluxo técnico:</b> {status_seguro}</div>
+                            """,
+                            unsafe_allow_html=True,
                         )
 
                         if eh_produto_teste:
@@ -3131,52 +3248,56 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                         f"{valor_seguro(row.get('Responsavel_Area'))}"
                                     )
 
-                        st.markdown("---")
-                        st.markdown("**📋 Pareceres técnicos registrados:**")
-
-                        cols_votos = st.columns(len(ALCADAS_INFO))
-
-                        for idx, (_, info) in enumerate(ALCADAS_INFO.items()):
-                            col_voto = info["coluna_sheets"]
-                            voto_atual = row.get(col_voto, "Pendente")
-
-                            with cols_votos[idx]:
-                                if (
-                                    "Aprovar" in str(voto_atual)
-                                    and "ressalva"
-                                    not in str(voto_atual).lower()
-                                ):
-                                    st.success(
-                                        f"**{info['label']}:**\n🟢 Aprovado"
-                                    )
-                                elif "ressalva" in str(voto_atual).lower():
-                                    st.warning(
-                                        f"**{info['label']}:**\n🟡 Com Ressalva"
-                                    )
-                                elif "Reprovar" in str(voto_atual):
-                                    st.error(
-                                        f"**{info['label']}:**\n🔴 Recusado"
-                                    )
-                                else:
-                                    st.caption(
-                                        f"**{info['label']}:**\n⚪ {voto_atual}"
-                                    )
+                        st.markdown(
+                            '<div class="caproq-section-title">📋 Panorama das alçadas técnicas</div>',
+                            unsafe_allow_html=True,
+                        )
+                        cards_votos = []
+                        for _, info in ALCADAS_INFO.items():
+                            voto_atual = str(row.get(info["coluna_sheets"], "Pendente"))
+                            voto_lower = voto_atual.lower()
+                            if "aprovar" in voto_lower and "ressalva" not in voto_lower:
+                                rotulo_voto, icone_voto = "Aprovado", "●"
+                                fundo_voto, borda_voto = "rgba(0,141,76,.11)", "rgba(0,141,76,.32)"
+                            elif "ressalva" in voto_lower:
+                                rotulo_voto, icone_voto = "Com ressalva", "●"
+                                fundo_voto, borda_voto = "rgba(230,162,60,.13)", "rgba(230,162,60,.38)"
+                            elif "reprovar" in voto_lower:
+                                rotulo_voto, icone_voto = "Reprovado", "●"
+                                fundo_voto, borda_voto = "rgba(217,48,37,.11)", "rgba(217,48,37,.34)"
+                            else:
+                                rotulo_voto, icone_voto = "Pendente", "○"
+                                fundo_voto, borda_voto = "rgba(128,128,128,.08)", "rgba(128,128,128,.25)"
+                            cards_votos.append(
+                                f'<div class="caproq-score-card" style="--score-bg:{fundo_voto};--score-border:{borda_voto}">'
+                                f'<div class="caproq-score-label">{escape(info["label"])}</div>'
+                                f'<div class="caproq-score-status">{icone_voto} {rotulo_voto}</div></div>'
+                            )
+                        st.markdown(
+                            '<div class="caproq-score-grid">' + ''.join(cards_votos) + '</div>',
+                            unsafe_allow_html=True,
+                        )
 
                         with st.expander(
-                            "💬 Ver detalhes dos pareceres escritos pelas alçadas"
+                            "💬 Pareceres completos das alçadas", expanded=False
                         ):
                             for _, info in ALCADAS_INFO.items():
-                                voto_detalhado = row.get(
-                                    info["coluna_sheets"], "Pendente"
+                                voto_detalhado = valor_seguro(
+                                    row.get(info["coluna_sheets"], "Pendente")
                                 )
                                 st.markdown(
-                                    f"**{info['label']}:** {voto_detalhado}"
+                                    f'<div class="caproq-parecer-card">'
+                                    f'<div class="caproq-parecer-head">{escape(info["label"])}</div>'
+                                    f'<div class="caproq-parecer-text">{escape(voto_detalhado)}</div>'
+                                    f'</div>',
+                                    unsafe_allow_html=True,
                                 )
 
                         if eh_produto_teste:
                             st.markdown("---")
                             st.markdown(
-                                "#### 🧪 Avaliação Técnica do Produto Teste"
+                                '<div class="caproq-section-title">🧪 Avaliação técnica do produto de teste</div>',
+                                unsafe_allow_html=True,
                             )
                             st.info(
                                 "Preencha os dados técnicos referentes ao teste "
@@ -3278,9 +3399,9 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                     key=f"parecer_padronizacao_{id_chamado}",
                                 )
 
-                        st.markdown("---")
                         st.markdown(
-                            "#### ✅ Encerramento e Homologação Final"
+                            '<div class="caproq-section-title">✅ Validações de encerramento</div>',
+                            unsafe_allow_html=True,
                         )
                         st.info(
                             "Estas questões devem ser respondidas para todos os "
@@ -3342,7 +3463,14 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                             key=f"homologacao_fispq_setor_{id_chamado}",
                         )
 
-                        st.markdown("---")
+                        st.markdown(
+                            '<div class="caproq-section-title">🛡️ Deliberação administrativa final</div>',
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown(
+                            '<div class="caproq-decision-box"><b>Decisão institucional</b><br><span style="opacity:.75">Considere os pareceres técnicos e registre abaixo o veredito que encerrará oficialmente o chamado.</span></div>',
+                            unsafe_allow_html=True,
+                        )
                         decisao_final_admin = st.radio(
                             "6. Decisão administrativa final do chamado:",
                             options=[
