@@ -1429,10 +1429,10 @@ if usuario_privilegiado:
 
 if usuario_eh_admin():
 
-st.sidebar.markdown(
-    '<div class="sidebar-section-label">Administração</div>',
-    unsafe_allow_html=True,
-)
+    st.sidebar.markdown(
+        '<div class="sidebar-section-label">Administração</div>',
+        unsafe_allow_html=True,
+    )
 
     if st.sidebar.button(
         "🛡️ Homologação final",
@@ -1456,10 +1456,10 @@ st.sidebar.markdown(
 
 if usuario_privilegiado:
 
-st.sidebar.markdown(
-    '<div class="sidebar-section-label">Acessos rápidos</div>',
-    unsafe_allow_html=True,
-)
+    st.sidebar.markdown(
+        '<div class="sidebar-section-label">Acessos rápidos</div>',
+        unsafe_allow_html=True,
+    )
 
     if CAPROQ_SHEETS_URL:
 
