@@ -1292,6 +1292,11 @@ if not usuario_valido:
 
 exigir_login()
 
+usuario_privilegiado = (
+    usuario_eh_aprovador()
+    or usuario_eh_admin()
+)
+
 # ==============================================================================
 # 6. Configurações da sidebar
 # ==============================================================================
