@@ -1298,6 +1298,22 @@ usuario_privilegiado = (
     or usuario_eh_admin()
 )
 
+if (
+    usuario_privilegiado
+    and st.session_state.get("pagina_atual") == "solicitacoes"
+):
+    st.session_state["pagina_atual"] = "painel_principal"
+
+if "pagina_atual" not in st.session_state:
+
+    if usuario_eh_admin() or usuario_eh_aprovador():
+        st.session_state["pagina_atual"] = "painel_principal"
+
+    else:
+        st.session_state["pagina_atual"] = "solicitacoes"
+
+pagina = st.session_state["pagina_atual"]
+
 CAPROQ_SHEETS_URL = str(
     st.secrets.get("CAPROQ_SHEETS_URL", "")
 ).strip()
@@ -1309,12 +1325,6 @@ CAPROQ_DRIVE_URL = str(
 # ==============================================================================
 # 6. Configurações da sidebar
 # ==============================================================================
-
-pagina = st.session_state.get(
-    "pagina_atual",
-    "painel_principal",
-)
-
 # ------------------------------------------------------------------------------
 # Cabeçalho institucional
 # ------------------------------------------------------------------------------
