@@ -1297,6 +1297,14 @@ usuario_privilegiado = (
     or usuario_eh_admin()
 )
 
+CAPROQ_SHEETS_URL = str(
+    st.secrets.get("CAPROQ_SHEETS_URL", "")
+).strip()
+
+CAPROQ_DRIVE_URL = str(
+    st.secrets.get("CAPROQ_DRIVE_URL", "")
+).strip()
+
 # ==============================================================================
 # 6. Configurações da sidebar
 # ==============================================================================
