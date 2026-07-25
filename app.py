@@ -8,6 +8,7 @@ import time
 import base64
 import json
 import extra_streamlit_components as stx
+from html import escape
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from google_auth_oauthlib.flow import Flow
@@ -1320,20 +1321,14 @@ pagina = st.session_state.get(
 
 st.sidebar.markdown(
     """
-    <div class="sidebar-brand-card">
-        <p class="sidebar-brand-kicker">
-            Hospital Moinhos de Vento
-        </p>
-
-        <p class="sidebar-brand-title">
-            CAPROQ
-        </p>
-
-        <p class="sidebar-brand-subtitle">
-            Gestão e padronização de produtos químicos
-        </p>
-    </div>
-    """,
+<div class="sidebar-brand-card">
+    <p class="sidebar-brand-kicker">Hospital Moinhos de Vento</p>
+    <p class="sidebar-brand-title">CAPROQ</p>
+    <p class="sidebar-brand-subtitle">
+        Gestão e padronização de produtos químicos
+    </p>
+</div>
+""",
     unsafe_allow_html=True,
 )
 
@@ -1369,30 +1364,26 @@ else:
     perfil_usuario = "Solicitante"
     icone_perfil = "👤"
 
+user_name_safe = escape(str(user_name))
+user_email_safe = escape(str(user_email))
+user_picture_safe = escape(str(user_picture), quote=True)
+perfil_usuario_safe = escape(str(perfil_usuario))
+
 avatar_html = f"""
 <div class="sidebar-user-card">
     <img
         class="sidebar-user-avatar"
-        src="{user_picture}"
-        onerror="
-            this.onerror=null;
-            this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png';
-        "
+        src="{user_picture_safe}"
+        alt="Foto do usuário"
+        onerror="this.onerror=null;this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png';"
     >
-
     <div class="sidebar-user-info">
-        <span class="sidebar-user-name">
-            {user_name}
-        </span>
-
-        <span class="sidebar-user-email">
-            {user_email}
-        </span>
+        <span class="sidebar-user-name">{user_name_safe}</span>
+        <span class="sidebar-user-email">{user_email_safe}</span>
     </div>
 </div>
-
 <div class="sidebar-role-badge">
-    {icone_perfil}&nbsp; {perfil_usuario}
+    {icone_perfil}&nbsp; {perfil_usuario_safe}
 </div>
 """
 
@@ -1405,14 +1396,10 @@ st.sidebar.markdown(
 # Navegação principal
 # ------------------------------------------------------------------------------
 
-st.sidebar.markdown(
-    """
-    <div class="sidebar-section-label">
-        Navegação
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+    st.sidebar.markdown(
+        '<div class="sidebar-section-label">Navegação</div>',
+        unsafe_allow_html=True,
+    )
 
 # Tela exclusiva dos solicitantes
 if not usuario_privilegiado:
@@ -1443,11 +1430,7 @@ if usuario_privilegiado:
 if usuario_eh_admin():
 
     st.sidebar.markdown(
-        """
-        <div class="sidebar-section-label">
-            Administração
-        </div>
-        """,
+        '<div class="sidebar-section-label">Administração</div>',
         unsafe_allow_html=True,
     )
 
@@ -1474,11 +1457,7 @@ if usuario_eh_admin():
 if usuario_privilegiado:
 
     st.sidebar.markdown(
-        """
-        <div class="sidebar-section-label">
-            Acessos rápidos
-        </div>
-        """,
+        '<div class="sidebar-section-label">Acessos rápidos</div>',
         unsafe_allow_html=True,
     )
 
@@ -1546,11 +1525,11 @@ if st.sidebar.button(
 
 st.sidebar.markdown(
     """
-    <div class="sidebar-footer">
-        CAPROQ · Hospital Moinhos de Vento<br>
-        Processo integrado de avaliação técnica
-    </div>
-    """,
+<div class="sidebar-footer">
+    CAPROQ · Hospital Moinhos de Vento<br>
+    Processo integrado de avaliação técnica
+</div>
+""",
     unsafe_allow_html=True,
 )
 
