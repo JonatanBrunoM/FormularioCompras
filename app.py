@@ -320,21 +320,226 @@ st.markdown("""
     /* ==========================================
         2.1 SIDEBAR E COMPONENTES INTERNOS
        ========================================== */
-    .sidebar-user-card {
-        padding: 12px;
-        border-radius: 8px;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        background-color: transparent !important;
+    section[data-testid="stSidebar"] {
+        background:
+            linear-gradient(
+                180deg,
+                #ffffff 0%,
+                #f5f8fa 100%
+            ) !important;
+        border-right: 1px solid #e1e8ed;
     }
     
-    .foto-perfil {
-        border-radius: 50%;
-        border: 2px solid #005691;
+    section[data-testid="stSidebar"] > div {
+        padding-top: 1rem;
     }
-
-    h1, h2, h3, h4, h5 { 
-        color: #005691 !important; 
-        font-weight: 600 !important; 
+    
+    .sidebar-brand-card {
+        padding: 16px 15px 14px;
+        margin-bottom: 14px;
+        border-radius: 14px;
+        background:
+            linear-gradient(
+                135deg,
+                #005691 0%,
+                #003d66 100%
+            );
+        box-shadow: 0 8px 22px rgba(0, 61, 102, 0.16);
+    }
+    
+    .sidebar-brand-kicker {
+        margin: 0 0 4px;
+        color: rgba(255, 255, 255, 0.72);
+        font-size: 0.67rem;
+        font-weight: 700;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+    }
+    
+    .sidebar-brand-title {
+        margin: 0;
+        color: #ffffff !important;
+        font-size: 1.33rem;
+        font-weight: 750;
+        line-height: 1.15;
+    }
+    
+    .sidebar-brand-subtitle {
+        margin: 5px 0 0;
+        color: rgba(255, 255, 255, 0.82);
+        font-size: 0.76rem;
+        line-height: 1.35;
+    }
+    
+    .sidebar-user-card {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 12px;
+        margin-bottom: 7px;
+        border: 1px solid #dde5ea;
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: 0 3px 10px rgba(38, 50, 56, 0.04);
+    }
+    
+    .sidebar-user-avatar {
+        width: 44px;
+        height: 44px;
+        flex: 0 0 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #005691;
+        box-shadow: 0 2px 7px rgba(0, 86, 145, 0.18);
+    }
+    
+    .sidebar-user-info {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .sidebar-user-name {
+        color: #263238;
+        font-size: 0.88rem;
+        font-weight: 700;
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .sidebar-user-email {
+        margin-top: 2px;
+        color: #71808a;
+        font-size: 0.71rem;
+        line-height: 1.25;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .sidebar-role-badge {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        margin: 0 0 15px 2px;
+        padding: 5px 9px;
+        border: 1px solid #d9e8f1;
+        border-radius: 999px;
+        background: #edf6fb;
+        color: #005691;
+        font-size: 0.67rem;
+        font-weight: 700;
+        letter-spacing: 0.035em;
+        text-transform: uppercase;
+    }
+    
+    .sidebar-section-label {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin: 18px 2px 8px;
+        color: #73818a;
+        font-size: 0.68rem;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    
+    .sidebar-section-label::after {
+        content: "";
+        height: 1px;
+        flex: 1;
+        background: #dfe6ea;
+    }
+    
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
+        min-height: 43px;
+        justify-content: flex-start;
+        padding-left: 14px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: transparent;
+        color: #39464d;
+        font-size: 0.84rem;
+        font-weight: 600;
+        box-shadow: none;
+        transition:
+            background-color 0.18s ease,
+            border-color 0.18s ease,
+            color 0.18s ease,
+            transform 0.18s ease;
+    }
+    
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
+        border-color: #d7e6ef;
+        background: #eaf4f9;
+        color: #005691;
+        transform: translateX(2px);
+    }
+    
+    section[data-testid="stSidebar"] div[data-testid="stLinkButton"] a {
+        min-height: 43px;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        padding-left: 14px !important;
+        border: 1px solid #dbe5eb !important;
+        border-radius: 10px !important;
+        background: #ffffff !important;
+        color: #3d4b52 !important;
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
+        text-decoration: none !important;
+        box-shadow: none !important;
+        transition:
+            background-color 0.18s ease,
+            border-color 0.18s ease,
+            color 0.18s ease,
+            transform 0.18s ease !important;
+    }
+    
+    section[data-testid="stSidebar"] div[data-testid="stLinkButton"] a:hover {
+        border-color: #005691 !important;
+        background: #edf6fb !important;
+        color: #005691 !important;
+        transform: translateX(2px);
+    }
+    
+    .sidebar-divider {
+        height: 1px;
+        margin: 17px 0 12px;
+        background: #dfe6ea;
+    }
+    
+    .sidebar-footer {
+        margin-top: 10px;
+        padding: 9px 4px 0;
+        color: #8a979e;
+        font-size: 0.64rem;
+        line-height: 1.45;
+        text-align: center;
+    }
+    
+    /* Botão Sair */
+    section[data-testid="stSidebar"]
+    div.st-key-botao_sair_sidebar
+    button {
+        justify-content: center;
+        margin-top: 3px;
+        border: 1px solid #efcfd2;
+        background: #fff8f8;
+        color: #a12b35;
+    }
+    
+    section[data-testid="stSidebar"]
+    div.st-key-botao_sair_sidebar
+    button:hover {
+        border-color: #c84550;
+        background: #c84550;
+        color: #ffffff;
+        transform: none;
     }
     
 </style>
@@ -1088,62 +1293,153 @@ if not usuario_valido:
 exigir_login()
 
 # ==============================================================================
-# 6. Configurações da sidebar    
+# 6. Configurações da sidebar
 # ==============================================================================
-st.sidebar.markdown("<h3 style='font-size: 1.2em; margin-bottom: 5px; color: #005691;'>Hospital Moinhos de Vento</h3>", unsafe_allow_html=True)
-st.sidebar.markdown("<p style='color: #6c757d; font-size: 0.85em; margin-top:-10px; margin-bottom: 15px;'>Formulário - CAPROQ</p>", unsafe_allow_html=True)
+
+pagina = st.session_state.get(
+    "pagina_atual",
+    "painel_principal",
+)
+
+# ------------------------------------------------------------------------------
+# Cabeçalho institucional
+# ------------------------------------------------------------------------------
+
+st.sidebar.markdown(
+    """
+    <div class="sidebar-brand-card">
+        <p class="sidebar-brand-kicker">
+            Hospital Moinhos de Vento
+        </p>
+
+        <p class="sidebar-brand-title">
+            CAPROQ
+        </p>
+
+        <p class="sidebar-brand-subtitle">
+            Gestão e padronização de produtos químicos
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ------------------------------------------------------------------------------
+# Dados do usuário
+# ------------------------------------------------------------------------------
 
 user_name = (
     st.session_state.get("user_nome")
     or st.session_state.get("name")
     or "Usuário"
 )
-user_email = st.session_state.get('email') or ''
-user_picture = st.session_state.get('picture') or 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
+
+user_email = (
+    st.session_state.get("email")
+    or ""
+)
+
+user_picture = (
+    st.session_state.get("picture")
+    or "https://cdn-icons-png.flaticon.com/512/149/149071.png"
+)
+
+if usuario_eh_admin():
+    perfil_usuario = "Administrador"
+    icone_perfil = "🛡️"
+
+elif usuario_eh_aprovador():
+    perfil_usuario = "Aprovador"
+    icone_perfil = "✅"
+
+else:
+    perfil_usuario = "Solicitante"
+    icone_perfil = "👤"
 
 avatar_html = f"""
-<div class="sidebar-user-card" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid rgba(128, 128, 128, 0.2); border-radius: 8px;">
-    <img src="{user_picture}" 
-         onerror="this.onerror=null; this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png';" 
-         style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #005691;">
-    <div style="display: flex; flex-direction: column; overflow: hidden; text-align: left;">
-        <span style="font-weight: bold; color: #31333F; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: left;">
+<div class="sidebar-user-card">
+    <img
+        class="sidebar-user-avatar"
+        src="{user_picture}"
+        onerror="
+            this.onerror=null;
+            this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png';
+        "
+    >
+
+    <div class="sidebar-user-info">
+        <span class="sidebar-user-name">
             {user_name}
         </span>
-        <span style="font-size: 0.8em; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: left;">
+
+        <span class="sidebar-user-email">
             {user_email}
         </span>
     </div>
 </div>
+
+<div class="sidebar-role-badge">
+    {icone_perfil}&nbsp; {perfil_usuario}
+</div>
 """
-st.sidebar.markdown(avatar_html, unsafe_allow_html=True)
+
+st.sidebar.markdown(
+    avatar_html,
+    unsafe_allow_html=True,
+)
 
 # ------------------------------------------------------------------------------
-# Navegação por perfil
+# Navegação principal
 # ------------------------------------------------------------------------------
-st.sidebar.markdown("<br>", unsafe_allow_html=True)
-pagina = st.session_state.get("pagina_atual", "painel_principal")
 
-if st.sidebar.button(
-    "📝 Solicitações",
-    use_container_width=True,
-    key="menu_solicitacoes",
-):
-    st.session_state["pagina_atual"] = "solicitacoes"
-    st.rerun()
+st.sidebar.markdown(
+    """
+    <div class="sidebar-section-label">
+        Navegação
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-if usuario_eh_aprovador() or usuario_eh_admin():
+# Tela exclusiva dos solicitantes
+if not usuario_privilegiado:
+
     if st.sidebar.button(
-        "📥 Painel de Aprovações",
+        "📝 Nova solicitação",
+        use_container_width=True,
+        key="menu_solicitacoes",
+    ):
+        st.session_state["pagina_atual"] = "solicitacoes"
+        st.rerun()
+
+# Painel exclusivo dos aprovadores e administradores
+if usuario_privilegiado:
+
+    if st.sidebar.button(
+        "📥 Painel de aprovações",
         use_container_width=True,
         key="menu_aprovacoes",
     ):
         st.session_state["pagina_atual"] = "painel_principal"
         st.rerun()
 
+# ------------------------------------------------------------------------------
+# Área administrativa
+# ------------------------------------------------------------------------------
+
 if usuario_eh_admin():
+
+    st.sidebar.markdown(
+        """
+        <div class="sidebar-section-label">
+            Administração
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     if st.sidebar.button(
-        "🛡️ Homologação Final",
+        "🛡️ Homologação final",
         use_container_width=True,
         key="menu_homologacao",
     ):
@@ -1151,27 +1447,99 @@ if usuario_eh_admin():
         st.rerun()
 
     if st.sidebar.button(
-        "⚙️ Gerenciar Aprovadores",
+        "⚙️ Gerenciar aprovadores",
         use_container_width=True,
         key="menu_usuarios",
     ):
         st.session_state["pagina_atual"] = "gerenciar_aprovadores"
         st.rerun()
 
-st.sidebar.markdown("<br>", unsafe_allow_html=True)
+# ------------------------------------------------------------------------------
+# Acessos externos
+# ------------------------------------------------------------------------------
+
+if usuario_privilegiado:
+
+    st.sidebar.markdown(
+        """
+        <div class="sidebar-section-label">
+            Acessos rápidos
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if CAPROQ_SHEETS_URL:
+
+        st.sidebar.link_button(
+            "📊 Planilha do CAPROQ",
+            CAPROQ_SHEETS_URL,
+            use_container_width=True,
+        )
+
+    else:
+
+        st.sidebar.button(
+            "📊 Planilha não configurada",
+            use_container_width=True,
+            disabled=True,
+            key="link_sheets_nao_configurado",
+            help=(
+                "Adicione CAPROQ_SHEETS_URL "
+                "nos Secrets do aplicativo."
+            ),
+        )
+
+    if CAPROQ_DRIVE_URL:
+
+        st.sidebar.link_button(
+            "📁 Pasta de documentos",
+            CAPROQ_DRIVE_URL,
+            use_container_width=True,
+        )
+
+# ------------------------------------------------------------------------------
+# Rodapé e saída
+# ------------------------------------------------------------------------------
+
+st.sidebar.markdown(
+    '<div class="sidebar-divider"></div>',
+    unsafe_allow_html=True,
+)
 
 if st.sidebar.button(
-    "🚪 Sair",
+    "🚪 Encerrar sessão",
     use_container_width=True,
     key="botao_sair_sidebar",
 ):
-    st.session_state.pop("google_credentials", None)
-    st.session_state.pop("oauth_state", None)
-    st.session_state.pop("google_auth_url", None)
+    st.session_state.pop(
+        "google_credentials",
+        None,
+    )
+
+    st.session_state.pop(
+        "oauth_state",
+        None,
+    )
+
+    st.session_state.pop(
+        "google_auth_url",
+        None,
+    )
 
     st.session_state.clear()
     st.query_params.clear()
     st.rerun()
+
+st.sidebar.markdown(
+    """
+    <div class="sidebar-footer">
+        CAPROQ · Hospital Moinhos de Vento<br>
+        Processo integrado de avaliação técnica
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ==============================================================================
 # 7. Tela principal
