@@ -711,6 +711,154 @@ st.markdown("""
         }
     }
     
+
+
+    /* ==========================================
+       CHAMADOS DOS APROVADORES
+       ========================================== */
+
+    div[data-testid="stExpander"] {
+        border: 1px solid rgba(128, 128, 128, 0.24) !important;
+        border-radius: 12px !important;
+        background: var(--secondary-background-color) !important;
+        overflow: hidden;
+        margin-bottom: 0.75rem;
+    }
+
+    div[data-testid="stExpander"] details > summary {
+        padding: 0.8rem 1rem !important;
+        background: var(--secondary-background-color) !important;
+        color: var(--text-color) !important;
+        font-weight: 650 !important;
+    }
+
+    div[data-testid="stExpander"] details[open] > summary {
+        border-bottom: 1px solid rgba(128, 128, 128, 0.18);
+    }
+
+    .caproq-section-title {
+        margin: 1rem 0 0.65rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.20);
+        color: var(--text-color);
+        font-size: 0.82rem;
+        font-weight: 750;
+        letter-spacing: 0.035em;
+        text-transform: uppercase;
+    }
+
+    .caproq-score-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+        gap: 0.55rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .caproq-score-item {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.65rem 0.7rem;
+        border: 1px solid rgba(128, 128, 128, 0.20);
+        border-radius: 10px;
+        background: var(--background-color);
+    }
+
+    .caproq-score-icon {
+        width: 28px;
+        height: 28px;
+        flex: 0 0 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+
+    .caproq-score-content {
+        min-width: 0;
+    }
+
+    .caproq-score-area {
+        overflow: hidden;
+        color: var(--text-color);
+        font-size: 0.72rem;
+        font-weight: 700;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+    }
+
+    .caproq-score-status {
+        margin-top: 0.08rem;
+        font-size: 0.64rem;
+        font-weight: 650;
+    }
+
+    .caproq-score-item.aprovado {
+        border-color: rgba(0, 141, 76, 0.34);
+        background: rgba(0, 141, 76, 0.08);
+    }
+
+    .caproq-score-item.aprovado .caproq-score-icon {
+        background: rgba(0, 141, 76, 0.16);
+        color: #008d4c;
+    }
+
+    .caproq-score-item.aprovado .caproq-score-status {
+        color: #008d4c;
+    }
+
+    .caproq-score-item.ressalva {
+        border-color: rgba(230, 162, 60, 0.38);
+        background: rgba(230, 162, 60, 0.09);
+    }
+
+    .caproq-score-item.ressalva .caproq-score-icon {
+        background: rgba(230, 162, 60, 0.18);
+        color: #c98618;
+    }
+
+    .caproq-score-item.ressalva .caproq-score-status {
+        color: #c98618;
+    }
+
+    .caproq-score-item.reprovado {
+        border-color: rgba(217, 48, 37, 0.34);
+        background: rgba(217, 48, 37, 0.08);
+    }
+
+    .caproq-score-item.reprovado .caproq-score-icon {
+        background: rgba(217, 48, 37, 0.16);
+        color: #d93025;
+    }
+
+    .caproq-score-item.reprovado .caproq-score-status {
+        color: #d93025;
+    }
+
+    .caproq-score-item.pendente {
+        border-color: rgba(128, 128, 128, 0.24);
+        background: rgba(128, 128, 128, 0.07);
+    }
+
+    .caproq-score-item.pendente .caproq-score-icon {
+        background: rgba(128, 128, 128, 0.14);
+        color: var(--text-color);
+        opacity: 0.72;
+    }
+
+    .caproq-score-item.pendente .caproq-score-status {
+        color: var(--text-color);
+        opacity: 0.62;
+    }
+
+    @media (max-width: 760px) {
+        .caproq-score-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1942,52 +2090,282 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
             # ----------------------------------------------------------------------
             with tab_pendentes:
                 st.markdown("### Solicitações aguardando seu parecer técnico")
+                st.caption(
+                    "Abra um chamado para consultar os dados completos, acompanhar "
+                    "as avaliações das alçadas e registrar seu parecer."
+                )
+
                 if pendentes.empty:
-                    st.success("Nenhuma solicitação pendente para a sua alçada técnica no momento.")
+                    st.success(
+                        "Nenhuma solicitação pendente para a sua alçada técnica "
+                        "no momento."
+                    )
                 else:
                     for _, row in pendentes.iterrows():
-                        id_chamado = row["ID"]
-                        
-                        # Definição uniforme da descrição do produto
-                        col_prod = "Descrição completa do produto" if "Descrição completa do produto" in row else "Descrição do produto" if "Descrição do produto" in row else "Descricao_Produto"
-                        descricao_produto = str(row.get(col_prod, "Sem descrição"))
-                        
-                        with st.container(border=True):
-                            st.markdown(f"#### Chamado #{id_chamado} — {descricao_produto}")
-                            st.markdown(f"**Solicitante:** {row.get('Nome solicitante', row.get('Nome', 'Não informado'))} (`{row.get('Endereço de e-mail', '')}`)")
-                            
-                            with st.expander("🔍 Visualizar detalhes completos da solicitação", expanded=True):
-                                st.markdown("---")
-                                st.markdown("Dados Preenchidos no Formulário:")
-                                
-                                col_detalhe1, col_detalhe2 = st.columns(2)
-                                with col_detalhe1:
-                                    st.markdown(f"**Descrição do Produto:** {descricao_produto}")
-                                    st.markdown(f"**Apresentação/Volume:** {row.get('Apresentação/volume', 'N/A')}")
-                                    st.markdown(f"**Fabricante/Fornecedor:** {row.get('Fabricante/fornecedor', 'N/A')}")
-                                    st.markdown(f"**Área e Indicação de Uso:** {row.get('Área onde será utilizado e indicação detalhada de uso do produto', 'N/A')}")
+                        id_chamado = int(row["ID"])
 
-                                with col_detalhe2:
-                                    st.markdown(f"**Contato do Fornecedor:** {row.get('Informações de contato do fornecedor (nome, e-mail e telefone)', 'N/A')}")
-                                    st.markdown(f"**Uso atual SEM o produto:** {row.get('Explique como o procedimento/atividade atual é realizado SEM este produto:', 'N/A')}")
-                                    st.markdown(f"**Gera resíduo perigoso?:** {row.get('O item solicitado gera resíduo perigoso?', 'N/A')}")
-                                    st.markdown(f"**Possui estudos científicos?:** {row.get('O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.', 'N/A')}")
+                        # Identificação uniforme do produto
+                        if "Descrição completa do produto" in row.index:
+                            col_prod = "Descrição completa do produto"
+                        elif "Descrição do produto" in row.index:
+                            col_prod = "Descrição do produto"
+                        else:
+                            col_prod = "Descricao_Produto"
 
-                                if "Arquivos anexados" in row and row["Arquivos anexados"] not in ["Nenhum arquivo anexado", "Nenhum arquivo adicional", ""]:
-                                    st.markdown("**Documentação Adicional:**")
-                                link_anexo = row.get("Link_Anexo", row.get("Arquivos anexados", ""))
-                                
-                                if isinstance(link_anexo, str) and link_anexo.strip() not in ["", "nan", "None", "Nenhum arquivo anexado", "Nenhum arquivo adicional"]:
-                                    st.link_button("Abrir anexos no Google Drive", link_anexo, use_container_width=True)
+                        descricao_produto = valor_seguro(
+                            row.get(col_prod, "Sem descrição"),
+                            "Sem descrição",
+                        )
+
+                        # Data e hora de abertura para o título resumido
+                        carimbo_abertura = row.get(
+                            "Carimbo de data/hora",
+                            row.get("Timestamp", row.get("Data_Abertura", "")),
+                        )
+                        abertura_formatada = "Data não informada"
+
+                        if str(carimbo_abertura).strip().lower() not in {
+                            "", "nan", "none", "nat"
+                        }:
+                            try:
+                                data_abertura = pd.to_datetime(
+                                    carimbo_abertura,
+                                    dayfirst=True,
+                                    errors="raise",
+                                )
+                                abertura_formatada = data_abertura.strftime(
+                                    "%d/%m/%Y às %H:%M"
+                                )
+                            except Exception:
+                                abertura_formatada = valor_seguro(
+                                    carimbo_abertura,
+                                    "Data não informada",
+                                )
+
+                        titulo_expander = (
+                            f"Chamado #{id_chamado} — {descricao_produto} "
+                            f"— {abertura_formatada}"
+                        )
+
+                        with st.expander(
+                            titulo_expander,
+                            expanded=False,
+                        ):
+                            # ------------------------------------------------------
+                            # Placar das alçadas
+                            # ------------------------------------------------------
+                            st.markdown(
+                                '<div class="caproq-section-title">'
+                                'Situação das alçadas técnicas'
+                                '</div>',
+                                unsafe_allow_html=True,
+                            )
+
+                            itens_placar = []
+
+                            for _, info_placar in ALCADAS_INFO.items():
+                                coluna_placar = info_placar["coluna_sheets"]
+                                label_placar = info_placar["label"]
+                                voto_placar = str(
+                                    row.get(coluna_placar, "Pendente")
+                                ).strip()
+                                voto_minusculo = voto_placar.lower()
+
+                                if voto_placar.startswith("Reprovar"):
+                                    classe_status = "reprovado"
+                                    texto_status = "Reprovado"
+                                    icone_status = "✕"
+                                elif "ressalva" in voto_minusculo:
+                                    classe_status = "ressalva"
+                                    texto_status = "Com ressalva"
+                                    icone_status = "!"
+                                elif voto_placar.startswith("Aprovar"):
+                                    classe_status = "aprovado"
+                                    texto_status = "Aprovado"
+                                    icone_status = "✓"
+                                else:
+                                    classe_status = "pendente"
+                                    texto_status = "Pendente"
+                                    icone_status = "•"
+
+                                itens_placar.append(
+                                    f"""
+<div class="caproq-score-item {classe_status}">
+    <div class="caproq-score-icon">{icone_status}</div>
+    <div class="caproq-score-content">
+        <div class="caproq-score-area">{escape(label_placar)}</div>
+        <div class="caproq-score-status">{texto_status}</div>
+    </div>
+</div>
+"""
+                                )
+
+                            st.markdown(
+                                '<div class="caproq-score-grid">'
+                                + "".join(itens_placar)
+                                + "</div>",
+                                unsafe_allow_html=True,
+                            )
+
+                            # ------------------------------------------------------
+                            # Resumo da solicitação
+                            # ------------------------------------------------------
+                            nome_solicitante_chamado = valor_seguro(
+                                row.get(
+                                    "Nome solicitante",
+                                    row.get("Nome", "Não informado"),
+                                ),
+                                "Não informado",
+                            )
+                            email_solicitante_chamado = valor_seguro(
+                                row.get("Endereço de e-mail", ""),
+                                "Não informado",
+                            )
+
+                            st.markdown(
+                                '<div class="caproq-section-title">'
+                                'Resumo da solicitação'
+                                '</div>',
+                                unsafe_allow_html=True,
+                            )
+
+                            resumo_col1, resumo_col2, resumo_col3 = st.columns(3)
+
+                            with resumo_col1:
+                                st.markdown("**Solicitante**")
+                                st.write(nome_solicitante_chamado)
+
+                            with resumo_col2:
+                                st.markdown("**E-mail**")
+                                st.write(email_solicitante_chamado)
+
+                            with resumo_col3:
+                                st.markdown("**Abertura**")
+                                st.write(abertura_formatada)
+
+                            # ------------------------------------------------------
+                            # Dados completos do formulário
+                            # ------------------------------------------------------
+                            st.markdown(
+                                '<div class="caproq-section-title">'
+                                'Informações do produto'
+                                '</div>',
+                                unsafe_allow_html=True,
+                            )
+
+                            col_detalhe1, col_detalhe2 = st.columns(2)
+
+                            with col_detalhe1:
+                                st.markdown("**Descrição do produto**")
+                                st.write(descricao_produto)
+
+                                st.markdown("**Apresentação / volume**")
+                                st.write(valor_seguro(row.get("Apresentação/volume", "")))
+
+                                st.markdown("**Fabricante / fornecedor**")
+                                st.write(valor_seguro(row.get("Fabricante/fornecedor", "")))
+
+                                st.markdown("**Área e indicação de uso**")
+                                st.write(
+                                    valor_seguro(
+                                        row.get(
+                                            "Área onde será utilizado e indicação detalhada de uso do produto",
+                                            "",
+                                        )
+                                    )
+                                )
+
+                            with col_detalhe2:
+                                st.markdown("**Contato do fornecedor**")
+                                st.write(
+                                    valor_seguro(
+                                        row.get(
+                                            "Informações de contato do fornecedor (nome, e-mail e telefone)",
+                                            "",
+                                        )
+                                    )
+                                )
+
+                                st.markdown("**Procedimento atual sem o produto**")
+                                st.write(
+                                    valor_seguro(
+                                        row.get(
+                                            "Explique como o procedimento/atividade atual é realizado SEM este produto:",
+                                            "",
+                                        )
+                                    )
+                                )
+
+                                st.markdown("**Gera resíduo perigoso?**")
+                                st.write(
+                                    valor_seguro(
+                                        row.get(
+                                            "O item solicitado gera resíduo perigoso?",
+                                            "",
+                                        )
+                                    )
+                                )
+
+                                st.markdown("**Possui estudos científicos?**")
+                                st.write(
+                                    valor_seguro(
+                                        row.get(
+                                            "O produto apresenta estudos científicos e de custo-efetividade comparado com o utilizado atualmente no HMV? Caso sim, anexe o arquivo abaixo.",
+                                            "",
+                                        )
+                                    )
+                                )
+
+                            # ------------------------------------------------------
+                            # Documentos
+                            # ------------------------------------------------------
+                            st.markdown(
+                                '<div class="caproq-section-title">Documentos</div>',
+                                unsafe_allow_html=True,
+                            )
+
+                            link_anexo = row.get(
+                                "Link_Anexo",
+                                row.get("Arquivos anexados", ""),
+                            )
+                            link_fds = row.get("Anexar FDS", "")
+
+                            doc_col1, doc_col2 = st.columns(2)
+
+                            with doc_col1:
+                                if str(link_fds).strip().lower() not in {
+                                    "", "nan", "none", "não aplicável"
+                                }:
+                                    st.link_button(
+                                        "📄 Abrir FDS",
+                                        str(link_fds).strip(),
+                                        use_container_width=True,
+                                    )
+                                else:
+                                    st.caption("FDS não disponível.")
+
+                            with doc_col2:
+                                if str(link_anexo).strip().lower() not in {
+                                    "",
+                                    "nan",
+                                    "none",
+                                    "nenhum arquivo anexado",
+                                    "nenhum arquivo adicional",
+                                }:
+                                    st.link_button(
+                                        "📎 Abrir arquivos anexados",
+                                        str(link_anexo).strip(),
+                                        use_container_width=True,
+                                    )
                                 else:
                                     st.caption("Nenhum arquivo adicional anexado.")
-                                
-                                if "Anexar FDS" in row and row["Anexar FDS"] not in ["", "Não aplicável"]:
-                                    st.markdown("**Ficha de Dados de Segurança (FDS):**")
-                                    st.link_button("Abrir FDS", row["Anexar FDS"], use_container_width=True)
-                                st.markdown("---")
-                            
-                            st.markdown("<br><b>Seu parecer técnico:</b>", unsafe_allow_html=True)
+
+                            st.markdown(
+                                '<div class="caproq-section-title">'
+                                'Seu parecer técnico'
+                                '</div>',
+                                unsafe_allow_html=True,
+                            )
                             
                             for letra_col, info in ALCADAS_INFO.items():
                                 col_voto = info["coluna_sheets"]
