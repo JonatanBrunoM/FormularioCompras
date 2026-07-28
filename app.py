@@ -5272,83 +5272,542 @@ else:
     # 9.3. Aba status
     with tab_status:
         st.markdown("""
-        <div class="caproq-form-section" style="margin-top:8px;">
-            <div class="caproq-form-section-title">📚 Status e histórico dos meus chamados</div>
-            <div class="caproq-form-section-help">Acompanhe o andamento das avaliações técnicas, os pareceres registrados e a decisão final de cada solicitação.</div>
+        <style>
+        .caproq-my-hero {
+            border: 1px solid rgba(0, 86, 145, .18);
+            border-radius: 18px;
+            padding: 22px 24px;
+            margin: 8px 0 18px 0;
+            background: linear-gradient(135deg, rgba(0,86,145,.12), rgba(0,86,145,.025));
+        }
+        .caproq-my-kicker {
+            color: #005691;
+            font-size: .78rem;
+            font-weight: 800;
+            letter-spacing: .10em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .caproq-my-title {
+            font-size: 1.65rem;
+            line-height: 1.15;
+            font-weight: 800;
+            margin: 0 0 7px 0;
+        }
+        .caproq-my-subtitle {
+            opacity: .76;
+            line-height: 1.55;
+            max-width: 780px;
+        }
+        .caproq-my-metric {
+            border: 1px solid rgba(128,128,128,.22);
+            border-radius: 15px;
+            padding: 15px 16px;
+            min-height: 104px;
+            background: rgba(255,255,255,.035);
+        }
+        .caproq-my-metric-label {
+            opacity: .68;
+            font-size: .77rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+        .caproq-my-metric-value {
+            font-size: 1.65rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-top: 7px;
+        }
+        .caproq-my-metric-help {
+            opacity: .64;
+            font-size: .80rem;
+            margin-top: 4px;
+        }
+        .caproq-my-summary {
+            display:grid;
+            grid-template-columns:repeat(4,minmax(0,1fr));
+            gap:10px;
+            margin: 6px 0 16px 0;
+        }
+        .caproq-my-summary-item {
+            border:1px solid rgba(128,128,128,.20);
+            border-radius:12px;
+            padding:12px 13px;
+            background:rgba(255,255,255,.025);
+        }
+        .caproq-my-summary-label {
+            opacity:.62;
+            font-size:.72rem;
+            font-weight:800;
+            letter-spacing:.04em;
+            text-transform:uppercase;
+            margin-bottom:4px;
+        }
+        .caproq-my-summary-value {
+            font-weight:700;
+            line-height:1.35;
+            overflow-wrap:anywhere;
+        }
+        .caproq-my-badge {
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+            border-radius:999px;
+            padding:5px 10px;
+            font-size:.76rem;
+            font-weight:800;
+            border:1px solid transparent;
+        }
+        .caproq-my-badge-blue {color:#005691;background:rgba(0,86,145,.12);border-color:rgba(0,86,145,.24)}
+        .caproq-my-badge-green {color:#087443;background:rgba(8,116,67,.12);border-color:rgba(8,116,67,.24)}
+        .caproq-my-badge-yellow {color:#9a6700;background:rgba(230,162,60,.14);border-color:rgba(230,162,60,.28)}
+        .caproq-my-badge-red {color:#b3261e;background:rgba(217,48,37,.11);border-color:rgba(217,48,37,.23)}
+        .caproq-my-badge-gray {color:inherit;background:rgba(128,128,128,.11);border-color:rgba(128,128,128,.20)}
+        .caproq-my-stage {
+            border:1px solid rgba(128,128,128,.20);
+            border-radius:14px;
+            padding:14px 15px;
+            margin:10px 0 14px 0;
+            background:rgba(255,255,255,.025);
+        }
+        .caproq-my-stage-title {font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;opacity:.65;margin-bottom:5px}
+        .caproq-my-stage-value {font-size:1.02rem;font-weight:800}
+        .caproq-my-scoreboard {
+            display:grid;
+            grid-template-columns:repeat(4,minmax(0,1fr));
+            gap:9px;
+            margin:8px 0 14px 0;
+        }
+        .caproq-my-score {
+            border-radius:12px;
+            padding:11px 12px;
+            border:1px solid rgba(128,128,128,.18);
+            min-height:72px;
+        }
+        .caproq-my-score-label {font-size:.72rem;font-weight:800;line-height:1.25;margin-bottom:5px}
+        .caproq-my-score-status {font-size:.75rem;font-weight:700;opacity:.83}
+        .caproq-score-pending {background:rgba(128,128,128,.08)}
+        .caproq-score-approved {background:rgba(8,116,67,.10);border-color:rgba(8,116,67,.24)}
+        .caproq-score-warning {background:rgba(230,162,60,.12);border-color:rgba(230,162,60,.27)}
+        .caproq-score-rejected {background:rgba(217,48,37,.09);border-color:rgba(217,48,37,.23)}
+        .caproq-my-opinion {
+            border-left:4px solid rgba(128,128,128,.35);
+            border-radius:0 12px 12px 0;
+            padding:12px 14px;
+            margin:8px 0;
+            background:rgba(128,128,128,.06);
+        }
+        .caproq-my-opinion-green {border-left-color:#087443;background:rgba(8,116,67,.075)}
+        .caproq-my-opinion-yellow {border-left-color:#e6a23c;background:rgba(230,162,60,.085)}
+        .caproq-my-opinion-red {border-left-color:#d93025;background:rgba(217,48,37,.065)}
+        .caproq-my-opinion-area {font-weight:800;margin-bottom:5px}
+        .caproq-my-opinion-text {opacity:.86;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+        .caproq-empty-state {
+            border:1px dashed rgba(128,128,128,.32);
+            border-radius:16px;
+            padding:34px 24px;
+            text-align:center;
+            margin-top:14px;
+            background:rgba(128,128,128,.035);
+        }
+        .caproq-empty-icon {font-size:2.1rem;margin-bottom:8px}
+        .caproq-empty-title {font-size:1.05rem;font-weight:800;margin-bottom:5px}
+        .caproq-empty-text {opacity:.68;line-height:1.5}
+        @media (max-width: 900px) {
+            .caproq-my-summary,.caproq-my-scoreboard {grid-template-columns:repeat(2,minmax(0,1fr));}
+        }
+        @media (max-width: 560px) {
+            .caproq-my-hero {padding:18px 16px}
+            .caproq-my-title {font-size:1.35rem}
+            .caproq-my-summary,.caproq-my-scoreboard {grid-template-columns:1fr;}
+        }
+        </style>
+        <div class="caproq-my-hero">
+            <div class="caproq-my-kicker">Portal do solicitante</div>
+            <div class="caproq-my-title">Meus chamados</div>
+            <div class="caproq-my-subtitle">Acompanhe o progresso das avaliações técnicas, consulte os pareceres registrados e veja a decisão final das suas solicitações.</div>
         </div>
         """, unsafe_allow_html=True)
+
         if not df_dados.empty and "Endereço de e-mail" in df_dados.columns:
-            meus_pedidos = df_dados[df_dados["Endereço de e-mail"] == user_email]
+            meus_pedidos = df_dados[
+                df_dados["Endereço de e-mail"].astype(str).str.strip().str.lower()
+                == str(user_email).strip().lower()
+            ].copy()
+
             if meus_pedidos.empty:
-                st.info("Você ainda não enviou nenhuma solicitação.")
+                st.markdown("""
+                <div class="caproq-empty-state">
+                    <div class="caproq-empty-icon">📭</div>
+                    <div class="caproq-empty-title">Nenhum chamado encontrado</div>
+                    <div class="caproq-empty-text">Você ainda não enviou solicitações pelo CAPROQ. Utilize a aba <b>Nova solicitação</b> para iniciar um processo de avaliação.</div>
+                </div>
+                """, unsafe_allow_html=True)
             else:
-                for _, row in meus_pedidos.iterrows():
-                    status_atual = row['Status_Final']
-                    id_c = int(row['ID'])
-                    
-                    cor_status = "#495057"
-                    if status_atual == "Aprovado": cor_status = "#008D4C"
-                    elif status_atual == "Aprovado com ressalva": cor_status = "#E6A23C"
-                    elif status_atual == "Reprovado": cor_status = "#D93025"
-                    elif status_atual == "Em análise": cor_status = "#005691"
-                    
-                    desc_produto = row.get("Descrição completa do produto", "Sem Descrição")
-                    titulo_resumido = desc_produto[:50] + "..." if len(desc_produto) > 50 else desc_produto
-                
-                    tag_teste = " [PRODUTO DE TESTE]" if str(row.get("Produto_Teste", "")).upper() == "SIM" else ""
-                    
-                    with st.expander(f"📋 Chamado #{id_c} - {titulo_resumido}{tag_teste} [{status_atual}]"):
-                        st.markdown(f"Status Final: <span style='color: {cor_status}; font-weight: bold;'>{status_atual}</span>", unsafe_allow_html=True)
-                        
-                        if tag_teste:
-                            st.warning("📦 **Atenção:** Este item foi cadastrado como Produto de Teste / Piloto.")
-                        
-                        st.write(f"**Descrição Completa:** {desc_produto}")
-                        st.write(f"**Área de Uso:** {row.get('Área onde será utilizado e indicação detalhada de uso do produto', 'Não informado')}")
-                        st.write(f"**Fabricante/Fornecedor:** {row.get('Fabricante/fornecedor', 'Não informado')}")
-                        
-                        st.markdown("---")
-                        st.markdown("<b>Acompanhamento técnico por alçada comitê:</b>", unsafe_allow_html=True)
-                        
-                        lista_alcadas = list(ALCADAS_INFO.values())
-                        colunas_visualizacao = st.columns(len(lista_alcadas)) if lista_alcadas else st.columns(1)
-                        
-                        for idx, alc_col in enumerate(colunas_visualizacao):
-                            if idx < len(lista_alcadas):
-                                info_alcada = lista_alcadas[idx]
-                                nome_col_sheets = info_alcada["coluna_sheets"]
-                                label_curto = info_alcada["label"].split(" - ")[0]
-                                
-                                voto_bruto = str(row.get(nome_col_sheets, "Pendente"))
-                                
-                                with alc_col:
-                                    if voto_bruto == "Pendente":
-                                        st.caption(f"⏳ **Pendente**\n`{label_curto}`")
-                                    elif voto_bruto.startswith("Reprovar"):
-                                        st.caption(f"❌ **Reprovado**\n`{label_curto}`")
-                                    elif "ressalva" in voto_bruto.lower():
-                                        st.caption(f"⚠️ **Ressalva**\n`{label_curto}`")
-                                    elif voto_bruto.startswith("Aprovar"):
-                                        st.caption(f"✅ **Aprovado**\n`{label_curto}`")
-                                    else:
-                                        st.caption(f"ℹ️ **{voto_bruto}**\n`{label_curto}`")
-                        
-                        logs_solicitante = []
+                # Normalização e ordenação das solicitações do usuário
+                coluna_data_usuario = None
+                for coluna_candidata in ["Carimbo de data/hora", "Timestamp", "Data_Abertura"]:
+                    if coluna_candidata in meus_pedidos.columns:
+                        coluna_data_usuario = coluna_candidata
+                        break
+
+                if coluna_data_usuario:
+                    meus_pedidos["_data_ordem_usuario"] = pd.to_datetime(
+                        meus_pedidos[coluna_data_usuario], errors="coerce", dayfirst=True
+                    )
+                    meus_pedidos = meus_pedidos.sort_values(
+                        "_data_ordem_usuario", ascending=False, na_position="last"
+                    )
+                elif "ID" in meus_pedidos.columns:
+                    meus_pedidos["_id_ordem_usuario"] = pd.to_numeric(
+                        meus_pedidos["ID"], errors="coerce"
+                    )
+                    meus_pedidos = meus_pedidos.sort_values(
+                        "_id_ordem_usuario", ascending=False, na_position="last"
+                    )
+
+                status_series = meus_pedidos.get(
+                    "Status_Final", pd.Series(index=meus_pedidos.index, dtype="object")
+                ).fillna("Em análise").astype(str)
+
+                total_usuario = len(meus_pedidos)
+                em_analise_usuario = int((status_series == "Em análise").sum())
+                aprovados_usuario = int(status_series.isin(["Aprovado", "Aprovado com ressalva"]).sum())
+                reprovados_usuario = int((status_series == "Reprovado").sum())
+
+                m1, m2, m3, m4 = st.columns(4)
+                metricas_usuario = [
+                    (m1, "Total de chamados", total_usuario, "Solicitações registradas"),
+                    (m2, "Em andamento", em_analise_usuario, "Ainda em avaliação"),
+                    (m3, "Aprovados", aprovados_usuario, "Com ou sem ressalvas"),
+                    (m4, "Reprovados", reprovados_usuario, "Decisão final registrada"),
+                ]
+                for coluna_metrica, rotulo_metrica, valor_metrica, ajuda_metrica in metricas_usuario:
+                    with coluna_metrica:
+                        st.markdown(
+                            f"""
+                            <div class="caproq-my-metric">
+                                <div class="caproq-my-metric-label">{escape(str(rotulo_metrica))}</div>
+                                <div class="caproq-my-metric-value">{escape(str(valor_metrica))}</div>
+                                <div class="caproq-my-metric-help">{escape(str(ajuda_metrica))}</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+
+                st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+                filtro_col1, filtro_col2, filtro_col3 = st.columns([1.6, 1, 1])
+                with filtro_col1:
+                    busca_meus_chamados = st.text_input(
+                        "Buscar nos meus chamados",
+                        placeholder="Número, produto ou fornecedor",
+                        key="busca_meus_chamados",
+                    ).strip()
+                with filtro_col2:
+                    opcoes_status_usuario = ["Todos"] + sorted(
+                        [s for s in status_series.unique().tolist() if s and s != "nan"]
+                    )
+                    filtro_status_usuario = st.selectbox(
+                        "Status",
+                        opcoes_status_usuario,
+                        key="filtro_status_meus_chamados",
+                    )
+                with filtro_col3:
+                    ordem_usuario = st.selectbox(
+                        "Ordenação",
+                        ["Mais recentes", "Mais antigos", "Maior número", "Menor número"],
+                        key="ordem_meus_chamados",
+                    )
+
+                meus_pedidos_filtrados = meus_pedidos.copy()
+
+                if filtro_status_usuario != "Todos":
+                    meus_pedidos_filtrados = meus_pedidos_filtrados[
+                        meus_pedidos_filtrados.get("Status_Final", "Em análise")
+                        .fillna("Em análise")
+                        .astype(str)
+                        == filtro_status_usuario
+                    ]
+
+                if busca_meus_chamados:
+                    termo_usuario = busca_meus_chamados.lower()
+                    mascara_busca_usuario = pd.Series(False, index=meus_pedidos_filtrados.index)
+                    for coluna_busca_usuario in [
+                        "ID",
+                        "Descrição completa do produto",
+                        "Fabricante/fornecedor",
+                        "Área onde será utilizado e indicação detalhada de uso do produto",
+                    ]:
+                        if coluna_busca_usuario in meus_pedidos_filtrados.columns:
+                            mascara_busca_usuario = mascara_busca_usuario | (
+                                meus_pedidos_filtrados[coluna_busca_usuario]
+                                .fillna("")
+                                .astype(str)
+                                .str.lower()
+                                .str.contains(termo_usuario, regex=False)
+                            )
+                    meus_pedidos_filtrados = meus_pedidos_filtrados[mascara_busca_usuario]
+
+                if ordem_usuario in ["Mais recentes", "Mais antigos"] and coluna_data_usuario:
+                    meus_pedidos_filtrados = meus_pedidos_filtrados.sort_values(
+                        "_data_ordem_usuario",
+                        ascending=(ordem_usuario == "Mais antigos"),
+                        na_position="last",
+                    )
+                elif "ID" in meus_pedidos_filtrados.columns:
+                    meus_pedidos_filtrados["_id_ordem_exibicao"] = pd.to_numeric(
+                        meus_pedidos_filtrados["ID"], errors="coerce"
+                    )
+                    meus_pedidos_filtrados = meus_pedidos_filtrados.sort_values(
+                        "_id_ordem_exibicao",
+                        ascending=(ordem_usuario == "Menor número"),
+                        na_position="last",
+                    )
+
+                st.caption(
+                    f"Exibindo {len(meus_pedidos_filtrados)} de {total_usuario} chamado(s)."
+                )
+
+                if meus_pedidos_filtrados.empty:
+                    st.markdown("""
+                    <div class="caproq-empty-state">
+                        <div class="caproq-empty-icon">🔎</div>
+                        <div class="caproq-empty-title">Nenhum resultado para os filtros selecionados</div>
+                        <div class="caproq-empty-text">Revise o termo de busca ou altere o filtro de status.</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    lista_alcadas = list(ALCADAS_INFO.values())
+
+                    for _, row in meus_pedidos_filtrados.iterrows():
+                        status_atual = str(row.get("Status_Final", "Em análise") or "Em análise")
+                        try:
+                            id_c = int(float(row.get("ID", 0)))
+                        except (TypeError, ValueError):
+                            id_c = row.get("ID", "—")
+
+                        desc_produto = str(
+                            row.get("Descrição completa do produto", "Sem descrição")
+                            or "Sem descrição"
+                        )
+                        titulo_resumido = (
+                            desc_produto[:70] + "..."
+                            if len(desc_produto) > 70
+                            else desc_produto
+                        )
+                        produto_teste = str(row.get("Produto_Teste", "")).strip().upper() == "SIM"
+
+                        data_abertura_texto = "Não informada"
+                        if coluna_data_usuario:
+                            data_bruta_usuario = row.get(coluna_data_usuario, "")
+                            data_convertida_usuario = pd.to_datetime(
+                                data_bruta_usuario, errors="coerce", dayfirst=True
+                            )
+                            if pd.notna(data_convertida_usuario):
+                                data_abertura_texto = data_convertida_usuario.strftime("%d/%m/%Y às %H:%M")
+                            elif str(data_bruta_usuario).strip():
+                                data_abertura_texto = str(data_bruta_usuario)
+
+                        votos_usuario = []
                         for info_alcada in lista_alcadas:
-                            nome_col_sheets = info_alcada["coluna_sheets"]
-                            voto_conteudo = str(row.get(nome_col_sheets, "Pendente"))
-                            if nome_col_sheets in df_dados.columns and voto_conteudo != "Pendente":
-                                logs_solicitante.append((info_alcada["label"], voto_conteudo))
-                                
-                        if logs_solicitante:
-                            st.markdown("---")
-                            st.markdown("<b>Histórico de pareceres registrados:</b>", unsafe_allow_html=True)
-                            for label_area, parecer_completo in logs_solicitante:
-                                if "Reprovar" in parecer_completo:
-                                    st.error(f"🔴 **{label_area}:** {parecer_completo}")
-                                elif "ressalva" in parecer_completo.lower():
-                                    st.warning(f"🟡 **{label_area}:** {parecer_completo}")
+                            coluna_voto_usuario = info_alcada["coluna_sheets"]
+                            voto_usuario = str(row.get(coluna_voto_usuario, "Pendente") or "Pendente")
+                            votos_usuario.append((info_alcada, voto_usuario))
+
+                        qtd_concluidas_usuario = sum(
+                            1 for _, voto_usuario in votos_usuario
+                            if voto_usuario.strip().lower() != "pendente"
+                        )
+                        qtd_total_alcadas_usuario = len(votos_usuario)
+                        percentual_usuario = (
+                            round((qtd_concluidas_usuario / qtd_total_alcadas_usuario) * 100)
+                            if qtd_total_alcadas_usuario
+                            else 0
+                        )
+
+                        pendentes_labels_usuario = [
+                            info_alcada["label"]
+                            for info_alcada, voto_usuario in votos_usuario
+                            if voto_usuario.strip().lower() == "pendente"
+                        ]
+
+                        if status_atual == "Aprovado":
+                            badge_classe = "caproq-my-badge-green"
+                            badge_icone = "✓"
+                        elif status_atual == "Aprovado com ressalva":
+                            badge_classe = "caproq-my-badge-yellow"
+                            badge_icone = "!"
+                        elif status_atual == "Reprovado":
+                            badge_classe = "caproq-my-badge-red"
+                            badge_icone = "×"
+                        elif status_atual == "Em análise":
+                            badge_classe = "caproq-my-badge-blue"
+                            badge_icone = "↻"
+                        else:
+                            badge_classe = "caproq-my-badge-gray"
+                            badge_icone = "•"
+
+                        titulo_expander_usuario = (
+                            f"Chamado #{id_c} · {titulo_resumido} · {status_atual}"
+                        )
+
+                        with st.expander(titulo_expander_usuario, expanded=False):
+                            status_badge_html = (
+                                f'<span class="caproq-my-badge {badge_classe}">'
+                                f'{badge_icone} {escape(status_atual)}</span>'
+                            )
+                            teste_badge_html = (
+                                '<span class="caproq-my-badge caproq-my-badge-blue">🧪 Produto de teste</span>'
+                                if produto_teste else
+                                '<span class="caproq-my-badge caproq-my-badge-gray">📦 Produto padrão</span>'
+                            )
+                            st.markdown(
+                                f"<div style='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px'>{status_badge_html}{teste_badge_html}</div>",
+                                unsafe_allow_html=True,
+                            )
+
+                            fabricante_usuario = str(row.get("Fabricante/fornecedor", "Não informado") or "Não informado")
+                            area_uso_usuario = str(
+                                row.get(
+                                    "Área onde será utilizado e indicação detalhada de uso do produto",
+                                    "Não informado",
+                                ) or "Não informado"
+                            )
+                            setor_usuario = str(row.get("Setor", row.get("Setor solicitante", "Não informado")) or "Não informado")
+
+                            st.markdown(
+                                f"""
+                                <div class="caproq-my-summary">
+                                    <div class="caproq-my-summary-item">
+                                        <div class="caproq-my-summary-label">Chamado</div>
+                                        <div class="caproq-my-summary-value">#{escape(str(id_c))}</div>
+                                    </div>
+                                    <div class="caproq-my-summary-item">
+                                        <div class="caproq-my-summary-label">Abertura</div>
+                                        <div class="caproq-my-summary-value">{escape(data_abertura_texto)}</div>
+                                    </div>
+                                    <div class="caproq-my-summary-item">
+                                        <div class="caproq-my-summary-label">Fornecedor</div>
+                                        <div class="caproq-my-summary-value">{escape(fabricante_usuario)}</div>
+                                    </div>
+                                    <div class="caproq-my-summary-item">
+                                        <div class="caproq-my-summary-label">Setor</div>
+                                        <div class="caproq-my-summary-value">{escape(setor_usuario)}</div>
+                                    </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
+                            if status_atual == "Em análise":
+                                if pendentes_labels_usuario:
+                                    etapa_atual_usuario = "Aguardando parecer de: " + ", ".join(pendentes_labels_usuario)
                                 else:
-                                    st.info(f"🟢 **{label_area}:** {parecer_completo}")
+                                    etapa_atual_usuario = "Avaliações concluídas; aguardando homologação final"
+                            else:
+                                etapa_atual_usuario = "Processo finalizado"
+
+                            st.markdown(
+                                f"""
+                                <div class="caproq-my-stage">
+                                    <div class="caproq-my-stage-title">Etapa atual</div>
+                                    <div class="caproq-my-stage-value">{escape(etapa_atual_usuario)}</div>
+                                    <div style="opacity:.65;font-size:.80rem;margin-top:5px">{qtd_concluidas_usuario} de {qtd_total_alcadas_usuario} alçada(s) concluída(s) · {percentual_usuario}% do fluxo técnico</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                            st.progress(percentual_usuario / 100 if percentual_usuario else 0)
+
+                            st.markdown("#### 📦 Informações da solicitação")
+                            info_col1, info_col2 = st.columns(2)
+                            with info_col1:
+                                st.markdown("**Descrição completa do produto**")
+                                st.write(desc_produto)
+                            with info_col2:
+                                st.markdown("**Área e indicação de uso**")
+                                st.write(area_uso_usuario)
+
+                            st.markdown("#### 🧭 Progresso das alçadas técnicas")
+                            placar_html_usuario = '<div class="caproq-my-scoreboard">'
+                            for info_alcada, voto_usuario in votos_usuario:
+                                voto_lower_usuario = voto_usuario.lower()
+                                if voto_usuario == "Pendente":
+                                    classe_score_usuario = "caproq-score-pending"
+                                    status_score_usuario = "⏳ Pendente"
+                                elif voto_lower_usuario.startswith("reprovar") or "reprov" in voto_lower_usuario:
+                                    classe_score_usuario = "caproq-score-rejected"
+                                    status_score_usuario = "❌ Reprovado"
+                                elif "ressalva" in voto_lower_usuario:
+                                    classe_score_usuario = "caproq-score-warning"
+                                    status_score_usuario = "⚠️ Com ressalva"
+                                elif voto_lower_usuario.startswith("aprovar") or "aprovado" in voto_lower_usuario:
+                                    classe_score_usuario = "caproq-score-approved"
+                                    status_score_usuario = "✅ Aprovado"
+                                else:
+                                    classe_score_usuario = "caproq-score-pending"
+                                    status_score_usuario = voto_usuario
+
+                                label_score_usuario = info_alcada["label"]
+                                placar_html_usuario += f"""
+                                <div class="caproq-my-score {classe_score_usuario}">
+                                    <div class="caproq-my-score-label">{escape(label_score_usuario)}</div>
+                                    <div class="caproq-my-score-status">{escape(status_score_usuario)}</div>
+                                </div>
+                                """
+                            placar_html_usuario += "</div>"
+                            st.markdown(placar_html_usuario, unsafe_allow_html=True)
+
+                            logs_solicitante = []
+                            for info_alcada, voto_conteudo in votos_usuario:
+                                if voto_conteudo.strip().lower() != "pendente":
+                                    logs_solicitante.append((info_alcada["label"], voto_conteudo))
+
+                            if logs_solicitante:
+                                st.markdown("#### 💬 Pareceres já registrados")
+                                for label_area, parecer_completo in logs_solicitante:
+                                    parecer_lower = parecer_completo.lower()
+                                    if "reprovar" in parecer_lower or "reprov" in parecer_lower:
+                                        classe_parecer = "caproq-my-opinion-red"
+                                    elif "ressalva" in parecer_lower:
+                                        classe_parecer = "caproq-my-opinion-yellow"
+                                    else:
+                                        classe_parecer = "caproq-my-opinion-green"
+
+                                    st.markdown(
+                                        f"""
+                                        <div class="caproq-my-opinion {classe_parecer}">
+                                            <div class="caproq-my-opinion-area">{escape(str(label_area))}</div>
+                                            <div class="caproq-my-opinion-text">{escape(str(parecer_completo))}</div>
+                                        </div>
+                                        """,
+                                        unsafe_allow_html=True,
+                                    )
+                            else:
+                                st.info("As alçadas técnicas ainda não registraram pareceres para este chamado.")
+
+                            if status_atual != "Em análise":
+                                st.markdown("#### 🏁 Decisão final")
+                                obs_admin_usuario = str(row.get("obs_admin", "") or "").strip()
+                                if status_atual == "Aprovado":
+                                    st.success("A solicitação foi aprovada na homologação final.")
+                                elif status_atual == "Aprovado com ressalva":
+                                    st.warning("A solicitação foi aprovada com ressalvas na homologação final.")
+                                elif status_atual == "Reprovado":
+                                    st.error("A solicitação foi reprovada na homologação final.")
+                                else:
+                                    st.info(f"Decisão registrada: {status_atual}")
+
+                                if obs_admin_usuario:
+                                    st.markdown("**Considerações finais da homologação**")
+                                    st.write(obs_admin_usuario)
         else:
-            st.info("Nenhuma solicitação encontrada.")
+            st.markdown("""
+            <div class="caproq-empty-state">
+                <div class="caproq-empty-icon">⚠️</div>
+                <div class="caproq-empty-title">Não foi possível carregar os chamados</div>
+                <div class="caproq-empty-text">A base de solicitações está vazia ou não possui a coluna de e-mail necessária para identificar seus registros.</div>
+            </div>
+            """, unsafe_allow_html=True)
