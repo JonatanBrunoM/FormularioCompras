@@ -1029,6 +1029,63 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ------------------------------------------------------------------------------
+# Componentes globais de feedback: estados vazios, alertas e mensagens
+# ------------------------------------------------------------------------------
+st.markdown("""
+<style>
+.caproq-feedback {display:flex;gap:14px;align-items:flex-start;padding:15px 17px;margin:10px 0 14px;border-radius:14px;border:1px solid;box-shadow:0 8px 24px rgba(15,23,42,.05)}
+.caproq-feedback__icon {width:38px;height:38px;min-width:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.15rem}
+.caproq-feedback__title {font-weight:800;line-height:1.25;margin:1px 0 4px}
+.caproq-feedback__text {font-size:.92rem;line-height:1.5;opacity:.82}
+.caproq-feedback--success {background:rgba(22,163,74,.08);border-color:rgba(22,163,74,.24)}
+.caproq-feedback--success .caproq-feedback__icon {background:rgba(22,163,74,.14)}
+.caproq-feedback--warning {background:rgba(245,158,11,.09);border-color:rgba(245,158,11,.27)}
+.caproq-feedback--warning .caproq-feedback__icon {background:rgba(245,158,11,.16)}
+.caproq-feedback--error {background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.24)}
+.caproq-feedback--error .caproq-feedback__icon {background:rgba(220,38,38,.14)}
+.caproq-feedback--info {background:rgba(0,86,145,.08);border-color:rgba(0,86,145,.23)}
+.caproq-feedback--info .caproq-feedback__icon {background:rgba(0,86,145,.14)}
+.caproq-empty-global {text-align:center;padding:34px 22px;margin:14px 0;border-radius:16px;border:1px dashed rgba(127,127,127,.34);background:rgba(127,127,127,.045)}
+.caproq-empty-global__icon {font-size:2.25rem;margin-bottom:8px}
+.caproq-empty-global__title {font-size:1.05rem;font-weight:800;margin-bottom:5px}
+.caproq-empty-global__text {font-size:.92rem;opacity:.7;line-height:1.5;max-width:620px;margin:0 auto}
+@media(max-width:640px){.caproq-feedback{padding:13px 14px}.caproq-feedback__icon{width:34px;height:34px;min-width:34px}.caproq-empty-global{padding:27px 16px}}
+</style>
+""", unsafe_allow_html=True)
+
+FEEDBACK_CONFIG = {
+    "success": ("✅", "Concluído"),
+    "warning": ("⚠️", "Atenção"),
+    "error": ("⛔", "Não foi possível concluir"),
+    "info": ("ℹ️", "Informação"),
+}
+
+def render_feedback(message, kind="info", title=None, icon=None):
+    kind = kind if kind in FEEDBACK_CONFIG else "info"
+    default_icon, default_title = FEEDBACK_CONFIG[kind]
+    html = (
+        '<div class="caproq-feedback caproq-feedback--{kind}">'
+        '<div class="caproq-feedback__icon">{icon}</div>'
+        '<div><div class="caproq-feedback__title">{title}</div>'
+        '<div class="caproq-feedback__text">{message}</div></div></div>'
+    ).format(
+        kind=kind,
+        icon=escape(icon or default_icon),
+        title=escape(title or default_title),
+        message=escape(str(message)),
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+def render_empty_state(title, message, icon="📭"):
+    html = (
+        '<div class="caproq-empty-global">'
+        '<div class="caproq-empty-global__icon">{icon}</div>'
+        '<div class="caproq-empty-global__title">{title}</div>'
+        '<div class="caproq-empty-global__text">{message}</div></div>'
+    ).format(icon=escape(icon), title=escape(title), message=escape(message))
+    st.markdown(html, unsafe_allow_html=True)
+
 # ==============================================================================
 # 3. Definição de Alçadas, Conexão e Validação de Usuários (Via Google Sheets)
 # ==============================================================================
@@ -1664,9 +1721,7 @@ if not st.session_state.connected:
     )
 
     if erro_login:
-        st.error(
-            "Não foi possível concluir o login com o Google."
-        )
+        render_feedback("Tente novamente. Caso o problema persista, consulte os detalhes técnicos abaixo.", kind="error", title="Não foi possível concluir o login com o Google", icon="🔐")
 
         with st.expander("Detalhes técnicos"):
             st.code(erro_login)
@@ -1757,11 +1812,8 @@ usuario_valido, mensagem_validacao = validar_usuario_logado(
 )
 
 if not usuario_valido:
-    st.error(f"❌ {mensagem_validacao}")
-    st.info(
-        "Entre em contato com a administração do CAPROQ caso seja "
-        "necessário reativar seu acesso."
-    )
+    render_feedback(mensagem_validacao, kind="error", title="Acesso indisponível", icon="🔒")
+    render_feedback("Entre em contato com a administração do CAPROQ caso seja necessário reativar seu acesso.", kind="info", title="Como resolver", icon="📩")
 
     if st.button(
         "Voltar para o login",
@@ -2227,7 +2279,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                 hide_index=True,
             )
         else:
-            st.warning("⚠️ Nenhum usuário encontrado na aba 'Usuarios' do Google Sheets.")
+            render_empty_state("Nenhum usuário cadastrado", "A aba Usuarios do Google Sheets ainda não possui registros. Use o formulário abaixo para incluir o primeiro usuário.", icon="👥")
 
         st.markdown(
             """
@@ -2301,9 +2353,9 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
 
                 if botao_salvar_usr:
                     if not email_input or "@" not in email_input:
-                        st.error("❌ Forneça um e-mail válido para identificação.")
+                        render_feedback("Informe um endereço de e-mail válido para identificar o usuário.", kind="error", title="E-mail inválido", icon="✉️")
                     elif not nome_input.strip():
-                        st.error("❌ O nome do usuário não pode ficar em branco.")
+                        render_feedback("Preencha o nome do usuário antes de salvar o cadastro.", kind="error", title="Nome obrigatório", icon="👤")
                     else:
                         string_alcadas = ", ".join(alcadas_selecionadas) if alcadas_selecionadas else "Nenhuma"
 
@@ -2334,11 +2386,11 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                             conn.update(worksheet="Usuarios", data=df_usuarios)
                             st.session_state["df_usuarios_cache"] = df_usuarios.copy()
                             st.session_state["df_usuarios_cache_timestamp"] = time.time()
-                            st.success(msg_sucesso)
+                            render_feedback(msg_sucesso, kind="success", title="Cadastro atualizado", icon="✅")
                             time.sleep(1.5)
                             st.rerun()
                         except Exception as e:
-                            st.error(f"❌ Erro ao salvar dados na aba 'Usuarios': {e}")
+                            render_feedback(f"Não foi possível salvar os dados na aba Usuarios: {e}", kind="error", title="Falha ao salvar usuário", icon="💾")
 
         with tab_excluir_usuario:
             st.markdown(
@@ -2371,20 +2423,20 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
 
                     if botao_excluir_usr:
                         if not confirmar_exclusao:
-                            st.error("❌ Marque a caixa de confirmação para poder prosseguir.")
+                            render_feedback("Marque a caixa de confirmação antes de remover o usuário.", kind="warning", title="Confirmação necessária", icon="☑️")
                         else:
                             df_usuarios = df_usuarios[df_usuarios["Email"] != email_excluir]
                             try:
                                 conn.update(worksheet="Usuarios", data=df_usuarios)
                                 st.session_state["df_usuarios_cache"] = df_usuarios.copy()
                                 st.session_state["df_usuarios_cache_timestamp"] = time.time()
-                                st.success(f"🗑️ Usuário `{email_excluir}` removido com sucesso!")
+                                render_feedback(f"O usuário {email_excluir} foi removido com sucesso.", kind="success", title="Usuário removido", icon="🗑️")
                                 time.sleep(1.5)
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"❌ Erro ao salvar as alterações de exclusão no Sheets: {e}")
+                                render_feedback(f"Não foi possível registrar a exclusão no Google Sheets: {e}", kind="error", title="Falha ao remover usuário", icon="🗑️")
             else:
-                st.info("Nenhum usuário cadastrado para remoção.")
+                render_empty_state("Nenhum usuário disponível", "Não há usuários cadastrados que possam ser removidos neste momento.", icon="👤")
 
     # --------------------------------------------------------------------------
     # PAINEL DE CONTROLE PRINCIPAL
@@ -2479,10 +2531,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                 )
 
                 if pendentes.empty:
-                    st.success(
-                        "Nenhuma solicitação pendente para a sua alçada técnica "
-                        "no momento."
-                    )
+                    render_empty_state("Tudo em dia por aqui", "Não há solicitações pendentes para a sua alçada técnica neste momento.", icon="✅")
                 else:
                     for _, row in pendentes.iterrows():
                         id_chamado = int(row["ID"])
@@ -2777,7 +2826,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                             
                                             if st.button(f"Confirmar parecer {info['label']}", key=f"btn_salvar_{id_chamado}_{letra_col}", type="primary"):
                                                 if parecer_obrigatorio and not parecer_texto.strip():
-                                                    st.error(f"Por favor, preencha o campo Parecer. Ele é obrigatório para decisões de '{voto_opcao}'.")
+                                                    render_feedback(f"Preencha o parecer antes de registrar a decisão '{voto_opcao}'.", kind="error", title="Parecer obrigatório", icon="📝")
                                                 else:
                                                     fuso_br = datetime.timezone(datetime.timedelta(hours=-3))
                                                     timestamp_atual = datetime.datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
@@ -2880,7 +2929,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                                     st.session_state["df_dados_cache"] = df_dados.copy()
                                                     st.session_state["df_dados_cache_timestamp"] = time.time()
 
-                                                    st.success("Seu parecer técnico foi computado com sucesso!")
+                                                    render_feedback("Seu parecer técnico foi registrado e o fluxo do chamado foi atualizado.", kind="success", title="Parecer registrado", icon="✅")
                                                     time.sleep(1.2)
                                                     st.rerun()
 
@@ -3037,7 +3086,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                 )
 
                 if historico_aprovador.empty:
-                    st.info("Ainda não há decisões históricas disponíveis para as alçadas vinculadas ao seu perfil.")
+                    render_empty_state("Histórico ainda vazio", "Ainda não há decisões registradas para as alçadas vinculadas ao seu perfil.", icon="🕘")
                 else:
                     df_historico = historico_aprovador.copy()
 
@@ -3194,7 +3243,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                     )
 
                     if df_hist_filtrado.empty:
-                        st.info("Nenhum chamado corresponde aos filtros selecionados.")
+                        render_empty_state("Nenhum chamado encontrado", "Revise os filtros ou o termo de busca para ampliar os resultados.", icon="🔎")
                     else:
                         for _, row in df_hist_filtrado.iterrows():
                             try:
@@ -4465,7 +4514,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
         )
 
         if df_dados.empty:
-            st.info("💡 Não há dados disponíveis para homologação.")
+            render_empty_state("Nenhum dado para homologação", "A base de solicitações está vazia. Novos chamados aparecerão aqui após o registro.", icon="🛡️")
         elif "Status_Aprovadores" not in df_dados.columns:
             st.warning(
                 "⚠️ A coluna 'Status_Aprovadores' não foi localizada na planilha."
@@ -4488,9 +4537,10 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
             ]
 
             if chamados_para_decisao.empty:
-                st.info(
-                    "💡 No momento, não há chamados pendentes de homologação "
-                    "final ou com status de reunião definida."
+                render_empty_state(
+                    "Nenhuma decisão pendente",
+                    "No momento, não há chamados aguardando homologação final ou reunião técnica.",
+                    icon="✅",
                 )
             else:
                 total_homologacao = len(chamados_para_decisao)
@@ -5491,7 +5541,7 @@ else:
                 campos_vazios.append("Anexo arquivo de estudos científicos e de custo-efetividade (Obrigatório quando a resposta for SIM)")
             
             if campos_vazios:
-                st.error(f"❌ Por favor, preencha ou anexe os seguintes campos obrigatórios do formulário principal:\n" + "\n".join([f"• {c}" for c in campos_vazios]))
+                render_feedback("Campos pendentes: " + "; ".join(campos_vazios), kind="error", title="Revise os campos obrigatórios", icon="📋")
             else:
                 # Salva os dados no Session State de forma direta
                 st.session_state["dados_base_coletados"] = {
@@ -5540,7 +5590,7 @@ else:
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("Confirmar e concluir envio do produto teste", use_container_width=True, type="primary"):
                     if not all([motivo_teste, consumo_mes, qtd_teste, setores_teste, setor_solicitante, ramal_solicitante, responsavel_area]):
-                        st.error("❌ Todos os campos adicionais do Produto Teste precisam ser preenchidos antes de salvar.")
+                        render_feedback("Preencha todos os campos adicionais do Produto Teste antes de enviar a solicitação.", kind="error", title="Dados do Produto Teste incompletos", icon="🧪")
                     else:
                         st.session_state["dados_base_coletados"]["respostas"].update({
                             "Motivo_Teste": motivo_teste,
@@ -5747,7 +5797,7 @@ else:
                 if "dados_base_coletados" in st.session_state:
                     del st.session_state["dados_base_coletados"]
                 
-                st.success(f"🎉 Solicitação #{proximo_id} enviada com sucesso para análise!")
+                render_feedback(f"A solicitação #{proximo_id} foi enviada para avaliação técnica. Você receberá atualizações por e-mail.", kind="success", title="Solicitação enviada com sucesso", icon="🚀")
                 time.sleep(2)
                 st.rerun()
         
@@ -6268,19 +6318,19 @@ else:
                                         unsafe_allow_html=True,
                                     )
                             else:
-                                st.info("As alçadas técnicas ainda não registraram pareceres para este chamado.")
+                                render_empty_state("Pareceres ainda não registrados", "As alçadas técnicas ainda não concluíram avaliações para este chamado.", icon="🕘")
 
                             if status_atual != "Em análise":
                                 st.markdown("#### 🏁 Decisão final")
                                 obs_admin_usuario = str(row.get("obs_admin", "") or "").strip()
                                 if status_atual == "Aprovado":
-                                    st.success("A solicitação foi aprovada na homologação final.")
+                                    render_feedback("A solicitação foi aprovada na homologação final.", kind="success", title="Homologação aprovada", icon="✅")
                                 elif status_atual == "Aprovado com ressalva":
-                                    st.warning("A solicitação foi aprovada com ressalvas na homologação final.")
+                                    render_feedback("A solicitação foi aprovada com ressalvas na homologação final.", kind="warning", title="Homologação com ressalvas", icon="⚠️")
                                 elif status_atual == "Reprovado":
-                                    st.error("A solicitação foi reprovada na homologação final.")
+                                    render_feedback("A solicitação foi reprovada na homologação final.", kind="error", title="Homologação reprovada", icon="⛔")
                                 else:
-                                    st.info(f"Decisão registrada: {status_atual}")
+                                    render_feedback(f"Decisão registrada: {status_atual}", kind="info", title="Situação da homologação", icon="ℹ️")
 
                                 if obs_admin_usuario:
                                     st.markdown("**Considerações finais da homologação**")
