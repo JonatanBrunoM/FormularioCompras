@@ -2885,92 +2885,453 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                                     st.rerun()
 
             # ----------------------------------------------------------------------
-            # 8.2. Aba "Histórico de decisões"
+            # 8.2. Aba "Histórico Geral"
             # ----------------------------------------------------------------------
             with tab_hist_aprovador:
 
                 st.markdown(
                     """
-<div class="caproq-section-intro">
-    <p class="caproq-section-intro-title">Acompanhamento e histórico de deliberações</p>
-    <p class="caproq-section-intro-text">
-        Consulte decisões já registradas, situação das áreas e prazos de resposta
-        de cada alçada técnica.
+<style>
+.caproq-history-hero {
+    padding: 1.3rem 1.45rem;
+    border: 1px solid rgba(0, 86, 145, .18);
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(0, 86, 145, .13), rgba(0, 86, 145, .025));
+    margin: .15rem 0 1rem;
+}
+.caproq-history-kicker {
+    margin: 0 0 .3rem;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    opacity: .7;
+}
+.caproq-history-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 850;
+    line-height: 1.2;
+}
+.caproq-history-subtitle {
+    margin: .4rem 0 0;
+    opacity: .76;
+    line-height: 1.5;
+}
+.caproq-history-filter-shell {
+    padding: .95rem 1rem .3rem;
+    border: 1px solid rgba(128, 128, 128, .18);
+    border-radius: 16px;
+    background: rgba(128, 128, 128, .035);
+    margin-bottom: .9rem;
+}
+.caproq-history-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .7rem;
+    margin: .25rem 0 1rem;
+}
+.caproq-history-summary-card {
+    border: 1px solid rgba(128, 128, 128, .17);
+    border-radius: 15px;
+    padding: .82rem .9rem;
+    background: rgba(128, 128, 128, .025);
+}
+.caproq-history-summary-label {
+    margin: 0;
+    font-size: .72rem;
+    font-weight: 750;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    opacity: .64;
+}
+.caproq-history-summary-value {
+    margin: .16rem 0 0;
+    font-size: 1.28rem;
+    line-height: 1.15;
+    font-weight: 850;
+}
+.caproq-history-request {
+    border: 1px solid rgba(128, 128, 128, .17);
+    border-radius: 15px;
+    padding: .9rem 1rem;
+    background: rgba(128, 128, 128, .025);
+    margin: .2rem 0 .85rem;
+}
+.caproq-history-request-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+}
+.caproq-history-field-label {
+    font-size: .7rem;
+    font-weight: 780;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    opacity: .6;
+    margin-bottom: .18rem;
+}
+.caproq-history-field-value {
+    font-size: .88rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+.caproq-history-scoreboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: .55rem;
+    margin: .45rem 0 .85rem;
+}
+.caproq-history-area-card {
+    border: 1px solid rgba(128, 128, 128, .16);
+    border-radius: 13px;
+    padding: .72rem .78rem;
+    background: rgba(128, 128, 128, .025);
+}
+.caproq-history-area-name {
+    font-size: .74rem;
+    font-weight: 800;
+    margin-bottom: .28rem;
+    line-height: 1.25;
+}
+.caproq-history-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .28rem;
+    padding: .22rem .48rem;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 800;
+}
+.caproq-history-badge.approved { background: rgba(34, 197, 94, .14); color: #16823a; }
+.caproq-history-badge.warning { background: rgba(245, 158, 11, .16); color: #9a6100; }
+.caproq-history-badge.rejected { background: rgba(239, 68, 68, .14); color: #b42318; }
+.caproq-history-badge.pending { background: rgba(107, 114, 128, .13); color: #60646c; }
+.caproq-history-section-label {
+    margin: .95rem 0 .45rem;
+    font-size: .82rem;
+    font-weight: 820;
+    letter-spacing: .01em;
+}
+@media (max-width: 850px) {
+    .caproq-history-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .caproq-history-request-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+    .caproq-history-hero { padding: 1.05rem 1rem; }
+    .caproq-history-title { font-size: 1.28rem; }
+    .caproq-history-summary { grid-template-columns: 1fr; }
+    .caproq-history-request-grid { grid-template-columns: 1fr; }
+}
+</style>
+<div class="caproq-history-hero">
+    <p class="caproq-history-kicker">Consulta consolidada · CAPROQ</p>
+    <h2 class="caproq-history-title">Histórico Geral de Chamados</h2>
+    <p class="caproq-history-subtitle">
+        Localize solicitações por chamado, produto, fornecedor ou solicitante,
+        acompanhe o status global e consulte a situação de todas as alçadas técnicas.
     </p>
 </div>
 """,
                     unsafe_allow_html=True,
                 )
-                
-                if historico_aprovador.empty:
-                    st.info("Sua alçada técnica atual ainda não emitiu votos históricos no sistema.")
-                else:
-                    for _, row in historico_aprovador.iterrows():
-                        id_c = int(row['ID'])
-                        desc_h = row.get("Descrição completa do produto", "Sem descrição")
-                        
-                        carimbo_original = row.get('Carimbo de data/hora', row.get('Timestamp', ''))
-                        
-                        with st.expander(f"📦 Chamado #{id_c} — {desc_h} (Status Geral: {row['Status_Final']})"):
-                            dt_abertura = None
-                            if carimbo_original and str(carimbo_original).strip() not in ["nan", "None", ""]:
-                                try:
-                                    data_limpa = str(carimbo_original).split()[0]
-                                    dt_abertura = pd.to_datetime(data_limpa, dayfirst=True)
-                                except:
-                                    dt_abertura = None
 
-                            if dt_abertura:
-                                st.markdown(f"⏱️ **Data de Abertura:** {dt_abertura.strftime('%d/%m/%Y')}")
-                            else:
-                                st.markdown("⚠️ *Data de abertura não identificada para cálculo de prazos.*")
-                            
-                            st.markdown("---")
-                            st.markdown("**Situação por Alçada Técnica:**")
-                            
-                            for letra_col, info in ALCADAS_INFO.items():
-                                c_nome = info["coluna_sheets"]
-                                
-                                if c_nome in df_dados.columns:
-                                    v_status = str(row[c_nome]).strip()
-                                    
-                                    with st.container(border=True):
-                                        col_info_area, col_prazo_status = st.columns([2, 1])
-                                        
-                                        with col_info_area:
-                                            st.markdown(f"📌 **{info['label']}**")
-                                            
-                                            if v_status == "Pendente":
-                                                st.markdown("⏳ **Parecer:** *Aguardando deliberação*")
-                                            else:
-                                                st.markdown(f"💬 **Parecer registrado:**\n`{v_status}`")
-                                                
-                                        with col_prazo_status:
-                                            if row['Status_Final'] == "Reprovado" and v_status == "Pendente":
-                                                st.error("🛑 Fluxo encerrado (Chamado recusado)")
-                                            
-                                            elif v_status == "Pendente" and dt_abertura:
-                                                prazo_definido = info.get("prazo_util", 5)
-                                                
-                                                hoje = pd.Timestamp.now().normalize()
-                                                abertura_norm = dt_abertura.normalize()
-                                                
-                                                dias_passados_uteis = len(pd.date_range(start=abertura_norm, end=hoje, freq='B')) - 1
-                                                dias_restantes_uteis = prazo_definido - dias_passados_uteis
-                                                
-                                                if dias_restantes_uteis > 1:
-                                                    st.warning(f"⏰ Restam **{dias_restantes_uteis} dias úteis**")
-                                                elif dias_restantes_uteis == 1:
-                                                    st.warning("⚠️ Resta **1 dia útil!**")
-                                                elif dias_restantes_uteis == 0:
-                                                    st.error("🚨 **Prazo vence HOJE!**")
-                                                else:
-                                                    st.error(f"❌ **Atrasado há {abs(dias_restantes_uteis)} dias úteis**")
-                                                    
-                                            elif v_status == "Pendente":
-                                                st.caption("Prazo indisponível")
-                                            else:
-                                                st.success("✅ Concluído")
+                if historico_aprovador.empty:
+                    st.info("Ainda não há decisões históricas disponíveis para as alçadas vinculadas ao seu perfil.")
+                else:
+                    df_historico = historico_aprovador.copy()
+
+                    def _hist_coluna(candidatas):
+                        for candidata in candidatas:
+                            if candidata in df_historico.columns:
+                                return candidata
+                        return None
+
+                    col_hist_produto = _hist_coluna([
+                        "Descrição completa do produto",
+                        "Descrição do produto",
+                        "Descricao_Produto",
+                    ])
+                    col_hist_data = _hist_coluna([
+                        "Carimbo de data/hora",
+                        "Timestamp",
+                        "Data_Abertura",
+                        "Data de abertura",
+                    ])
+                    col_hist_solicitante = _hist_coluna([
+                        "Nome solicitante",
+                        "Remetente_Nome",
+                        "Nome",
+                    ])
+                    col_hist_email = _hist_coluna([
+                        "Endereço de e-mail",
+                        "Remetente_Email",
+                        "Email",
+                    ])
+                    col_hist_setor = _hist_coluna([
+                        "Setor_Solicitante",
+                        "Setor solicitante",
+                        "Setor",
+                    ])
+                    col_hist_fornecedor = _hist_coluna([
+                        "Fornecedor",
+                        "Nome do fornecedor",
+                        "Fornecedor do produto",
+                    ])
+
+                    df_historico["_hist_data"] = (
+                        pd.to_datetime(df_historico[col_hist_data], errors="coerce", dayfirst=True)
+                        if col_hist_data else pd.NaT
+                    )
+                    df_historico["_hist_status"] = (
+                        df_historico["Status_Final"].fillna("Não informado").astype(str).str.strip()
+                        if "Status_Final" in df_historico.columns else "Não informado"
+                    )
+
+                    st.markdown('<div class="caproq-history-filter-shell">', unsafe_allow_html=True)
+                    hist_f1, hist_f2, hist_f3 = st.columns([1.7, 1, 1])
+                    with hist_f1:
+                        busca_historico = st.text_input(
+                            "Buscar no histórico",
+                            placeholder="Número do chamado, produto, fornecedor ou solicitante",
+                            key="historico_geral_busca",
+                        )
+                    status_hist_disponiveis = sorted(
+                        [s for s in df_historico["_hist_status"].dropna().unique().tolist() if s]
+                    )
+                    with hist_f2:
+                        status_hist_selecionados = st.multiselect(
+                            "Status geral",
+                            status_hist_disponiveis,
+                            default=status_hist_disponiveis,
+                            key="historico_geral_status",
+                        )
+                    with hist_f3:
+                        periodo_hist = st.selectbox(
+                            "Período de abertura",
+                            ["Todo o histórico", "Últimos 30 dias", "Últimos 90 dias", "Últimos 12 meses"],
+                            key="historico_geral_periodo",
+                        )
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                    df_hist_filtrado = df_historico.copy()
+
+                    if status_hist_selecionados:
+                        df_hist_filtrado = df_hist_filtrado[
+                            df_hist_filtrado["_hist_status"].isin(status_hist_selecionados)
+                        ]
+                    else:
+                        df_hist_filtrado = df_hist_filtrado.iloc[0:0]
+
+                    dias_periodo_hist = {
+                        "Últimos 30 dias": 30,
+                        "Últimos 90 dias": 90,
+                        "Últimos 12 meses": 365,
+                    }.get(periodo_hist)
+                    if dias_periodo_hist is not None and df_hist_filtrado["_hist_data"].notna().any():
+                        limite_hist = pd.Timestamp.now().normalize() - pd.Timedelta(days=dias_periodo_hist)
+                        df_hist_filtrado = df_hist_filtrado[
+                            df_hist_filtrado["_hist_data"] >= limite_hist
+                        ]
+
+                    termo_hist = busca_historico.strip().lower()
+                    if termo_hist:
+                        colunas_busca_hist = ["ID"]
+                        for coluna_busca in [
+                            col_hist_produto,
+                            col_hist_solicitante,
+                            col_hist_email,
+                            col_hist_setor,
+                            col_hist_fornecedor,
+                        ]:
+                            if coluna_busca and coluna_busca in df_hist_filtrado.columns:
+                                colunas_busca_hist.append(coluna_busca)
+
+                        mascara_hist = pd.Series(False, index=df_hist_filtrado.index)
+                        for coluna_busca in colunas_busca_hist:
+                            mascara_hist = mascara_hist | (
+                                df_hist_filtrado[coluna_busca]
+                                .fillna("")
+                                .astype(str)
+                                .str.lower()
+                                .str.contains(termo_hist, regex=False)
+                            )
+                        df_hist_filtrado = df_hist_filtrado[mascara_hist]
+
+                    df_hist_filtrado = df_hist_filtrado.sort_values(
+                        by="_hist_data",
+                        ascending=False,
+                        na_position="last",
+                    )
+
+                    total_hist = len(df_hist_filtrado)
+                    aprovados_hist = int((df_hist_filtrado["_hist_status"].str.lower() == "aprovado").sum())
+                    ressalvas_hist = int(df_hist_filtrado["_hist_status"].str.lower().str.contains("ressalva", na=False).sum())
+                    reprovados_hist = int((df_hist_filtrado["_hist_status"].str.lower() == "reprovado").sum())
+
+                    st.markdown(
+                        f"""
+<div class="caproq-history-summary">
+    <div class="caproq-history-summary-card">
+        <p class="caproq-history-summary-label">Resultados encontrados</p>
+        <p class="caproq-history-summary-value">{total_hist}</p>
+    </div>
+    <div class="caproq-history-summary-card">
+        <p class="caproq-history-summary-label">Aprovados</p>
+        <p class="caproq-history-summary-value">{aprovados_hist}</p>
+    </div>
+    <div class="caproq-history-summary-card">
+        <p class="caproq-history-summary-label">Com ressalva</p>
+        <p class="caproq-history-summary-value">{ressalvas_hist}</p>
+    </div>
+    <div class="caproq-history-summary-card">
+        <p class="caproq-history-summary-label">Reprovados</p>
+        <p class="caproq-history-summary-value">{reprovados_hist}</p>
+    </div>
+</div>
+""",
+                        unsafe_allow_html=True,
+                    )
+
+                    if df_hist_filtrado.empty:
+                        st.info("Nenhum chamado corresponde aos filtros selecionados.")
+                    else:
+                        for _, row in df_hist_filtrado.iterrows():
+                            try:
+                                id_c = int(float(row.get("ID", 0)))
+                            except (TypeError, ValueError):
+                                id_c = row.get("ID", "—")
+
+                            desc_h = valor_seguro(
+                                row.get(col_hist_produto, "Sem descrição") if col_hist_produto else "Sem descrição",
+                                "Sem descrição",
+                            )
+                            status_h = valor_seguro(row.get("Status_Final", "Não informado"), "Não informado")
+                            data_h = row.get("_hist_data")
+                            data_titulo = (
+                                data_h.strftime("%d/%m/%Y")
+                                if pd.notna(data_h) else "data não informada"
+                            )
+
+                            titulo_hist = f"Chamado #{id_c} · {desc_h} · {status_h} · {data_titulo}"
+
+                            with st.expander(titulo_hist, expanded=False):
+                                solicitante_h = valor_seguro(
+                                    row.get(col_hist_solicitante, "Não informado") if col_hist_solicitante else "Não informado"
+                                )
+                                email_h = valor_seguro(
+                                    row.get(col_hist_email, "Não informado") if col_hist_email else "Não informado"
+                                )
+                                setor_h = valor_seguro(
+                                    row.get(col_hist_setor, "Não informado") if col_hist_setor else "Não informado"
+                                )
+                                fornecedor_h = valor_seguro(
+                                    row.get(col_hist_fornecedor, "Não informado") if col_hist_fornecedor else "Não informado"
+                                )
+                                abertura_h = (
+                                    data_h.strftime("%d/%m/%Y às %H:%M")
+                                    if pd.notna(data_h) else "Não identificada"
+                                )
+
+                                st.markdown(
+                                    f"""
+<div class="caproq-history-request">
+    <div class="caproq-history-request-grid">
+        <div>
+            <div class="caproq-history-field-label">Solicitante</div>
+            <div class="caproq-history-field-value">{escape(str(solicitante_h))}</div>
+        </div>
+        <div>
+            <div class="caproq-history-field-label">Setor</div>
+            <div class="caproq-history-field-value">{escape(str(setor_h))}</div>
+        </div>
+        <div>
+            <div class="caproq-history-field-label">Fornecedor</div>
+            <div class="caproq-history-field-value">{escape(str(fornecedor_h))}</div>
+        </div>
+        <div>
+            <div class="caproq-history-field-label">Abertura</div>
+            <div class="caproq-history-field-value">{escape(str(abertura_h))}</div>
+        </div>
+    </div>
+</div>
+""",
+                                    unsafe_allow_html=True,
+                                )
+
+                                st.markdown(
+                                    '<div class="caproq-history-section-label">Situação das alçadas técnicas</div>',
+                                    unsafe_allow_html=True,
+                                )
+
+                                cards_alcadas_hist = []
+                                for _, info in ALCADAS_INFO.items():
+                                    c_nome = info["coluna_sheets"]
+                                    voto_hist = valor_seguro(row.get(c_nome, "Pendente"), "Pendente")
+                                    voto_lower = str(voto_hist).lower()
+
+                                    if "reprovar" in voto_lower or "reprov" in voto_lower:
+                                        badge_classe = "rejected"
+                                        badge_rotulo = "Reprovado"
+                                        badge_icone = "●"
+                                    elif "ressalva" in voto_lower:
+                                        badge_classe = "warning"
+                                        badge_rotulo = "Com ressalva"
+                                        badge_icone = "●"
+                                    elif "aprovar" in voto_lower or voto_lower == "aprovado":
+                                        badge_classe = "approved"
+                                        badge_rotulo = "Aprovado"
+                                        badge_icone = "●"
+                                    else:
+                                        badge_classe = "pending"
+                                        badge_rotulo = "Pendente"
+                                        badge_icone = "○"
+
+                                    cards_alcadas_hist.append(
+                                        f"""
+<div class="caproq-history-area-card">
+    <div class="caproq-history-area-name">{escape(str(info['label']))}</div>
+    <span class="caproq-history-badge {badge_classe}">{badge_icone} {badge_rotulo}</span>
+</div>
+"""
+                                    )
+
+                                st.markdown(
+                                    '<div class="caproq-history-scoreboard">'
+                                    + "".join(cards_alcadas_hist)
+                                    + '</div>',
+                                    unsafe_allow_html=True,
+                                )
+
+                                st.markdown(
+                                    '<div class="caproq-history-section-label">Pareceres registrados</div>',
+                                    unsafe_allow_html=True,
+                                )
+                                pareceres_encontrados_hist = False
+                                for _, info in ALCADAS_INFO.items():
+                                    c_nome = info["coluna_sheets"]
+                                    voto_hist = valor_seguro(row.get(c_nome, "Pendente"), "Pendente")
+                                    if str(voto_hist).strip().lower() not in {"", "pendente", "nan", "none"}:
+                                        pareceres_encontrados_hist = True
+                                        voto_lower = str(voto_hist).lower()
+                                        if "reprovar" in voto_lower or "reprov" in voto_lower:
+                                            st.error(f"🔴 **{info['label']}** — {voto_hist}")
+                                        elif "ressalva" in voto_lower:
+                                            st.warning(f"🟡 **{info['label']}** — {voto_hist}")
+                                        else:
+                                            st.success(f"🟢 **{info['label']}** — {voto_hist}")
+
+                                if not pareceres_encontrados_hist:
+                                    st.caption("Nenhum parecer técnico foi registrado para este chamado.")
+
+                                with st.expander("Dados complementares do chamado", expanded=False):
+                                    c1_hist, c2_hist = st.columns(2)
+                                    with c1_hist:
+                                        st.markdown(f"**E-mail do solicitante:** {email_h}")
+                                        st.markdown(f"**Status dos aprovadores:** {valor_seguro(row.get('Status_Aprovadores', 'Não informado'))}")
+                                    with c2_hist:
+                                        st.markdown(f"**Status final:** {status_h}")
+                                        st.markdown(f"**Produto de teste:** {valor_seguro(row.get('Produto_Teste', row.get('Este produto é um Produto de Teste / Piloto?', 'Não informado')))}")
 
             # ----------------------------------------------------------------------
             # 8.3. Aba "Log de atividades"
