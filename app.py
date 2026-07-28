@@ -3030,165 +3030,510 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
 
                 st.markdown(
                     """
-<div class="caproq-section-intro">
-    <p class="caproq-section-intro-title">Painel analítico do CAPROQ</p>
-    <p class="caproq-section-intro-text">
-        Visualize volumetria, distribuição das decisões e desempenho do fluxo
-        técnico do comitê.
+<style>
+.caproq-dashboard-hero {
+    padding: 1.35rem 1.5rem;
+    border: 1px solid rgba(49, 130, 206, .20);
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(0, 86, 145, .14), rgba(0, 86, 145, .025));
+    margin: .15rem 0 1rem;
+}
+.caproq-dashboard-kicker {
+    margin: 0 0 .32rem;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    opacity: .72;
+}
+.caproq-dashboard-title {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 850;
+    line-height: 1.2;
+}
+.caproq-dashboard-subtitle {
+    margin: .42rem 0 0;
+    opacity: .76;
+    line-height: 1.5;
+}
+.caproq-filter-shell {
+    padding: .95rem 1rem .35rem;
+    border: 1px solid rgba(128, 128, 128, .18);
+    border-radius: 16px;
+    background: rgba(128, 128, 128, .035);
+    margin-bottom: .95rem;
+}
+.caproq-dashboard-section {
+    margin: 1.15rem 0 .58rem;
+    font-size: .98rem;
+    font-weight: 800;
+    letter-spacing: -.01em;
+}
+.caproq-dashboard-card {
+    border: 1px solid rgba(128, 128, 128, .17);
+    border-radius: 16px;
+    padding: .95rem 1rem;
+    background: rgba(128, 128, 128, .025);
+    min-height: 100%;
+}
+.caproq-dashboard-card-title {
+    font-size: .88rem;
+    font-weight: 800;
+    margin: 0 0 .15rem;
+}
+.caproq-dashboard-card-caption {
+    font-size: .76rem;
+    opacity: .65;
+    margin-bottom: .4rem;
+}
+.caproq-dashboard-note {
+    padding: .8rem .95rem;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 86, 145, .18);
+    background: rgba(0, 86, 145, .055);
+    line-height: 1.45;
+    font-size: .86rem;
+}
+@media (max-width: 700px) {
+    .caproq-dashboard-hero { padding: 1.05rem 1rem; }
+    .caproq-dashboard-title { font-size: 1.3rem; }
+}
+</style>
+<div class="caproq-dashboard-hero">
+    <p class="caproq-dashboard-kicker">Inteligência operacional · CAPROQ</p>
+    <h2 class="caproq-dashboard-title">Dashboard Executivo</h2>
+    <p class="caproq-dashboard-subtitle">
+        Acompanhe a volumetria, o andamento das solicitações e a atuação das
+        alçadas técnicas por meio de indicadores consolidados e filtros dinâmicos.
     </p>
 </div>
 """,
                     unsafe_allow_html=True,
                 )
-                
-                col_data = None
-                for c in df_dados.columns:
-                    if "data" in c.lower() or "timestamp" in c.lower() or "hora" in c.lower():
-                        col_data = c
-                        break
-                
-                if col_data:
-                    df_dados[col_data] = pd.to_datetime(df_dados[col_data], errors='coerce', dayfirst=True)
-                    hoje = pd.Timestamp.now()
-                    
-                    df_semana = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=7))]
-                    df_mes = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=30))]
-                    df_ano = df_dados[df_dados[col_data] >= (hoje - pd.Timedelta(days=365))]
-                    
-                    qtd_semana = len(df_semana)
-                    qtd_mes = len(df_mes)
-                    qtd_ano = len(df_ano)
-                else:
-                    qtd_semana = qtd_mes = qtd_ano = len(df_dados)
-                
-                st.markdown('<div class="caproq-section-title">Volumetria temporal</div>', unsafe_allow_html=True)
-                kpi_t1, kpi_t2, kpi_t3, kpi_t4 = st.columns(4)
-                with kpi_t1: st.metric("Últimos 7 dias (Semanal)", qtd_semana)
-                with kpi_t2: st.metric("Últimos 30 dias (Mensal)", qtd_mes)
-                with kpi_t3: st.metric("Último Ano (Anual)", qtd_ano)
-                with kpi_t4: st.metric("Total Histórico", len(df_dados))
-                
-                st.markdown("---")
-                
-                st.markdown('<div class="caproq-section-title">Distribuição mensal das deliberações</div>', unsafe_allow_html=True)
-                col_graph1, col_graph2 = st.columns(2)
-                
-                df_recorte_mensal = df_mes if col_data else df_dados
-                
-                with col_graph1:
-                    st.markdown("Status final dos processos")
-                    status_finais = df_recorte_mensal["Status_Final"].value_counts().reset_index()
-                    status_finais.columns = ["Status", "Quantidade"]
-                    
-                    if not status_finais.empty:
-                        import plotly.express as px
-                        fig_status = px.pie(
-                            status_finais, 
-                            names="Status", 
-                            values="Quantidade", 
-                            hole=0.4,
-                            color="Status",
-                            color_discrete_map={"Aprovado": "#2ecc71", "Em análise": "#f1c40f", "Reprovado": "#e74c3c"}
-                        )
-                        fig_status.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=250)
-                        st.plotly_chart(fig_status, use_container_width=True)
-                    else:
-                        st.caption("Sem dados para exibir este mês.")
-                        
-                with col_graph2:
-                    st.markdown("Tipos de decisões técnicas")
-                    aprovacoes_puras = 0
-                    com_ressalva = 0
-                    recusas = 0
-                    
-                    for _, r in df_recorte_mensal.iterrows():
-                        status = str(r.get("Status_Final", ""))
-                        
-                        if status == "Reprovado":
-                            recusas += 1
-                        elif status == "Aprovado":
-                            contem_ressalva = False
-                            for info in ALCADAS_INFO.values():
-                                c_n = info["coluna_sheets"]
-                                if c_n in df_recorte_mensal.columns and "ressalva" in str(r.get(c_n, "")).lower():
-                                    contem_ressalva = True
-                                    break
-                            if contem_ressalva:
-                                com_ressalva += 1
-                            else:
-                                aprovacoes_puras += 1
-                    
-                    df_decisoes = pd.DataFrame({
-                        "Decisão": ["Aprovação", "Aprovação com ressalva", "Recusa"],
-                        "Quantidade": [aprovacoes_puras, com_ressalva, recusas]
-                    })
-                    
-                    if df_decisoes["Quantidade"].sum() > 0:
-                        import plotly.express as px
-                        fig_decisoes = px.pie(
-                            df_decisoes, 
-                            names="Decisão", 
-                            values="Quantidade", 
-                            hole=0.4,
-                            color="Decisão",
-                            color_discrete_map={"Aprovação": "#27ae60", "Aprovação com ressalva": "#3498db", "Recusa": "#c0392b"}
-                        )
-                        fig_decisoes.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=250)
-                        st.plotly_chart(fig_decisoes, use_container_width=True)
-                    else:
-                        st.caption("Sem deliberações registradas este mês.")
 
-                st.markdown("---")
-                
-                # 8.5. Separação de dados por área
-                st.markdown('<div class="caproq-section-title">Performance histórica por alçada</div>', unsafe_allow_html=True)
-                
-                dados_areas = []
-                for letra_col, info in ALCADAS_INFO.items():
-                    col_voto = info["coluna_sheets"]
-                    if col_voto in df_dados.columns:
-                        votos_serie = df_dados[col_voto].astype(str)
-                        
-                        concluidos = sum(votos_serie.str.startswith(("Aprovar", "Reprovar")))
-                        pendentes_qtd = sum(votos_serie == "Pendente")
-                        
-                        dados_areas.append({
-                            "Sigla": info["label"].split(" - ")[0],
-                            "Área Técnica": info["label"].split(" - " )[-1],
-                            "Concluídos": concluidos,
-                            "Pendentes": pendentes_qtd
-                        })
-                
-                if dados_areas:
-                    df_areas = pd.DataFrame(dados_areas)
-                    
-                    st.dataframe(
-                        df_areas, 
-                        column_config={
-                            "Sigla": st.column_config.TextColumn("Coluna Sheets"),
-                            "Área Técnica": st.column_config.TextColumn("Área Comitê"),
-                            "Concluídos": st.column_config.NumberColumn("Pareceres emitidos", format="%d ✅"),
-                            "Pendentes": st.column_config.NumberColumn("Demandas em aberto", format="%d ⏳"),
-                        },
-                        use_container_width=True,
-                        hide_index=True
+                # Cópia de trabalho para que filtros e conversões não alterem o dataframe global.
+                df_indicadores = df_dados.copy()
+
+                def localizar_coluna(candidatas, termos=None):
+                    """Localiza uma coluna por nomes preferenciais ou termos contidos."""
+                    for candidata in candidatas:
+                        if candidata in df_indicadores.columns:
+                            return candidata
+                    if termos:
+                        for coluna in df_indicadores.columns:
+                            nome = str(coluna).lower()
+                            if all(termo.lower() in nome for termo in termos):
+                                return coluna
+                    return None
+
+                col_data_abertura = localizar_coluna(
+                    ["Carimbo de data/hora", "Timestamp", "Data_Abertura", "Data de abertura"],
+                    ["data"],
+                )
+                col_data_fechamento = localizar_coluna(
+                    ["Data_Homologacao_Final", "Data de homologação final", "Data_Conclusao", "Data de conclusão"]
+                )
+                col_status = localizar_coluna(["Status_Final", "Status final", "Status"])
+                col_setor = localizar_coluna(
+                    ["Setor_Solicitante", "Setor solicitante", "Setor", "Área solicitante"]
+                )
+                col_produto_teste = localizar_coluna(
+                    ["Produto_Teste", "Este produto é um Produto de Teste / Piloto?"]
+                )
+
+                if col_data_abertura:
+                    df_indicadores["_data_abertura_dashboard"] = pd.to_datetime(
+                        df_indicadores[col_data_abertura], errors="coerce", dayfirst=True
                     )
-                    
+                else:
+                    df_indicadores["_data_abertura_dashboard"] = pd.NaT
+
+                if col_data_fechamento:
+                    df_indicadores["_data_fechamento_dashboard"] = pd.to_datetime(
+                        df_indicadores[col_data_fechamento], errors="coerce", dayfirst=True
+                    )
+                else:
+                    df_indicadores["_data_fechamento_dashboard"] = pd.NaT
+
+                if col_status:
+                    df_indicadores["_status_dashboard"] = (
+                        df_indicadores[col_status].fillna("Não informado").astype(str).str.strip()
+                    )
+                else:
+                    df_indicadores["_status_dashboard"] = "Não informado"
+
+                if col_setor:
+                    df_indicadores["_setor_dashboard"] = (
+                        df_indicadores[col_setor].fillna("Não informado").astype(str).str.strip()
+                    )
+                else:
+                    df_indicadores["_setor_dashboard"] = "Não informado"
+
+                # ------------------------------------------------------------------
+                # Filtros executivos
+                # ------------------------------------------------------------------
+                st.markdown('<div class="caproq-filter-shell">', unsafe_allow_html=True)
+                filtro_1, filtro_2, filtro_3 = st.columns([1.15, 1, 1.35])
+
+                periodos_dashboard = {
+                    "Últimos 30 dias": 30,
+                    "Últimos 90 dias": 90,
+                    "Últimos 12 meses": 365,
+                    "Todo o histórico": None,
+                }
+                with filtro_1:
+                    periodo_selecionado = st.selectbox(
+                        "Período de abertura",
+                        list(periodos_dashboard.keys()),
+                        index=2,
+                        key="dashboard_periodo",
+                    )
+
+                status_disponiveis = sorted(
+                    [s for s in df_indicadores["_status_dashboard"].dropna().unique().tolist() if s]
+                )
+                with filtro_2:
+                    status_selecionados = st.multiselect(
+                        "Status",
+                        status_disponiveis,
+                        default=status_disponiveis,
+                        key="dashboard_status",
+                    )
+
+                setores_disponiveis = sorted(
+                    [s for s in df_indicadores["_setor_dashboard"].dropna().unique().tolist() if s]
+                )
+                with filtro_3:
+                    setores_selecionados = st.multiselect(
+                        "Setores solicitantes",
+                        setores_disponiveis,
+                        default=setores_disponiveis,
+                        key="dashboard_setores",
+                    )
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                df_filtrado = df_indicadores.copy()
+                dias_periodo = periodos_dashboard[periodo_selecionado]
+                if dias_periodo is not None and df_filtrado["_data_abertura_dashboard"].notna().any():
+                    data_limite = pd.Timestamp.now().normalize() - pd.Timedelta(days=dias_periodo)
+                    df_filtrado = df_filtrado[
+                        df_filtrado["_data_abertura_dashboard"] >= data_limite
+                    ]
+                if status_selecionados:
+                    df_filtrado = df_filtrado[
+                        df_filtrado["_status_dashboard"].isin(status_selecionados)
+                    ]
+                else:
+                    df_filtrado = df_filtrado.iloc[0:0]
+                if setores_selecionados:
+                    df_filtrado = df_filtrado[
+                        df_filtrado["_setor_dashboard"].isin(setores_selecionados)
+                    ]
+                else:
+                    df_filtrado = df_filtrado.iloc[0:0]
+
+                # ------------------------------------------------------------------
+                # KPIs principais
+                # ------------------------------------------------------------------
+                total_filtrado = len(df_filtrado)
+                qtd_analise = int((df_filtrado["_status_dashboard"].str.lower() == "em análise").sum())
+                qtd_aprovados = int((df_filtrado["_status_dashboard"].str.lower() == "aprovado").sum())
+                qtd_reprovados = int((df_filtrado["_status_dashboard"].str.lower() == "reprovado").sum())
+                taxa_aprovacao = (
+                    (qtd_aprovados / (qtd_aprovados + qtd_reprovados) * 100)
+                    if (qtd_aprovados + qtd_reprovados) > 0
+                    else 0.0
+                )
+
+                qtd_testes = 0
+                if col_produto_teste and col_produto_teste in df_filtrado.columns:
+                    qtd_testes = int(
+                        df_filtrado[col_produto_teste]
+                        .fillna("")
+                        .astype(str)
+                        .str.strip()
+                        .str.upper()
+                        .isin(["SIM", "S", "YES", "TRUE", "1"])
+                        .sum()
+                    )
+
+                tempo_medio_dias = None
+                if (
+                    df_filtrado["_data_abertura_dashboard"].notna().any()
+                    and df_filtrado["_data_fechamento_dashboard"].notna().any()
+                ):
+                    tempos = (
+                        df_filtrado["_data_fechamento_dashboard"]
+                        - df_filtrado["_data_abertura_dashboard"]
+                    ).dt.total_seconds() / 86400
+                    tempos = tempos[(tempos >= 0) & tempos.notna()]
+                    if not tempos.empty:
+                        tempo_medio_dias = float(tempos.mean())
+
+                st.markdown('<div class="caproq-dashboard-section">Visão geral do período</div>', unsafe_allow_html=True)
+                kpi_1, kpi_2, kpi_3, kpi_4, kpi_5 = st.columns(5)
+                kpi_1.metric("Solicitações", total_filtrado)
+                kpi_2.metric("Em análise", qtd_analise)
+                kpi_3.metric("Aprovadas", qtd_aprovados)
+                kpi_4.metric("Reprovadas", qtd_reprovados)
+                kpi_5.metric("Taxa de aprovação", f"{taxa_aprovacao:.1f}%")
+
+                kpi_b1, kpi_b2, kpi_b3 = st.columns(3)
+                kpi_b1.metric("Produtos de teste", qtd_testes)
+                kpi_b2.metric(
+                    "Tempo médio de conclusão",
+                    f"{tempo_medio_dias:.1f} dias" if tempo_medio_dias is not None else "Sem dados",
+                )
+                setores_ativos = int(df_filtrado["_setor_dashboard"].nunique()) if total_filtrado else 0
+                kpi_b3.metric("Setores com solicitações", setores_ativos)
+
+                if df_filtrado.empty:
+                    st.info("Nenhum chamado corresponde aos filtros selecionados.")
+                else:
                     import plotly.express as px
-                    fig_barras_areas = px.bar(
-                        df_areas, 
-                        x="Área Técnica", 
-                        y=["Concluídos", "Pendentes"],
-                        title="Volume de Trabalho por Alçada (Emitidos vs Pendentes)",
-                        barmode="group",
-                        color_discrete_sequence=["#2ecc71", "#e67e22"]
-                    )
-                    # ... [Código anterior do Bloco 8.5 (Indicadores / Plotly)] ...
+                    import plotly.graph_objects as go
 
-                    fig_barras_areas.update_layout(xaxis_title="Área Técnica", yaxis_title="Quantidade de Chamados", height=300)
-                    st.plotly_chart(fig_barras_areas, use_container_width=True)
-                else:
-                    st.caption("Mapeamento de colunas das alçadas não localizado na planilha atual.")
+                    # --------------------------------------------------------------
+                    # Evolução temporal e status
+                    # --------------------------------------------------------------
+                    st.markdown('<div class="caproq-dashboard-section">Evolução e composição dos chamados</div>', unsafe_allow_html=True)
+                    grafico_1, grafico_2 = st.columns([1.45, 1])
+
+                    with grafico_1:
+                        st.markdown(
+                            '<div class="caproq-dashboard-card-title">Solicitações abertas por mês</div>'
+                            '<div class="caproq-dashboard-card-caption">Tendência de entrada de novos chamados no período filtrado.</div>',
+                            unsafe_allow_html=True,
+                        )
+                        df_temporal = df_filtrado.dropna(subset=["_data_abertura_dashboard"]).copy()
+                        if not df_temporal.empty:
+                            df_temporal["Mês"] = df_temporal["_data_abertura_dashboard"].dt.to_period("M").dt.to_timestamp()
+                            serie_mensal = df_temporal.groupby("Mês").size().reset_index(name="Solicitações")
+                            fig_tendencia = px.line(
+                                serie_mensal,
+                                x="Mês",
+                                y="Solicitações",
+                                markers=True,
+                            )
+                            fig_tendencia.update_traces(line=dict(width=3), marker=dict(size=8))
+                            fig_tendencia.update_layout(
+                                height=320,
+                                margin=dict(t=15, b=15, l=10, r=10),
+                                xaxis_title=None,
+                                yaxis_title="Chamados",
+                                hovermode="x unified",
+                                legend_title_text="",
+                            )
+                            st.plotly_chart(fig_tendencia, use_container_width=True)
+                        else:
+                            st.caption("Não há datas de abertura válidas para montar a evolução temporal.")
+
+                    with grafico_2:
+                        st.markdown(
+                            '<div class="caproq-dashboard-card-title">Distribuição por status</div>'
+                            '<div class="caproq-dashboard-card-caption">Participação atual de cada estágio do fluxo.</div>',
+                            unsafe_allow_html=True,
+                        )
+                        df_status = (
+                            df_filtrado["_status_dashboard"]
+                            .value_counts()
+                            .rename_axis("Status")
+                            .reset_index(name="Quantidade")
+                        )
+                        fig_status = px.pie(
+                            df_status,
+                            names="Status",
+                            values="Quantidade",
+                            hole=.58,
+                            color="Status",
+                            color_discrete_map={
+                                "Aprovado": "#2e9d68",
+                                "Em análise": "#d6a21f",
+                                "Reprovado": "#d04a4a",
+                                "Aprovado com ressalva": "#2f7db7",
+                            },
+                        )
+                        fig_status.update_traces(textposition="inside", textinfo="percent+label")
+                        fig_status.update_layout(
+                            height=320,
+                            margin=dict(t=15, b=15, l=10, r=10),
+                            showlegend=False,
+                        )
+                        st.plotly_chart(fig_status, use_container_width=True)
+
+                    # --------------------------------------------------------------
+                    # Setores e decisões
+                    # --------------------------------------------------------------
+                    st.markdown('<div class="caproq-dashboard-section">Origem das solicitações e desfechos</div>', unsafe_allow_html=True)
+                    grafico_3, grafico_4 = st.columns(2)
+
+                    with grafico_3:
+                        st.markdown(
+                            '<div class="caproq-dashboard-card-title">Setores com maior demanda</div>'
+                            '<div class="caproq-dashboard-card-caption">Dez principais setores solicitantes no recorte selecionado.</div>',
+                            unsafe_allow_html=True,
+                        )
+                        df_setores = (
+                            df_filtrado["_setor_dashboard"]
+                            .replace("", "Não informado")
+                            .value_counts()
+                            .head(10)
+                            .sort_values()
+                            .rename_axis("Setor")
+                            .reset_index(name="Solicitações")
+                        )
+                        fig_setores = px.bar(
+                            df_setores,
+                            x="Solicitações",
+                            y="Setor",
+                            orientation="h",
+                            text="Solicitações",
+                        )
+                        fig_setores.update_traces(textposition="outside", cliponaxis=False)
+                        fig_setores.update_layout(
+                            height=360,
+                            margin=dict(t=15, b=15, l=10, r=30),
+                            xaxis_title="Chamados",
+                            yaxis_title=None,
+                            showlegend=False,
+                        )
+                        st.plotly_chart(fig_setores, use_container_width=True)
+
+                    with grafico_4:
+                        st.markdown(
+                            '<div class="caproq-dashboard-card-title">Desfecho das decisões concluídas</div>'
+                            '<div class="caproq-dashboard-card-caption">Comparativo entre aprovações, ressalvas identificadas e reprovações.</div>',
+                            unsafe_allow_html=True,
+                        )
+                        aprovacoes_sem_ressalva = 0
+                        aprovacoes_com_ressalva = 0
+                        recusas = qtd_reprovados
+
+                        for _, linha_ind in df_filtrado.iterrows():
+                            status_linha = str(linha_ind.get("_status_dashboard", "")).strip().lower()
+                            if status_linha == "aprovado":
+                                possui_ressalva = any(
+                                    "ressalva" in str(linha_ind.get(info["coluna_sheets"], "")).lower()
+                                    for info in ALCADAS_INFO.values()
+                                    if info["coluna_sheets"] in df_filtrado.columns
+                                )
+                                if possui_ressalva:
+                                    aprovacoes_com_ressalva += 1
+                                else:
+                                    aprovacoes_sem_ressalva += 1
+
+                        df_desfechos = pd.DataFrame({
+                            "Decisão": ["Aprovado", "Com ressalva", "Reprovado"],
+                            "Quantidade": [aprovacoes_sem_ressalva, aprovacoes_com_ressalva, recusas],
+                        })
+                        fig_desfechos = px.bar(
+                            df_desfechos,
+                            x="Decisão",
+                            y="Quantidade",
+                            text="Quantidade",
+                            color="Decisão",
+                            color_discrete_map={
+                                "Aprovado": "#2e9d68",
+                                "Com ressalva": "#2f7db7",
+                                "Reprovado": "#d04a4a",
+                            },
+                        )
+                        fig_desfechos.update_traces(textposition="outside")
+                        fig_desfechos.update_layout(
+                            height=360,
+                            margin=dict(t=15, b=15, l=10, r=10),
+                            xaxis_title=None,
+                            yaxis_title="Chamados",
+                            showlegend=False,
+                        )
+                        st.plotly_chart(fig_desfechos, use_container_width=True)
+
+                    # --------------------------------------------------------------
+                    # Alçadas técnicas
+                    # --------------------------------------------------------------
+                    st.markdown('<div class="caproq-dashboard-section">Carga operacional das alçadas</div>', unsafe_allow_html=True)
+                    dados_areas = []
+                    for _, info_area in ALCADAS_INFO.items():
+                        coluna_voto = info_area["coluna_sheets"]
+                        if coluna_voto in df_filtrado.columns:
+                            votos = df_filtrado[coluna_voto].fillna("Pendente").astype(str).str.strip()
+                            concluidos = int(votos.str.startswith(("Aprovar", "Reprovar")).sum())
+                            pendentes_area = int((votos == "Pendente").sum())
+                            total_area = concluidos + pendentes_area
+                            percentual_conclusao = (concluidos / total_area * 100) if total_area else 0
+                            dados_areas.append({
+                                "Área técnica": info_area["label"],
+                                "Pareceres emitidos": concluidos,
+                                "Pendências": pendentes_area,
+                                "Conclusão (%)": percentual_conclusao,
+                            })
+
+                    if dados_areas:
+                        df_areas = pd.DataFrame(dados_areas)
+                        area_chart, area_table = st.columns([1.25, 1])
+
+                        with area_chart:
+                            df_area_long = df_areas.melt(
+                                id_vars=["Área técnica"],
+                                value_vars=["Pareceres emitidos", "Pendências"],
+                                var_name="Situação",
+                                value_name="Quantidade",
+                            )
+                            fig_areas = px.bar(
+                                df_area_long,
+                                x="Área técnica",
+                                y="Quantidade",
+                                color="Situação",
+                                barmode="group",
+                                color_discrete_map={
+                                    "Pareceres emitidos": "#2e9d68",
+                                    "Pendências": "#d6a21f",
+                                },
+                            )
+                            fig_areas.update_layout(
+                                height=390,
+                                margin=dict(t=15, b=80, l=10, r=10),
+                                xaxis_title=None,
+                                yaxis_title="Chamados",
+                                legend_title_text="",
+                                xaxis_tickangle=-28,
+                            )
+                            st.plotly_chart(fig_areas, use_container_width=True)
+
+                        with area_table:
+                            df_areas_exibicao = df_areas.copy()
+                            df_areas_exibicao["Conclusão (%)"] = df_areas_exibicao["Conclusão (%)"].round(1)
+                            st.dataframe(
+                                df_areas_exibicao,
+                                column_config={
+                                    "Área técnica": st.column_config.TextColumn("Alçada"),
+                                    "Pareceres emitidos": st.column_config.NumberColumn("Emitidos", format="%d"),
+                                    "Pendências": st.column_config.NumberColumn("Pendentes", format="%d"),
+                                    "Conclusão (%)": st.column_config.ProgressColumn(
+                                        "Conclusão",
+                                        min_value=0,
+                                        max_value=100,
+                                        format="%.1f%%",
+                                    ),
+                                },
+                                use_container_width=True,
+                                hide_index=True,
+                                height=390,
+                            )
+                    else:
+                        st.caption("Não foram localizadas colunas de votação das alçadas na base atual.")
+
+                    st.markdown(
+                        f"""
+<div class="caproq-dashboard-note">
+    <strong>Leitura do painel:</strong> os indicadores consideram <strong>{total_filtrado}</strong>
+    chamado(s) após a aplicação dos filtros. O tempo médio de conclusão somente é calculado
+    quando existem datas válidas de abertura e homologação final.
+</div>
+""",
+                        unsafe_allow_html=True,
+                    )
 
     # ==============================================================================
     # 9. Segunda Etapa: Homologação e Decisão Final (Exclusivo Administradores)
