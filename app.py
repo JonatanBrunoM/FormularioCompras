@@ -1054,6 +1054,307 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+# ------------------------------------------------------------------------------
+# Design System CAPROQ — padronização final e global do CSS
+# ------------------------------------------------------------------------------
+st.markdown("""
+<style>
+:root {
+    --caproq-primary: #005691;
+    --caproq-primary-hover: #003d66;
+    --caproq-primary-soft: rgba(0, 86, 145, 0.09);
+    --caproq-primary-border: rgba(0, 86, 145, 0.22);
+    --caproq-success: #16803c;
+    --caproq-warning: #b86b00;
+    --caproq-danger: #bd2525;
+    --caproq-info: #005691;
+    --caproq-radius-sm: 8px;
+    --caproq-radius-md: 12px;
+    --caproq-radius-lg: 16px;
+    --caproq-shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.05);
+    --caproq-shadow-md: 0 10px 28px rgba(15, 23, 42, 0.07);
+    --caproq-transition: 160ms ease;
+}
+
+/* Estrutura e ritmo vertical */
+[data-testid="stAppViewContainer"] .main .block-container {
+    max-width: 1480px;
+    padding-top: 1.15rem;
+    padding-bottom: 3rem;
+}
+[data-testid="stVerticalBlock"] {
+    gap: 0.82rem;
+}
+[data-testid="stHorizontalBlock"] {
+    gap: 0.9rem;
+}
+
+/* Tipografia global */
+html, body, [class*="css"] {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.018em;
+    line-height: 1.2;
+}
+h1 { font-size: clamp(1.7rem, 2.2vw, 2.35rem) !important; }
+h2 { font-size: clamp(1.35rem, 1.8vw, 1.8rem) !important; }
+h3 { font-size: clamp(1.08rem, 1.35vw, 1.34rem) !important; }
+p, li, label { line-height: 1.5; }
+small, .stCaption { opacity: 0.74; }
+
+/* Links */
+a {
+    color: var(--caproq-primary);
+    text-underline-offset: 3px;
+    transition: color var(--caproq-transition);
+}
+a:hover { color: var(--caproq-primary-hover); }
+
+/* Campos de formulário */
+[data-baseweb="input"] > div,
+[data-baseweb="textarea"] > div,
+[data-baseweb="select"] > div,
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input,
+[data-testid="stTimeInput"] input {
+    border-radius: var(--caproq-radius-sm) !important;
+    border-color: rgba(127, 127, 127, 0.28) !important;
+    transition: border-color var(--caproq-transition), box-shadow var(--caproq-transition) !important;
+}
+[data-baseweb="input"] > div:focus-within,
+[data-baseweb="textarea"] > div:focus-within,
+[data-baseweb="select"] > div:focus-within {
+    border-color: var(--caproq-primary) !important;
+    box-shadow: 0 0 0 3px rgba(0, 86, 145, 0.12) !important;
+}
+[data-testid="stTextInput"] label,
+[data-testid="stTextArea"] label,
+[data-testid="stSelectbox"] label,
+[data-testid="stMultiSelect"] label,
+[data-testid="stRadio"] label,
+[data-testid="stCheckbox"] label,
+[data-testid="stFileUploader"] label,
+[data-testid="stDateInput"] label,
+[data-testid="stNumberInput"] label {
+    font-weight: 650 !important;
+}
+
+/* Botões primários, secundários e download */
+.stButton > button,
+.stDownloadButton > button,
+[data-testid="stFormSubmitButton"] > button {
+    min-height: 2.7rem;
+    border-radius: 9px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.005em;
+    transition: transform var(--caproq-transition), box-shadow var(--caproq-transition), background var(--caproq-transition), border-color var(--caproq-transition) !important;
+}
+.stButton > button:hover,
+.stDownloadButton > button:hover,
+[data-testid="stFormSubmitButton"] > button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.10);
+}
+.stButton > button[kind="primary"],
+[data-testid="stFormSubmitButton"] > button[kind="primary"] {
+    background: var(--caproq-primary) !important;
+    border-color: var(--caproq-primary) !important;
+    color: #fff !important;
+}
+.stButton > button[kind="primary"]:hover,
+[data-testid="stFormSubmitButton"] > button[kind="primary"]:hover {
+    background: var(--caproq-primary-hover) !important;
+    border-color: var(--caproq-primary-hover) !important;
+}
+.stButton > button:focus-visible,
+.stDownloadButton > button:focus-visible {
+    outline: 3px solid rgba(0, 86, 145, 0.25) !important;
+    outline-offset: 2px;
+}
+
+/* Abas */
+div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    gap: 0.25rem;
+    border-bottom: 1px solid rgba(127, 127, 127, 0.20);
+}
+div[data-testid="stTabs"] button[data-baseweb="tab"] {
+    min-height: 2.85rem;
+    padding: 0.55rem 0.9rem;
+    border-radius: 9px 9px 0 0;
+    font-weight: 680;
+    transition: background var(--caproq-transition), color var(--caproq-transition);
+}
+div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+    background: var(--caproq-primary-soft);
+}
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+    color: var(--caproq-primary) !important;
+}
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+    background-color: var(--caproq-primary) !important;
+    height: 3px;
+    border-radius: 999px 999px 0 0;
+}
+
+/* Expanders */
+[data-testid="stExpander"] {
+    border: 1px solid rgba(127, 127, 127, 0.20) !important;
+    border-radius: var(--caproq-radius-md) !important;
+    overflow: hidden;
+    box-shadow: var(--caproq-shadow-sm);
+    transition: border-color var(--caproq-transition), box-shadow var(--caproq-transition);
+}
+[data-testid="stExpander"]:hover {
+    border-color: var(--caproq-primary-border) !important;
+    box-shadow: var(--caproq-shadow-md);
+}
+[data-testid="stExpander"] details > summary {
+    min-height: 3.25rem;
+    padding: 0.68rem 0.9rem !important;
+    font-weight: 720;
+}
+[data-testid="stExpander"] details[open] > summary {
+    background: var(--caproq-primary-soft);
+    border-bottom: 1px solid var(--caproq-primary-border);
+}
+
+/* Métricas */
+div[data-testid="stMetric"] {
+    min-height: 106px;
+    padding: 1rem 1.05rem;
+    border: 1px solid rgba(127, 127, 127, 0.20);
+    border-radius: var(--caproq-radius-md);
+    background: var(--secondary-background-color);
+    box-shadow: var(--caproq-shadow-sm);
+}
+div[data-testid="stMetric"] [data-testid="stMetricLabel"] {
+    font-weight: 680;
+    opacity: 0.76;
+}
+div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+    font-weight: 820;
+    letter-spacing: -0.025em;
+}
+
+/* Uploads */
+[data-testid="stFileUploaderDropzone"] {
+    border: 1.5px dashed rgba(0, 86, 145, 0.34) !important;
+    border-radius: var(--caproq-radius-md) !important;
+    background: var(--caproq-primary-soft) !important;
+    transition: border-color var(--caproq-transition), background var(--caproq-transition);
+}
+[data-testid="stFileUploaderDropzone"]:hover {
+    border-color: var(--caproq-primary) !important;
+    background: rgba(0, 86, 145, 0.13) !important;
+}
+
+/* Tabelas e dataframes */
+[data-testid="stDataFrame"],
+[data-testid="stTable"] {
+    border: 1px solid rgba(127, 127, 127, 0.20);
+    border-radius: var(--caproq-radius-md);
+    overflow: hidden;
+    box-shadow: var(--caproq-shadow-sm);
+}
+[data-testid="stDataFrame"] [role="columnheader"] {
+    font-weight: 720 !important;
+}
+
+/* Alertas nativos remanescentes */
+[data-testid="stAlert"] {
+    border-radius: var(--caproq-radius-md) !important;
+    border-width: 1px !important;
+    box-shadow: var(--caproq-shadow-sm);
+}
+
+/* Elementos de navegação e separadores */
+hr {
+    border: 0 !important;
+    border-top: 1px solid rgba(127, 127, 127, 0.20) !important;
+    margin: 1.2rem 0 !important;
+}
+[data-testid="stSidebar"] hr { margin: 0.8rem 0 !important; }
+
+/* Sidebar: acabamento sem alterar a estrutura existente */
+[data-testid="stSidebar"] {
+    border-right: 1px solid rgba(127, 127, 127, 0.16);
+}
+[data-testid="stSidebar"] .stButton > button {
+    width: 100%;
+}
+
+/* Scrollbars discretas */
+* { scrollbar-width: thin; scrollbar-color: rgba(127,127,127,.38) transparent; }
+*::-webkit-scrollbar { width: 7px; height: 7px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(127,127,127,.34); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(127,127,127,.50); }
+
+/* Foco acessível */
+*:focus-visible {
+    outline-color: var(--caproq-primary);
+    outline-offset: 2px;
+}
+
+/* Tema escuro */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --caproq-primary: #4ba3db;
+        --caproq-primary-hover: #73b9e5;
+        --caproq-primary-soft: rgba(75, 163, 219, 0.12);
+        --caproq-primary-border: rgba(75, 163, 219, 0.28);
+        --caproq-shadow-sm: 0 2px 9px rgba(0, 0, 0, 0.18);
+        --caproq-shadow-md: 0 12px 30px rgba(0, 0, 0, 0.24);
+    }
+}
+
+/* Responsividade */
+@media (max-width: 900px) {
+    [data-testid="stAppViewContainer"] .main .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    div[data-testid="stMetric"] { min-height: 96px; }
+}
+@media (max-width: 640px) {
+    [data-testid="stAppViewContainer"] .main .block-container {
+        padding-top: 0.75rem;
+        padding-left: 0.72rem;
+        padding-right: 0.72rem;
+    }
+    [data-testid="stHorizontalBlock"] { gap: 0.55rem; }
+    div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        scrollbar-width: none;
+    }
+    div[data-testid="stTabs"] [data-baseweb="tab-list"]::-webkit-scrollbar { display: none; }
+    div[data-testid="stTabs"] button[data-baseweb="tab"] {
+        white-space: nowrap;
+        padding-inline: 0.72rem;
+    }
+    .stButton > button,
+    .stDownloadButton > button,
+    [data-testid="stFormSubmitButton"] > button {
+        min-height: 2.8rem;
+    }
+}
+
+/* Respeito à preferência de movimento reduzido */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
 FEEDBACK_CONFIG = {
     "success": ("✅", "Concluído"),
     "warning": ("⚠️", "Atenção"),
