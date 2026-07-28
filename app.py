@@ -3340,49 +3340,531 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
 
                 st.markdown(
                     """
-<div class="caproq-section-intro">
-    <p class="caproq-section-intro-title">Linha do tempo e auditoria dos processos</p>
-    <p class="caproq-section-intro-text">
-        Acompanhe os registros desde a abertura do chamado até o encerramento,
-        com foco em rastreabilidade e conformidade.
+<style>
+.caproq-audit-hero {
+    padding: 1.35rem 1.5rem;
+    border: 1px solid rgba(49, 130, 206, .20);
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(0, 86, 145, .14), rgba(0, 86, 145, .025));
+    margin: .15rem 0 1rem;
+}
+.caproq-audit-kicker {
+    margin: 0 0 .32rem;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    opacity: .72;
+}
+.caproq-audit-title {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 850;
+    line-height: 1.2;
+}
+.caproq-audit-subtitle {
+    margin: .42rem 0 0;
+    opacity: .76;
+    line-height: 1.5;
+}
+.caproq-audit-filter-shell {
+    padding: .95rem 1rem .35rem;
+    border: 1px solid rgba(128, 128, 128, .18);
+    border-radius: 16px;
+    background: rgba(128, 128, 128, .035);
+    margin-bottom: .95rem;
+}
+.caproq-audit-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+    margin: .25rem 0 1rem;
+}
+.caproq-audit-summary-card {
+    padding: .9rem 1rem;
+    border: 1px solid rgba(128, 128, 128, .17);
+    border-radius: 15px;
+    background: rgba(128, 128, 128, .025);
+}
+.caproq-audit-summary-label {
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    opacity: .62;
+}
+.caproq-audit-summary-value {
+    margin-top: .2rem;
+    font-size: 1.42rem;
+    font-weight: 850;
+}
+.caproq-audit-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .7rem;
+    margin: .2rem 0 1rem;
+}
+.caproq-audit-meta-card {
+    padding: .78rem .86rem;
+    border-radius: 13px;
+    border: 1px solid rgba(128, 128, 128, .16);
+    background: rgba(128, 128, 128, .025);
+}
+.caproq-audit-meta-label {
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    opacity: .6;
+}
+.caproq-audit-meta-value {
+    margin-top: .22rem;
+    font-size: .9rem;
+    font-weight: 720;
+    overflow-wrap: anywhere;
+}
+.caproq-audit-section-label {
+    margin: 1rem 0 .55rem;
+    font-size: .78rem;
+    font-weight: 850;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    opacity: .68;
+}
+.caproq-audit-event {
+    position: relative;
+    margin-left: .55rem;
+    padding: .15rem 0 1rem 1.35rem;
+    border-left: 2px solid rgba(128, 128, 128, .22);
+}
+.caproq-audit-event:last-child {
+    padding-bottom: .25rem;
+}
+.caproq-audit-dot {
+    position: absolute;
+    left: -.48rem;
+    top: .16rem;
+    width: .84rem;
+    height: .84rem;
+    border-radius: 999px;
+    border: 3px solid var(--background-color, #fff);
+    background: #94a3b8;
+}
+.caproq-audit-dot.approved { background: #16a34a; }
+.caproq-audit-dot.warning { background: #d97706; }
+.caproq-audit-dot.rejected { background: #dc2626; }
+.caproq-audit-dot.info { background: #0284c7; }
+.caproq-audit-event-title {
+    font-size: .92rem;
+    font-weight: 820;
+    margin: 0;
+}
+.caproq-audit-event-text {
+    margin: .22rem 0 0;
+    opacity: .78;
+    line-height: 1.45;
+    font-size: .86rem;
+}
+.caproq-audit-empty {
+    padding: 1.25rem;
+    border: 1px dashed rgba(128, 128, 128, .35);
+    border-radius: 15px;
+    text-align: center;
+    opacity: .72;
+}
+@media (max-width: 900px) {
+    .caproq-audit-summary-grid,
+    .caproq-audit-meta-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 620px) {
+    .caproq-audit-summary-grid,
+    .caproq-audit-meta-grid {
+        grid-template-columns: 1fr;
+    }
+    .caproq-audit-hero {
+        padding: 1.05rem 1rem;
+    }
+}
+</style>
+<div class="caproq-audit-hero">
+    <p class="caproq-audit-kicker">Governança e conformidade</p>
+    <h2 class="caproq-audit-title">Logs e Auditoria</h2>
+    <p class="caproq-audit-subtitle">
+        Consulte a trilha cronológica dos chamados, pareceres técnicos e decisões finais
+        para garantir rastreabilidade em todo o processo.
     </p>
 </div>
 """,
                     unsafe_allow_html=True,
                 )
-                
-                for _, row in df_dados.iterrows():
-                    id_c = int(row['ID'])
-                    desc_l = row.get("Descrição completa do produto", "Sem descrição")
-                    solicitante_nome = row.get('Nome solicitante', row.get('Nome', 'Não informado'))
-                    solicitante_email = row.get('Endereço de e-mail', 'Não informado')
-                    carimbo_abertura = row.get('Carimbo de data/hora', row.get('Timestamp', 'Data não registrada'))
-                    
-                    with st.expander(f"🕒 Chamado #{id_c} — {desc_l} | Status Atual: {row['Status_Final']}"):
-                        st.info(f"🔹 **[Abertura do Processo]** — Cadastrado em `{carimbo_abertura}` por **{solicitante_nome}** (`{solicitante_email}`)")
-                        
-                        logs_encontrados = False
-                        st.markdown("**Pareceres e Tramitações Técnicas:**")
-                        
-                        for info in ALCADAS_INFO.values():
-                            c_nome = info["coluna_sheets"]
-                            if c_nome in df_dados.columns and row[c_nome] != "Pendente":
-                                voto_detalhado = str(row[c_nome])
+
+                df_logs = df_dados.copy()
+
+                coluna_data_log = None
+                for coluna_candidata in ["Carimbo de data/hora", "Timestamp"]:
+                    if coluna_candidata in df_logs.columns:
+                        coluna_data_log = coluna_candidata
+                        break
+
+                if coluna_data_log:
+                    df_logs["__data_log"] = pd.to_datetime(
+                        df_logs[coluna_data_log],
+                        errors="coerce",
+                        dayfirst=True,
+                    )
+                else:
+                    df_logs["__data_log"] = pd.NaT
+
+                with st.container():
+                    st.markdown('<div class="caproq-audit-filter-shell">', unsafe_allow_html=True)
+                    f1_log, f2_log, f3_log, f4_log = st.columns([2.2, 1.2, 1.2, 1.35])
+
+                    with f1_log:
+                        busca_log = st.text_input(
+                            "Buscar no histórico",
+                            placeholder="Chamado, produto, solicitante, e-mail ou fornecedor",
+                            key="audit_search",
+                        )
+
+                    status_disponiveis_log = ["Todos"]
+                    if "Status_Final" in df_logs.columns:
+                        status_disponiveis_log += sorted(
+                            {
+                                str(v).strip()
+                                for v in df_logs["Status_Final"].dropna().tolist()
+                                if str(v).strip()
+                            }
+                        )
+
+                    with f2_log:
+                        status_log = st.selectbox(
+                            "Status",
+                            status_disponiveis_log,
+                            key="audit_status",
+                        )
+
+                    alcadas_filtro_log = ["Todas"] + [
+                        info["label"] for info in ALCADAS_INFO.values()
+                    ]
+                    with f3_log:
+                        alcada_log = st.selectbox(
+                            "Alçada",
+                            alcadas_filtro_log,
+                            key="audit_area",
+                        )
+
+                    with f4_log:
+                        periodo_log = st.selectbox(
+                            "Período",
+                            ["Todo o período", "Últimos 30 dias", "Últimos 90 dias", "Este ano"],
+                            key="audit_period",
+                        )
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                if busca_log:
+                    termo_log = busca_log.strip().lower()
+                    colunas_busca_log = [
+                        "ID",
+                        "Descrição completa do produto",
+                        "Nome solicitante",
+                        "Nome",
+                        "Endereço de e-mail",
+                        "Fornecedor",
+                        "Nome do fornecedor",
+                    ]
+                    mascara_busca_log = pd.Series(False, index=df_logs.index)
+                    for coluna_busca_log in colunas_busca_log:
+                        if coluna_busca_log in df_logs.columns:
+                            mascara_busca_log = mascara_busca_log | (
+                                df_logs[coluna_busca_log]
+                                .astype(str)
+                                .str.lower()
+                                .str.contains(termo_log, na=False, regex=False)
+                            )
+                    df_logs = df_logs[mascara_busca_log]
+
+                if status_log != "Todos" and "Status_Final" in df_logs.columns:
+                    df_logs = df_logs[
+                        df_logs["Status_Final"].astype(str).str.strip() == status_log
+                    ]
+
+                if alcada_log != "Todas":
+                    info_alcada_log = next(
+                        (
+                            info
+                            for info in ALCADAS_INFO.values()
+                            if info["label"] == alcada_log
+                        ),
+                        None,
+                    )
+                    if info_alcada_log:
+                        coluna_alcada_log = info_alcada_log["coluna_sheets"]
+                        if coluna_alcada_log in df_logs.columns:
+                            df_logs = df_logs[
+                                ~df_logs[coluna_alcada_log]
+                                .astype(str)
+                                .str.strip()
+                                .str.lower()
+                                .isin(["", "pendente", "nan", "none"])
+                            ]
+
+                hoje_log = pd.Timestamp.now().normalize()
+                if periodo_log == "Últimos 30 dias":
+                    df_logs = df_logs[df_logs["__data_log"] >= hoje_log - pd.Timedelta(days=30)]
+                elif periodo_log == "Últimos 90 dias":
+                    df_logs = df_logs[df_logs["__data_log"] >= hoje_log - pd.Timedelta(days=90)]
+                elif periodo_log == "Este ano":
+                    df_logs = df_logs[df_logs["__data_log"].dt.year == hoje_log.year]
+
+                df_logs = df_logs.sort_values(
+                    by=["__data_log", "ID"],
+                    ascending=[False, False],
+                    na_position="last",
+                )
+
+                total_logs = len(df_logs)
+                finalizados_logs = 0
+                pareceres_logs = 0
+                pendentes_logs = 0
+
+                for _, linha_log_metricas in df_logs.iterrows():
+                    status_metrica_log = str(
+                        linha_log_metricas.get("Status_Final", "")
+                    ).strip().lower()
+                    if status_metrica_log in {
+                        "aprovado",
+                        "aprovado com ressalva",
+                        "reprovado",
+                    }:
+                        finalizados_logs += 1
+
+                    votos_registrados_log = 0
+                    for info_log in ALCADAS_INFO.values():
+                        coluna_voto_log = info_log["coluna_sheets"]
+                        voto_log = str(
+                            linha_log_metricas.get(coluna_voto_log, "Pendente")
+                        ).strip().lower()
+                        if voto_log not in {"", "pendente", "nan", "none"}:
+                            votos_registrados_log += 1
+                    pareceres_logs += votos_registrados_log
+                    if votos_registrados_log < len(ALCADAS_INFO):
+                        pendentes_logs += 1
+
+                st.markdown(
+                    f"""
+<div class="caproq-audit-summary-grid">
+    <div class="caproq-audit-summary-card">
+        <div class="caproq-audit-summary-label">Chamados exibidos</div>
+        <div class="caproq-audit-summary-value">{total_logs}</div>
+    </div>
+    <div class="caproq-audit-summary-card">
+        <div class="caproq-audit-summary-label">Eventos técnicos</div>
+        <div class="caproq-audit-summary-value">{pareceres_logs}</div>
+    </div>
+    <div class="caproq-audit-summary-card">
+        <div class="caproq-audit-summary-label">Fluxos finalizados</div>
+        <div class="caproq-audit-summary-value">{finalizados_logs}</div>
+    </div>
+    <div class="caproq-audit-summary-card">
+        <div class="caproq-audit-summary-label">Com etapas pendentes</div>
+        <div class="caproq-audit-summary-value">{pendentes_logs}</div>
+    </div>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
+
+                if df_logs.empty:
+                    st.markdown(
+                        """
+<div class="caproq-audit-empty">
+    <strong>Nenhum registro encontrado.</strong><br>
+    Ajuste os filtros para ampliar a consulta da trilha de auditoria.
+</div>
+""",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    for _, row in df_logs.iterrows():
+                        try:
+                            id_c = int(float(row.get("ID", 0)))
+                        except (TypeError, ValueError):
+                            id_c = row.get("ID", "—")
+
+                        desc_l = valor_seguro(
+                            row.get("Descrição completa do produto", "Sem descrição"),
+                            "Sem descrição",
+                        )
+                        solicitante_nome = valor_seguro(
+                            row.get("Nome solicitante", row.get("Nome", "Não informado")),
+                            "Não informado",
+                        )
+                        solicitante_email = valor_seguro(
+                            row.get("Endereço de e-mail", "Não informado"),
+                            "Não informado",
+                        )
+                        fornecedor_log = valor_seguro(
+                            row.get("Fornecedor", row.get("Nome do fornecedor", "Não informado")),
+                            "Não informado",
+                        )
+                        status_atual_log = valor_seguro(
+                            row.get("Status_Final", "Em análise"),
+                            "Em análise",
+                        )
+                        carimbo_abertura = valor_seguro(
+                            row.get("Carimbo de data/hora", row.get("Timestamp", "Data não registrada")),
+                            "Data não registrada",
+                        )
+
+                        titulo_expander_log = (
+                            f"🕒 Chamado #{id_c} · {desc_l} · {status_atual_log}"
+                        )
+
+                        with st.expander(titulo_expander_log, expanded=False):
+                            st.markdown(
+                                f"""
+<div class="caproq-audit-meta-grid">
+    <div class="caproq-audit-meta-card">
+        <div class="caproq-audit-meta-label">Solicitante</div>
+        <div class="caproq-audit-meta-value">{escape(str(solicitante_nome))}</div>
+    </div>
+    <div class="caproq-audit-meta-card">
+        <div class="caproq-audit-meta-label">E-mail</div>
+        <div class="caproq-audit-meta-value">{escape(str(solicitante_email))}</div>
+    </div>
+    <div class="caproq-audit-meta-card">
+        <div class="caproq-audit-meta-label">Fornecedor</div>
+        <div class="caproq-audit-meta-value">{escape(str(fornecedor_log))}</div>
+    </div>
+    <div class="caproq-audit-meta-card">
+        <div class="caproq-audit-meta-label">Abertura</div>
+        <div class="caproq-audit-meta-value">{escape(str(carimbo_abertura))}</div>
+    </div>
+</div>
+<div class="caproq-audit-section-label">Trilha cronológica do processo</div>
+""",
+                                unsafe_allow_html=True,
+                            )
+
+                            eventos_html_log = [
+                                f"""
+<div class="caproq-audit-event">
+    <span class="caproq-audit-dot info"></span>
+    <p class="caproq-audit-event-title">Abertura da solicitação</p>
+    <p class="caproq-audit-event-text">
+        Processo cadastrado em {escape(str(carimbo_abertura))} por
+        <strong>{escape(str(solicitante_nome))}</strong>.
+    </p>
+</div>
+"""
+                            ]
+
+                            logs_encontrados = False
+                            for info in ALCADAS_INFO.values():
+                                c_nome = info["coluna_sheets"]
+                                voto_detalhado = valor_seguro(
+                                    row.get(c_nome, "Pendente"),
+                                    "Pendente",
+                                )
+                                voto_lower_log = str(voto_detalhado).strip().lower()
+
+                                if voto_lower_log in {"", "pendente", "nan", "none"}:
+                                    continue
+
                                 logs_encontrados = True
-                                
-                                if "Reprovar" in voto_detalhado:
-                                    st.error(f"🔴 **{info['label']}:** {voto_detalhado}")
-                                elif "ressalva" in voto_detalhado.lower():
-                                    st.warning(f"🟡 **{info['label']}:** {voto_detalhado}")
+                                if "reprov" in voto_lower_log:
+                                    classe_evento_log = "rejected"
+                                    rotulo_evento_log = "Parecer reprovado"
+                                elif "ressalva" in voto_lower_log:
+                                    classe_evento_log = "warning"
+                                    rotulo_evento_log = "Parecer com ressalva"
                                 else:
-                                    st.success(f"🟢 **{info['label']}:** {voto_detalhado}")
-                        
-                        if not logs_encontrados:
-                            st.caption("⏳ Nenhuma alçada técnica emitiu parecer para este chamado até o momento (Aguardando deliberações).")
-                            
-                        if row['Status_Final'] in ["Aprovado", "Reprovado"]:
-                            cor_status = "🟢" if row['Status_Final'] == "Aprovado" else "🔴"
-                            st.markdown(f"{cor_status} **[Fim do Fluxo]** Processo finalizado com o status de **{row['Status_Final']}**.")
+                                    classe_evento_log = "approved"
+                                    rotulo_evento_log = "Parecer aprovado"
+
+                                eventos_html_log.append(
+                                    f"""
+<div class="caproq-audit-event">
+    <span class="caproq-audit-dot {classe_evento_log}"></span>
+    <p class="caproq-audit-event-title">{escape(str(info['label']))} · {rotulo_evento_log}</p>
+    <p class="caproq-audit-event-text">{escape(str(voto_detalhado))}</p>
+</div>
+"""
+                                )
+
+                            status_lower_log = str(status_atual_log).strip().lower()
+                            if status_lower_log in {
+                                "aprovado",
+                                "aprovado com ressalva",
+                                "reprovado",
+                            }:
+                                if "reprov" in status_lower_log:
+                                    classe_final_log = "rejected"
+                                elif "ressalva" in status_lower_log:
+                                    classe_final_log = "warning"
+                                else:
+                                    classe_final_log = "approved"
+
+                                responsavel_final_log = valor_seguro(
+                                    row.get("Responsavel_Homologacao_Final", "Não informado"),
+                                    "Não informado",
+                                )
+                                data_final_log = valor_seguro(
+                                    row.get("Data_Homologacao_Final", "Data não registrada"),
+                                    "Data não registrada",
+                                )
+                                consideracoes_log = valor_seguro(
+                                    row.get("Consideracoes_Finais_Homologacao", row.get("obs_admin", "Sem considerações registradas")),
+                                    "Sem considerações registradas",
+                                )
+
+                                eventos_html_log.append(
+                                    f"""
+<div class="caproq-audit-event">
+    <span class="caproq-audit-dot {classe_final_log}"></span>
+    <p class="caproq-audit-event-title">Decisão final · {escape(str(status_atual_log))}</p>
+    <p class="caproq-audit-event-text">
+        Registrada por <strong>{escape(str(responsavel_final_log))}</strong>
+        em {escape(str(data_final_log))}.<br>
+        {escape(str(consideracoes_log))}
+    </p>
+</div>
+"""
+                                )
+                            elif not logs_encontrados:
+                                eventos_html_log.append(
+                                    """
+<div class="caproq-audit-event">
+    <span class="caproq-audit-dot"></span>
+    <p class="caproq-audit-event-title">Aguardando deliberações técnicas</p>
+    <p class="caproq-audit-event-text">
+        Nenhuma alçada registrou parecer para este chamado até o momento.
+    </p>
+</div>
+"""
+                                )
+
+                            st.markdown(
+                                "".join(eventos_html_log),
+                                unsafe_allow_html=True,
+                            )
+
+                            with st.expander("Dados brutos para conferência", expanded=False):
+                                dados_auditoria_log = {
+                                    "ID": id_c,
+                                    "Produto": desc_l,
+                                    "Status final": status_atual_log,
+                                    "Status dos aprovadores": valor_seguro(
+                                        row.get("Status_Aprovadores", "Não informado"),
+                                        "Não informado",
+                                    ),
+                                    "Solicitante": solicitante_nome,
+                                    "E-mail": solicitante_email,
+                                    "Abertura": carimbo_abertura,
+                                }
+                                st.json(dados_auditoria_log)
 
             # ----------------------------------------------------------------------
             # 8.4. Aba "Indicadores"
