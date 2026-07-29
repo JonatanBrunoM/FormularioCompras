@@ -119,6 +119,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # ------------------------------------------------------------------------------
 WORKSHEET_ALTERACOES_PARECERES = "Alteracoes_Pareceres"
 WORKSHEET_HISTORICO_HOMOLOGACOES = "Historico_Homologacoes"
+WORKSHEET_REUNIOES_CAPROQ = "Reunioes_CAPROQ"
 
 STATUS_ALTERACAO_PENDENTE = "Pendente"
 STATUS_ALTERACAO_CONFIRMADA = "Confirmada"
@@ -171,6 +172,72 @@ COLUNAS_HISTORICO_HOMOLOGACOES = [
     "Email_Admin_Reabertura",
     "Situacao_Registro",
 ]
+
+STATUS_REUNIAO_NAO_NECESSARIA = "Não necessária"
+STATUS_REUNIAO_AGUARDANDO_AGENDAMENTO = "Aguardando agendamento"
+STATUS_REUNIAO_AGENDADA = "Agendada"
+STATUS_REUNIAO_REALIZADA = "Realizada"
+STATUS_REUNIAO_CANCELADA = "Cancelada"
+STATUS_REUNIAO_REAGENDADA = "Reagendada"
+STATUS_REUNIAO_SEM_DECISAO = "Sem decisão"
+STATUS_REUNIAO_CONCLUIDA = "Concluída"
+
+COLUNAS_REUNIOES_CAPROQ = [
+    "ID_Reuniao",
+    "ID_Chamado",
+    "Numero_Reuniao_Chamado",
+    "Status_Reuniao",
+    "Motivo_Reuniao",
+    "Alcada_Origem",
+    "Parecer_Origem",
+    "Data_Agendamento",
+    "Hora_Inicio",
+    "Hora_Fim",
+    "Fuso_Horario",
+    "Modalidade",
+    "Local_Reuniao",
+    "Link_Google_Meet",
+    "Google_Event_ID",
+    "Google_Event_Link",
+    "Organizador_Nome",
+    "Organizador_Email",
+    "Participantes_Convidados",
+    "Participantes_Presentes",
+    "Participantes_Ausentes",
+    "Pauta",
+    "Observacoes_Agendamento",
+    "Data_Realizacao",
+    "Responsavel_Conducao",
+    "Responsavel_Ata",
+    "Resumo_Discussao",
+    "Decisao_Reuniao",
+    "Encaminhamento_Chamado",
+    "Pendencias",
+    "Responsaveis_Pendencias",
+    "Prazos_Pendencias",
+    "Ata_Texto",
+    "Link_Ata",
+    "Anexos_Reuniao",
+    "Motivo_Cancelamento",
+    "ID_Reuniao_Anterior",
+    "Criado_Por",
+    "Criado_Por_Email",
+    "Data_Criacao",
+    "Atualizado_Por",
+    "Atualizado_Por_Email",
+    "Data_Atualizacao",
+]
+
+COLUNAS_REUNIAO_CHAMADO = {
+    "Reuniao_Necessaria": "NÃO",
+    "Status_Reuniao": STATUS_REUNIAO_NAO_NECESSARIA,
+    "ID_Reuniao_Atual": "",
+    "Quantidade_Reunioes": 0,
+    "Alcada_Origem_Reuniao": "",
+    "Motivo_Reuniao_Atual": "",
+    "Data_Ultima_Reuniao": "",
+    "Encaminhamento_Ultima_Reuniao": "",
+}
 
 COLUNAS_REVISAO_CHAMADO = {
     "Chamado_Reaberto": "NÃO",
@@ -250,6 +317,37 @@ def garantir_colunas_revisao_chamado(df: pd.DataFrame) -> pd.DataFrame:
             resultado["Quantidade_Reaberturas"],
             errors="coerce",
         ).fillna(0).astype(int)
+
+    for coluna, valor_padrao in COLUNAS_REUNIAO_CHAMADO.items():
+        if coluna not in resultado.columns:
+            resultado[coluna] = valor_padrao
+        else:
+            resultado[coluna] = resultado[coluna].where(
+                resultado[coluna].notna(),
+                valor_padrao,
+            )
+
+    if "Quantidade_Reunioes" in resultado.columns:
+        resultado["Quantidade_Reunioes"] = pd.to_numeric(
+            resultado["Quantidade_Reunioes"],
+            errors="coerce",
+        ).fillna(0).astype(int)
+
+    # A reprovação técnica apenas sinaliza a necessidade. O agendamento e a ata
+    # serão tratados nas próximas etapas, sem avançar o chamado automaticamente.
+    if "Status_Aprovadores" in resultado.columns:
+        status_tecnico = resultado["Status_Aprovadores"].astype(str).str.strip().str.lower()
+        precisa_reuniao = status_tecnico.eq("reunião necessária") | status_tecnico.eq("reuniao necessária") | status_tecnico.eq("reuniao necessaria")
+        sem_reuniao_ativa = resultado["Status_Reuniao"].astype(str).str.strip().str.lower().isin({
+            "",
+            STATUS_REUNIAO_NAO_NECESSARIA.lower(),
+            "nan",
+            "none",
+        })
+        resultado.loc[precisa_reuniao, "Reuniao_Necessaria"] = "SIM"
+        resultado.loc[precisa_reuniao & sem_reuniao_ativa, "Status_Reuniao"] = (
+            STATUS_REUNIAO_AGUARDANDO_AGENDAMENTO
+        )
 
     return resultado
 
@@ -359,6 +457,107 @@ def salvar_historico_homologacoes(df: pd.DataFrame) -> bool:
         cache_key="df_historico_homologacoes_cache",
         timestamp_key="df_historico_homologacoes_cache_timestamp",
     )
+
+
+def carregar_reunioes_caproq(
+    forcar_atualizacao: bool = False,
+) -> pd.DataFrame:
+    return _carregar_worksheet_controlada(
+        worksheet=WORKSHEET_REUNIOES_CAPROQ,
+        colunas=COLUNAS_REUNIOES_CAPROQ,
+        cache_key="df_reunioes_caproq_cache",
+        timestamp_key="df_reunioes_caproq_cache_timestamp",
+        forcar_atualizacao=forcar_atualizacao,
+    )
+
+
+def salvar_reunioes_caproq(df: pd.DataFrame) -> bool:
+    return _salvar_worksheet_controlada(
+        worksheet=WORKSHEET_REUNIOES_CAPROQ,
+        df=df,
+        colunas=COLUNAS_REUNIOES_CAPROQ,
+        cache_key="df_reunioes_caproq_cache",
+        timestamp_key="df_reunioes_caproq_cache_timestamp",
+    )
+
+
+def reunioes_do_chamado(
+    id_chamado,
+    df_reunioes: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Retorna todas as reuniões do chamado sem descartar versões anteriores."""
+    dados = (
+        carregar_reunioes_caproq()
+        if df_reunioes is None
+        else garantir_colunas_dataframe(df_reunioes, COLUNAS_REUNIOES_CAPROQ)
+    )
+    if dados.empty:
+        return dados.copy()
+    ids = pd.to_numeric(dados["ID_Chamado"], errors="coerce")
+    alvo = pd.to_numeric(pd.Series([id_chamado]), errors="coerce").iloc[0]
+    return dados.loc[ids.eq(alvo)].copy()
+
+
+def proximo_numero_reuniao_chamado(
+    id_chamado,
+    df_reunioes: pd.DataFrame | None = None,
+) -> int:
+    """Gera a sequência 1, 2, 3... de reuniões dentro do mesmo chamado."""
+    registros = reunioes_do_chamado(id_chamado, df_reunioes=df_reunioes)
+    if registros.empty:
+        return 1
+    numeros = pd.to_numeric(registros["Numero_Reuniao_Chamado"], errors="coerce").dropna()
+    return int(numeros.max()) + 1 if not numeros.empty else len(registros) + 1
+
+
+def criar_registro_reuniao(
+    *,
+    id_chamado,
+    motivo_reuniao: str,
+    alcada_origem: str,
+    parecer_origem: str = "",
+    criado_por: str = "",
+    criado_por_email: str = "",
+    status_reuniao: str = STATUS_REUNIAO_AGUARDANDO_AGENDAMENTO,
+    df_reunioes: pd.DataFrame | None = None,
+) -> dict:
+    """Monta o registro-base; a interface de agendamento será criada na Etapa 2."""
+    agora = _data_hora_registro()
+    return {
+        "ID_Reuniao": gerar_id_registro("REU"),
+        "ID_Chamado": id_chamado,
+        "Numero_Reuniao_Chamado": proximo_numero_reuniao_chamado(
+            id_chamado, df_reunioes=df_reunioes
+        ),
+        "Status_Reuniao": str(status_reuniao).strip(),
+        "Motivo_Reuniao": str(motivo_reuniao).strip(),
+        "Alcada_Origem": str(alcada_origem).strip(),
+        "Parecer_Origem": str(parecer_origem).strip(),
+        "Fuso_Horario": "America/Sao_Paulo",
+        "Criado_Por": str(criado_por).strip(),
+        "Criado_Por_Email": str(criado_por_email).strip().lower(),
+        "Data_Criacao": agora,
+        "Atualizado_Por": str(criado_por).strip(),
+        "Atualizado_Por_Email": str(criado_por_email).strip().lower(),
+        "Data_Atualizacao": agora,
+    }
+
+
+def chamado_requer_reuniao(row: pd.Series) -> bool:
+    """Centraliza a regra estrutural usada pela futura tela de reuniões."""
+    status_tecnico = str(row.get("Status_Aprovadores", "")).strip().lower()
+    flag = str(row.get("Reuniao_Necessaria", "")).strip().upper()
+    status_reuniao = str(row.get("Status_Reuniao", "")).strip().lower()
+    encerrada = status_reuniao in {
+        STATUS_REUNIAO_CANCELADA.lower(),
+        STATUS_REUNIAO_CONCLUIDA.lower(),
+    }
+    reprovação = status_tecnico in {
+        "reunião necessária",
+        "reuniao necessária",
+        "reuniao necessaria",
+    }
+    return (reprovação or flag == "SIM") and not encerrada
 
 
 def existe_alteracao_pendente(
