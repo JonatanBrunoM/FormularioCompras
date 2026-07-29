@@ -1,6 +1,7 @@
-"""Componentes visuais do CAPROQ.
+"""Componentes visuais reutilizáveis do CAPROQ.
 
-Responsividade, tema, CSS e outros.
+Este módulo concentra a identidade visual e os componentes de apresentação.
+Não contém regras de negócio, persistência, autenticação ou envio de e-mails.
 """
 
 from __future__ import annotations
@@ -1290,6 +1291,7 @@ def load_login_css() -> None:
                 padding-top: 1.2rem !important;
                 padding-bottom: 1rem !important;
             }
+        
         </style>
         """,
         unsafe_allow_html=True,
