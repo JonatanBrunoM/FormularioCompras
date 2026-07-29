@@ -697,7 +697,14 @@ if (
 # 5. Confirgurações tela de Login                     
 # ==============================================================================
 if not st.session_state.connected:
-    ui.load_login_css()
+    if hasattr(ui, "load_login_css"):
+        ui.load_login_css()
+    else:
+        st.warning(
+            "O módulo ui_components.py carregado não possui "
+            "a função load_login_css(). Verifique se o arquivo "
+            "foi atualizado corretamente no repositório."
+        )
 
     auth_url = (
         "https://accounts.google.com/o/oauth2/auth?"
