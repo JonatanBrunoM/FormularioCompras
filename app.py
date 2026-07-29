@@ -203,12 +203,27 @@ def garantir_colunas_dataframe(
     df: pd.DataFrame,
     colunas: list[str],
 ) -> pd.DataFrame:
-    """Devolve uma cópia com todas as colunas exigidas, na ordem definida."""
+    """Devolve uma cópia com o schema completo e campos editáveis como objeto.
+
+    O Google Sheets pode devolver colunas totalmente vazias como ``float64``
+    (compostas apenas por NaN). Antes de gravar nomes, e-mails, datas ou
+    justificativas nessas colunas, normalizamos o dtype para ``object``.
+    """
     resultado = df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
 
     for coluna in colunas:
         if coluna not in resultado.columns:
-            resultado[coluna] = ""
+            resultado[coluna] = pd.Series(
+                [""] * len(resultado),
+                index=resultado.index,
+                dtype="object",
+            )
+        else:
+            resultado[coluna] = resultado[coluna].astype("object")
+            resultado[coluna] = resultado[coluna].where(
+                resultado[coluna].notna(),
+                "",
+            )
 
     colunas_extras = [
         coluna for coluna in resultado.columns
