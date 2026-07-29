@@ -455,6 +455,74 @@ def criar_registro_alteracao_parecer(
     }
 
 
+def extrair_decisao_e_parecer_registrado(valor_registrado) -> tuple[str, str]:
+    """Separa a decisão principal do conteúdo descritivo armazenado na alçada."""
+    texto = str(valor_registrado or "").strip()
+    if not texto or texto.lower() in {"nan", "none", "pendente"}:
+        return "Pendente", ""
+
+    decisoes = ["Aprovar com ressalva", "Reprovar", "Aprovar"]
+    decisao = next(
+        (opcao for opcao in decisoes if texto.lower().startswith(opcao.lower())),
+        texto.split("(", 1)[0].strip(),
+    )
+
+    parecer = ""
+    if "(" in texto and texto.endswith(")"):
+        conteudo = texto.split("(", 1)[1][:-1].strip()
+        if ":" in conteudo:
+            parecer = conteudo.split(":", 1)[1].strip()
+
+    return decisao or texto, parecer
+
+
+def chamado_esta_em_homologacao(row: pd.Series) -> bool:
+    """Identifica processos que dependem de reabertura administrativa."""
+    status_aprovadores = str(row.get("Status_Aprovadores", "")).strip().lower()
+    status_final = str(row.get("Status_Final", "")).strip().lower()
+
+    finalizado = status_final not in {"", "em análise", "em analise", "nan", "none"}
+    aguardando_homologacao = status_aprovadores in {
+        "aguardando homologação",
+        "aguardando homologacao",
+        "em homologação",
+        "em homologacao",
+    }
+    return finalizado or aguardando_homologacao
+
+
+def alcada_esta_liberada_para_revisao(row: pd.Series, label_alcada: str) -> bool:
+    """Autoriza a revisão quando a homologação já foi formalmente reaberta."""
+    status_revisao = str(row.get("Status_Revisao", "")).strip().lower()
+    alcada_reaberta = str(row.get("Alcada_Reaberta", "")).strip().lower()
+    label_normalizado = str(label_alcada).strip().lower()
+
+    status_liberados = {
+        STATUS_REVISAO_REABERTO.lower(),
+        STATUS_REVISAO_AGUARDANDO_ALTERACAO.lower(),
+    }
+    return status_revisao in status_liberados and alcada_reaberta == label_normalizado
+
+
+def adicionar_solicitacao_alteracao(registro: dict) -> bool:
+    """Acrescenta uma solicitação à fila sem substituir o parecer oficial."""
+    df_alteracoes = carregar_alteracoes_pareceres(forcar_atualizacao=True)
+
+    if existe_alteracao_pendente(
+        registro.get("ID_Chamado"),
+        registro.get("Alcada", ""),
+        df_alteracoes=df_alteracoes,
+    ):
+        return False
+
+    novo_registro = pd.DataFrame([registro])
+    dados_atualizados = pd.concat(
+        [df_alteracoes, novo_registro],
+        ignore_index=True,
+    )
+    return salvar_alteracoes_pareceres(dados_atualizados)
+
+
 def criar_registro_historico_homologacao(
     *,
     id_chamado,
@@ -2530,6 +2598,244 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
 
                                 if not pareceres_encontrados_hist:
                                     st.caption("Nenhum parecer técnico foi registrado para este chamado.")
+
+                                # ----------------------------------------------------------
+                                # Solicitação de alteração de parecer da própria alçada
+                                # ----------------------------------------------------------
+                                st.markdown(
+                                    '<div class="caproq-history-section-label">Revisão do parecer técnico</div>',
+                                    unsafe_allow_html=True,
+                                )
+
+                                df_alteracoes_ui = carregar_alteracoes_pareceres()
+                                alcadas_editaveis = []
+                                for _, info_revisao in ALCADAS_INFO.items():
+                                    coluna_revisao = info_revisao["coluna_sheets"]
+                                    if coluna_revisao not in colunas_permitidas_usuario:
+                                        continue
+                                    if coluna_revisao not in row.index:
+                                        continue
+
+                                    voto_revisao = valor_seguro(row.get(coluna_revisao, "Pendente"), "Pendente")
+                                    decisao_revisao, parecer_revisao = extrair_decisao_e_parecer_registrado(voto_revisao)
+                                    if decisao_revisao.lower() == "pendente":
+                                        continue
+
+                                    alcadas_editaveis.append(
+                                        {
+                                            "label": info_revisao["label"],
+                                            "coluna": coluna_revisao,
+                                            "decisao": decisao_revisao,
+                                            "parecer": parecer_revisao,
+                                        }
+                                    )
+
+                                if not alcadas_editaveis:
+                                    st.caption("Não há parecer da sua alçada disponível para solicitar alteração neste chamado.")
+                                else:
+                                    for item_revisao in alcadas_editaveis:
+                                        label_revisao = item_revisao["label"]
+                                        coluna_revisao = item_revisao["coluna"]
+                                        decisao_atual_revisao = item_revisao["decisao"]
+                                        parecer_atual_revisao = item_revisao["parecer"]
+                                        chave_revisao = f"alterar_parecer_{id_c}_{coluna_revisao}"
+
+                                        alteracao_pendente = existe_alteracao_pendente(
+                                            id_c,
+                                            label_revisao,
+                                            df_alteracoes=df_alteracoes_ui,
+                                        )
+                                        em_homologacao = chamado_esta_em_homologacao(row)
+                                        liberada_reabertura = alcada_esta_liberada_para_revisao(
+                                            row,
+                                            label_revisao,
+                                        )
+
+                                        with st.container(border=True):
+                                            cab1, cab2 = st.columns([1.2, 2.2])
+                                            with cab1:
+                                                st.markdown(f"**{label_revisao}**")
+                                                st.caption(f"Decisão vigente: {decisao_atual_revisao}")
+                                            with cab2:
+                                                st.caption(
+                                                    "O parecer vigente permanece válido até que um administrador confirme a alteração."
+                                                )
+
+                                            if alteracao_pendente:
+                                                solicitacoes_alcada = df_alteracoes_ui[
+                                                    pd.to_numeric(
+                                                        df_alteracoes_ui["ID_Chamado"],
+                                                        errors="coerce",
+                                                    ).eq(pd.to_numeric(pd.Series([id_c]), errors="coerce").iloc[0])
+                                                    & df_alteracoes_ui["Alcada"].astype(str).str.strip().str.lower().eq(label_revisao.lower())
+                                                    & df_alteracoes_ui["Status_Alteracao"].astype(str).str.strip().str.lower().eq(STATUS_ALTERACAO_PENDENTE.lower())
+                                                ]
+                                                data_pendente = ""
+                                                if not solicitacoes_alcada.empty:
+                                                    data_pendente = str(solicitacoes_alcada.iloc[-1].get("Data_Solicitacao", "")).strip()
+                                                mensagem_pendente = "Já existe uma solicitação aguardando validação administrativa."
+                                                if data_pendente:
+                                                    mensagem_pendente += f" Enviada em {data_pendente}."
+                                                ui.render_feedback(
+                                                    mensagem_pendente,
+                                                    kind="warning",
+                                                    title="Alteração em análise",
+                                                    icon="⏳",
+                                                )
+                                                continue
+
+                                            if em_homologacao and not liberada_reabertura:
+                                                ui.render_feedback(
+                                                    "Este chamado já chegou à homologação. Um administrador precisa reabri-lo para a sua alçada antes de uma nova solicitação.",
+                                                    kind="info",
+                                                    title="Reabertura administrativa necessária",
+                                                    icon="🔒",
+                                                )
+                                                continue
+
+                                            if liberada_reabertura:
+                                                ui.render_feedback(
+                                                    "O administrador reabriu este chamado para revisão da sua alçada. Registre abaixo a alteração proposta.",
+                                                    kind="info",
+                                                    title="Revisão técnica liberada",
+                                                    icon="🔄",
+                                                )
+
+                                            with st.expander("Solicitar alteração do parecer", expanded=False):
+                                                st.markdown(f"**Decisão atual:** {decisao_atual_revisao}")
+                                                if parecer_atual_revisao:
+                                                    st.markdown(f"**Parecer atual:** {parecer_atual_revisao}")
+                                                else:
+                                                    st.caption("O registro atual não possui observação textual separada.")
+
+                                                with st.form(chave_revisao, clear_on_submit=False):
+                                                    nova_decisao = st.selectbox(
+                                                        "Nova decisão proposta *",
+                                                        ["Aprovar", "Aprovar com ressalva", "Reprovar"],
+                                                        index=(
+                                                            ["Aprovar", "Aprovar com ressalva", "Reprovar"].index(decisao_atual_revisao)
+                                                            if decisao_atual_revisao in ["Aprovar", "Aprovar com ressalva", "Reprovar"]
+                                                            else 0
+                                                        ),
+                                                        key=f"nova_decisao_{chave_revisao}",
+                                                    )
+                                                    novo_parecer = st.text_area(
+                                                        "Novo parecer técnico",
+                                                        value=parecer_atual_revisao,
+                                                        placeholder="Descreva as condições, ressalvas ou fundamentos técnicos da nova decisão.",
+                                                        height=130,
+                                                        key=f"novo_parecer_{chave_revisao}",
+                                                    )
+                                                    justificativa_alteracao = st.text_area(
+                                                        "Justificativa da alteração *",
+                                                        placeholder="Explique o que mudou desde a decisão anterior e por que o parecer deve ser revisto.",
+                                                        height=120,
+                                                        key=f"justificativa_{chave_revisao}",
+                                                    )
+
+                                                    confirmar_ciencia = st.checkbox(
+                                                        "Estou ciente de que a decisão vigente só será substituída após confirmação de um administrador.",
+                                                        key=f"ciencia_{chave_revisao}",
+                                                    )
+                                                    enviar_alteracao = st.form_submit_button(
+                                                        "Enviar para validação administrativa",
+                                                        use_container_width=True,
+                                                    )
+
+                                                if enviar_alteracao:
+                                                    erros_alteracao = []
+                                                    if nova_decisao == decisao_atual_revisao and novo_parecer.strip() == parecer_atual_revisao.strip():
+                                                        erros_alteracao.append("A nova proposta é igual ao parecer vigente.")
+                                                    if not justificativa_alteracao.strip():
+                                                        erros_alteracao.append("Informe a justificativa da alteração.")
+                                                    if nova_decisao in ["Aprovar com ressalva", "Reprovar"] and not novo_parecer.strip():
+                                                        erros_alteracao.append("O novo parecer é obrigatório para ressalva ou reprovação.")
+                                                    if not confirmar_ciencia:
+                                                        erros_alteracao.append("Confirme a ciência sobre a validação administrativa.")
+
+                                                    if erros_alteracao:
+                                                        ui.render_feedback(
+                                                            " ".join(erros_alteracao),
+                                                            kind="error",
+                                                            title="Revise os campos",
+                                                            icon="⚠️",
+                                                        )
+                                                    else:
+                                                        try:
+                                                            registro_alteracao = criar_registro_alteracao_parecer(
+                                                                id_chamado=id_c,
+                                                                alcada=label_revisao,
+                                                                coluna_parecer=coluna_revisao,
+                                                                decisao_anterior=decisao_atual_revisao,
+                                                                parecer_anterior=parecer_atual_revisao,
+                                                                decisao_solicitada=nova_decisao,
+                                                                parecer_solicitado=novo_parecer,
+                                                                justificativa=justificativa_alteracao,
+                                                                solicitante_nome=user_name,
+                                                                solicitante_email=user_email,
+                                                                origem_reabertura="SIM" if liberada_reabertura else "NÃO",
+                                                                id_reabertura=str(row.get("ID_Reabertura_Atual", "")),
+                                                            )
+
+                                                            if adicionar_solicitacao_alteracao(registro_alteracao):
+                                                                if "Status_Revisao" not in df_dados.columns:
+                                                                    df_dados["Status_Revisao"] = STATUS_REVISAO_NAO_APLICAVEL
+                                                                mascara_chamado_revisao = df_dados["ID"] == id_c
+                                                                df_dados.loc[
+                                                                    mascara_chamado_revisao,
+                                                                    "Status_Revisao",
+                                                                ] = STATUS_REVISAO_ALTERACAO_EM_ANALISE
+                                                                conn.update(data=df_dados)
+                                                                st.session_state["df_dados_cache"] = df_dados.copy()
+                                                                st.session_state["df_dados_cache_timestamp"] = time.time()
+
+                                                                detalhes_admin = f"""
+                                                                <div style="margin-top:20px;padding:16px;background:#f8f9fa;border-left:4px solid #005691;border-radius:4px;">
+                                                                  <p style="margin:0 0 8px;"><b>Chamado:</b> #{id_c}</p>
+                                                                  <p style="margin:0 0 8px;"><b>Alçada:</b> {label_revisao}</p>
+                                                                  <p style="margin:0 0 8px;"><b>Decisão vigente:</b> {decisao_atual_revisao}</p>
+                                                                  <p style="margin:0 0 8px;"><b>Nova decisão proposta:</b> {nova_decisao}</p>
+                                                                  <p style="margin:0;"><b>Justificativa:</b> {justificativa_alteracao.strip()}</p>
+                                                                </div>
+                                                                """
+                                                                html_admin = template_email_caproq(
+                                                                    titulo=f"Alteração de parecer · Chamado #{id_c}",
+                                                                    mensagem=(
+                                                                        f"<b>{user_name}</b> solicitou a revisão do parecer da alçada "
+                                                                        f"<b>{label_revisao}</b>. A decisão vigente não foi alterada e aguarda validação administrativa."
+                                                                    ),
+                                                                    detalhes=detalhes_admin,
+                                                                    destaque="#005691",
+                                                                )
+                                                                for email_admin in sorted(set(ADMINS)):
+                                                                    enviar_email(
+                                                                        destinatario=email_admin,
+                                                                        assunto=f"CAPROQ: Alteração de parecer aguardando validação - #{id_c}",
+                                                                        corpo_html=html_admin,
+                                                                    )
+
+                                                                ui.render_feedback(
+                                                                    "A solicitação foi registrada. O parecer atual permanece vigente até a análise de um administrador.",
+                                                                    kind="success",
+                                                                    title="Alteração enviada",
+                                                                    icon="✅",
+                                                                )
+                                                                time.sleep(1.2)
+                                                                st.rerun()
+                                                            else:
+                                                                ui.render_feedback(
+                                                                    "Já existe uma solicitação pendente para este chamado e alçada, ou não foi possível gravar a nova solicitação.",
+                                                                    kind="warning",
+                                                                    title="Solicitação não registrada",
+                                                                    icon="⏳",
+                                                                )
+                                                        except Exception as erro_alteracao:
+                                                            ui.render_feedback(
+                                                                str(erro_alteracao),
+                                                                kind="error",
+                                                                title="Falha ao solicitar alteração",
+                                                                icon="⚠️",
+                                                            )
 
                                 with st.expander("Dados complementares do chamado", expanded=False):
                                     c1_hist, c2_hist = st.columns(2)
