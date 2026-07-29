@@ -549,6 +549,52 @@ def _texto_limpo(valor) -> str:
     return "" if texto.lower() in {"nan", "none", "nat"} else texto
 
 
+def escolha_padronizada(
+    rotulo: str,
+    opcoes: list[str],
+    *,
+    key: str,
+    valor_padrao=None,
+    help: str | None = None,
+):
+    """Exibe escolhas da homologação no mesmo padrão visual.
+
+    Usa ``st.segmented_control`` nas versões compatíveis do Streamlit e
+    mantém fallback para ``st.radio`` sem interromper a aplicação.
+    """
+    if hasattr(st, "segmented_control"):
+        try:
+            return st.segmented_control(
+                rotulo,
+                options=opcoes,
+                default=valor_padrao if valor_padrao in opcoes else None,
+                selection_mode="single",
+                key=key,
+                help=help,
+                width="stretch",
+            )
+        except TypeError:
+            # Compatibilidade com versões que ainda não possuem ``width``.
+            return st.segmented_control(
+                rotulo,
+                options=opcoes,
+                default=valor_padrao if valor_padrao in opcoes else None,
+                selection_mode="single",
+                key=key,
+                help=help,
+            )
+
+    indice = opcoes.index(valor_padrao) if valor_padrao in opcoes else None
+    return st.radio(
+        rotulo,
+        options=opcoes,
+        index=indice,
+        horizontal=True,
+        key=key,
+        help=help,
+    )
+
+
 def _emails_texto_para_lista(texto: str) -> list[str]:
     bruto = str(texto or "").replace(";", ",").replace("\n", ",")
     return emails_unicos([item.strip() for item in bruto.split(",")])
@@ -1580,6 +1626,7 @@ def carregar_dados(forcar_atualizacao=False):
             "Data_Homologacao_Final",
             "Responsavel_Homologacao_Final",
             "Consideracoes_Finais_Homologacao",
+            "Produto_Possui_RMS",
             "RMS_Produto",
             "Validade_RMS",
             "Pode_Ser_Rediluido",
@@ -5749,52 +5796,70 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                 "Preencher avaliação técnica do produto",
                                 expanded=True,
                             ):
-                                col_rms_1, col_rms_2 = st.columns(2)
-
-                                with col_rms_1:
-                                    rms_produto = st.text_input(
-                                        "RMS do produto",
-                                        placeholder="Informe o RMS do produto",
-                                        key=f"rms_produto_{id_chamado}",
+                                possui_rms_atual = _texto_limpo(
+                                    row.get("Produto_Possui_RMS", "")
+                                ).upper()
+                                if possui_rms_atual not in {"SIM", "NÃO"}:
+                                    possui_rms_atual = (
+                                        "SIM"
+                                        if _texto_limpo(row.get("RMS_Produto", ""))
+                                        else None
                                     )
 
-                                with col_rms_2:
-                                    validade_rms = st.date_input(
-                                        "Validade do RMS",
-                                        value=None,
-                                        format="DD/MM/YYYY",
-                                        key=f"validade_rms_{id_chamado}",
+                                produto_possui_rms = escolha_padronizada(
+                                    "O produto possui RMS?",
+                                    ["SIM", "NÃO"],
+                                    key=f"produto_possui_rms_{id_chamado}",
+                                    valor_padrao=possui_rms_atual,
+                                )
+
+                                rms_produto = ""
+                                validade_rms = None
+                                if produto_possui_rms == "SIM":
+                                    col_rms_1, col_rms_2 = st.columns(2)
+
+                                    with col_rms_1:
+                                        rms_produto = st.text_input(
+                                            "Número do RMS",
+                                            placeholder="Informe o número do RMS",
+                                            key=f"rms_produto_{id_chamado}",
+                                        )
+
+                                    with col_rms_2:
+                                        validade_rms = st.date_input(
+                                            "Validade do RMS",
+                                            value=None,
+                                            format="DD/MM/YYYY",
+                                            key=f"validade_rms_{id_chamado}",
+                                        )
+                                elif produto_possui_rms == "NÃO":
+                                    st.caption(
+                                        "Número e validade do RMS não se aplicam a este produto."
                                     )
 
                                 col_carac_1, col_carac_2 = st.columns(2)
 
                                 with col_carac_1:
-                                    pode_ser_rediluido = st.radio(
-                                        "Pode ser REDILUÍDO?",
-                                        options=["SIM", "NÃO", "NA"],
-                                        index=None,
-                                        horizontal=True,
+                                    pode_ser_rediluido = escolha_padronizada(
+                                        "Pode ser rediluído?",
+                                        ["SIM", "NÃO", "NA"],
                                         key=f"rediluido_{id_chamado}",
                                     )
 
                                 with col_carac_2:
-                                    necessita_monitoramento = st.radio(
+                                    necessita_monitoramento = escolha_padronizada(
                                         "Necessário monitoramento ocupacional?",
-                                        options=["SIM", "NÃO", "NA"],
-                                        index=None,
-                                        horizontal=True,
+                                        ["SIM", "NÃO", "NA"],
                                         key=f"monitoramento_{id_chamado}",
                                     )
 
-                                resultado_teste = st.radio(
+                                resultado_teste = escolha_padronizada(
                                     "Resultado do teste",
-                                    options=[
+                                    [
                                         "APROVADO",
                                         "REPROVADO",
                                         "NÃO REALIZADO",
                                     ],
-                                    index=None,
-                                    horizontal=True,
                                     key=f"resultado_teste_{id_chamado}",
                                 )
 
@@ -5815,11 +5880,9 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                     key=f"parecer_teste_{id_chamado}",
                                 )
 
-                                indicado_padronizacao = st.radio(
-                                    "Indicado para PADRONIZAÇÃO?",
-                                    options=["SIM", "NÃO"],
-                                    index=None,
-                                    horizontal=True,
+                                indicado_padronizacao = escolha_padronizada(
+                                    "Indicado para padronização?",
+                                    ["SIM", "NÃO"],
                                     key=f"indicado_padronizacao_{id_chamado}",
                                 )
 
@@ -5850,19 +5913,15 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                             "marcado como teste."
                         )
 
-                        produto_aprovado = st.radio(
+                        produto_aprovado = escolha_padronizada(
                             "1. Padronização: o produto foi aprovado?",
-                            options=["SIM", "NÃO"],
-                            index=None,
-                            horizontal=True,
+                            ["SIM", "NÃO"],
                             key=f"homologacao_produto_aprovado_{id_chamado}",
                         )
 
-                        produto_padronizado = st.radio(
+                        produto_padronizado = escolha_padronizada(
                             "2. Padronização: o produto foi padronizado?",
-                            options=["SIM", "NÃO"],
-                            index=None,
-                            horizontal=True,
+                            ["SIM", "NÃO"],
                             key=f"homologacao_produto_padronizado_{id_chamado}",
                         )
 
@@ -5873,34 +5932,28 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                             key=f"homologacao_codigo_padronizacao_{id_chamado}",
                         )
 
-                        produto_comprado = st.radio(
+                        produto_comprado = escolha_padronizada(
                             "3. Solicitante: o produto foi comprado?",
-                            options=["SIM", "NÃO"],
-                            index=None,
-                            horizontal=True,
+                            ["SIM", "NÃO"],
                             key=f"homologacao_produto_comprado_{id_chamado}",
                         )
 
-                        inventario_perigosos = st.radio(
+                        inventario_perigosos = escolha_padronizada(
                             (
                                 "4. Segurança Ocupacional: o produto foi incluído "
                                 "no inventário de produtos perigosos e o inventário "
                                 "foi atualizado no PGR?"
                             ),
-                            options=["SIM", "NÃO", "NA"],
-                            index=None,
-                            horizontal=True,
+                            ["SIM", "NÃO", "NA"],
                             key=f"homologacao_inventario_perigosos_{id_chamado}",
                         )
 
-                        fispq_setor = st.radio(
+                        fispq_setor = escolha_padronizada(
                             (
                                 "5. Segurança Ocupacional: a FISPQ já está no "
                                 "setor solicitante?"
                             ),
-                            options=["SIM", "NÃO", "NA"],
-                            index=None,
-                            horizontal=True,
+                            ["SIM", "NÃO", "NA"],
                             key=f"homologacao_fispq_setor_{id_chamado}",
                         )
 
@@ -5912,21 +5965,19 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                             '<div class="caproq-decision-box"><b>Decisão institucional</b><br><span style="opacity:.75">Considere os pareceres técnicos e registre abaixo o veredito que encerrará oficialmente o chamado.</span></div>',
                             unsafe_allow_html=True,
                         )
-                        decisao_final_admin = st.radio(
+                        decisao_final_admin = escolha_padronizada(
                             "6. Decisão administrativa final do chamado:",
-                            options=[
+                            [
                                 "Aprovado",
                                 "Aprovado com ressalva",
                                 "Reprovado",
                             ],
-                            index=None,
-                            horizontal=True,
+                            key=f"decisao_final_admin_{id_chamado}",
                             help=(
                                 "A decisão final pertence exclusivamente aos "
                                 "administradores. Os pareceres das áreas são "
                                 "subsídios técnicos para esta deliberação."
                             ),
-                            key=f"decisao_final_admin_{id_chamado}",
                         )
 
                         obs_admin = st.text_area(
@@ -5963,10 +6014,18 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                         dados_homologacao_teste = {}
 
                         if eh_produto_teste:
+                            rms_preenchido_corretamente = (
+                                produto_possui_rms == "NÃO"
+                                or (
+                                    produto_possui_rms == "SIM"
+                                    and bool(str(rms_produto).strip())
+                                    and validade_rms is not None
+                                )
+                            )
                             campos_teste_preenchidos = all(
                                 [
-                                    bool(str(rms_produto).strip()),
-                                    validade_rms is not None,
+                                    produto_possui_rms is not None,
+                                    rms_preenchido_corretamente,
                                     pode_ser_rediluido is not None,
                                     necessita_monitoramento is not None,
                                     resultado_teste is not None,
@@ -5983,10 +6042,15 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                             )
 
                             dados_homologacao_teste = {
-                                "RMS_Produto": str(rms_produto).strip(),
+                                "Produto_Possui_RMS": produto_possui_rms or "",
+                                "RMS_Produto": (
+                                    str(rms_produto).strip()
+                                    if produto_possui_rms == "SIM"
+                                    else ""
+                                ),
                                 "Validade_RMS": (
                                     validade_rms.strftime("%d/%m/%Y")
-                                    if validade_rms
+                                    if produto_possui_rms == "SIM" and validade_rms
                                     else ""
                                 ),
                                 "Pode_Ser_Rediluido": (
@@ -6118,10 +6182,17 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
 
                                 resumo_produto_teste = ""
                                 if eh_produto_teste:
+                                    resumo_rms = (
+                                        f"Possui RMS: {produto_possui_rms}"
+                                    )
+                                    if produto_possui_rms == "SIM":
+                                        resumo_rms += (
+                                            f" | RMS: {str(rms_produto).strip()} "
+                                            "| Validade RMS: "
+                                            f"{validade_rms.strftime('%d/%m/%Y')}"
+                                        )
                                     resumo_produto_teste = (
-                                        f" | RMS: {str(rms_produto).strip()} "
-                                        "| Validade RMS: "
-                                        f"{validade_rms.strftime('%d/%m/%Y')} "
+                                        f" | {resumo_rms} "
                                         "| Pode ser rediluído: "
                                         f"{pode_ser_rediluido} "
                                         "| Monitoramento ocupacional: "
