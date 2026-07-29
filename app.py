@@ -19,6 +19,9 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2.credentials import Credentials
 from cryptography.fernet import Fernet, InvalidToken
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase.pdfmetrics import stringWidth
+from pypdf import PdfReader, PdfWriter
 import io
 import uuid
 
@@ -96,6 +99,194 @@ def upload_para_google_drive(arquivo_streamlit, pasta_id=None):
     except Exception as e:
         st.error(f"Erro ao fazer upload para o Drive: {e}")
         return None
+
+
+# ------------------------------------------------------------------------------
+# Geração do formulário institucional de homologação em PDF
+# ------------------------------------------------------------------------------
+MODELO_FORMULARIO_CAPROQ = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "FORMUL_MODELO_CAPROQ.pdf",
+)
+
+
+def _pdf_texto(valor, padrao=""):
+    if valor is None:
+        return padrao
+    try:
+        if pd.isna(valor):
+            return padrao
+    except Exception:
+        pass
+    texto = str(valor).strip()
+    return texto if texto and texto.lower() != "nan" else padrao
+
+
+def _pdf_primeiro(dados, *colunas, padrao=""):
+    for coluna in colunas:
+        try:
+            valor = dados.get(coluna, "")
+        except Exception:
+            valor = ""
+        texto = _pdf_texto(valor)
+        if texto:
+            return texto
+    return padrao
+
+
+def _pdf_data(valor):
+    texto = _pdf_texto(valor)
+    if not texto:
+        return ""
+    # A planilha pode armazenar data com horário ou em formato ISO.
+    for formato in (
+        "%d/%m/%Y %H:%M", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"
+    ):
+        try:
+            return datetime.datetime.strptime(texto[:19], formato).strftime("%d/%m/%Y")
+        except Exception:
+            continue
+    return texto.split(" ")[0]
+
+
+def _pdf_quebrar_texto(texto, largura_maxima, fonte="Helvetica", tamanho=8):
+    texto = _pdf_texto(texto)
+    if not texto:
+        return []
+    linhas = []
+    for paragrafo in texto.replace("\r", "").split("\n"):
+        palavras = paragrafo.split()
+        linha = ""
+        for palavra in palavras:
+            candidata = palavra if not linha else f"{linha} {palavra}"
+            if stringWidth(candidata, fonte, tamanho) <= largura_maxima:
+                linha = candidata
+            else:
+                if linha:
+                    linhas.append(linha)
+                linha = palavra
+        if linha:
+            linhas.append(linha)
+    return linhas
+
+
+def _pdf_escrever(c, texto, x, y, largura, tamanho=8, max_linhas=1, entrelinha=None, negrito=False):
+    fonte = "Helvetica-Bold" if negrito else "Helvetica"
+    entrelinha = entrelinha or (tamanho + 2)
+    c.setFont(fonte, tamanho)
+    linhas = _pdf_quebrar_texto(texto, largura, fonte, tamanho)[:max_linhas]
+    for indice, linha in enumerate(linhas):
+        c.drawString(x, y - indice * entrelinha, linha)
+
+
+def _pdf_marcar(c, selecionado, x, y, tamanho=9):
+    if selecionado:
+        c.setFont("Helvetica-Bold", tamanho)
+        c.drawString(x, y, "X")
+
+
+def gerar_formulario_homologacao_pdf(dados):
+    """Preenche uma cópia do formulário institucional e retorna os bytes do PDF."""
+    if not os.path.exists(MODELO_FORMULARIO_CAPROQ):
+        raise FileNotFoundError(
+            "O arquivo FORMUL_MODELO_CAPROQ.pdf precisa estar na mesma pasta do app.py."
+        )
+
+    solicitante = _pdf_primeiro(dados, "Nome solicitante", "Nome", "Remetente_Nome")
+    descricao = _pdf_primeiro(
+        dados, "Descrição completa do produto", "Descrição do produto", "Descricao_Produto"
+    )
+    data_solicitacao = _pdf_data(
+        _pdf_primeiro(dados, "Carimbo de data/hora", "Data_Abertura", "Data da solicitação")
+    )
+    motivo = _pdf_primeiro(dados, "Motivo_Teste")
+    consumo = _pdf_primeiro(dados, "Consumo_Mes_Teste")
+    quantidade = _pdf_primeiro(dados, "Quantidade_Teste")
+    setores_teste = _pdf_primeiro(dados, "Setor_Destino_Teste")
+    setor = _pdf_primeiro(dados, "Setor_Solicitante", "Setor")
+    ramal = _pdf_primeiro(dados, "Ramal_Solicitante", "Fone/Ramal", "Telefone")
+    responsavel_area = _pdf_primeiro(dados, "Responsavel_Area")
+
+    possui_rms = _pdf_primeiro(dados, "Produto_Possui_RMS").upper()
+    rms = _pdf_primeiro(dados, "RMS_Produto") if possui_rms != "NÃO" else "NÃO SE APLICA"
+    validade_rms = _pdf_data(_pdf_primeiro(dados, "Validade_RMS")) if possui_rms != "NÃO" else "NÃO SE APLICA"
+    rediluido = _pdf_primeiro(dados, "Pode_Ser_Rediluido").upper()
+    monitoramento = _pdf_primeiro(dados, "Necessita_Monitoramento_Ocupacional").upper()
+    resultado_teste = _pdf_primeiro(dados, "Resultado_Teste").upper()
+    data_teste = _pdf_data(_pdf_primeiro(dados, "Data_Resultado_Teste"))
+    parecer_teste = _pdf_primeiro(dados, "Parecer_Resultado_Teste")
+    indicado = _pdf_primeiro(dados, "Indicado_Para_Padronizacao", "Indicado_Padronizacao").upper()
+    data_indicacao = _pdf_data(_pdf_primeiro(dados, "Data_Indicacao_Padronizacao"))
+    parecer_indicacao = _pdf_primeiro(dados, "Parecer_Indicacao_Padronizacao")
+    decisao_final = _pdf_primeiro(dados, "Decisao_Final_Admin", "Status_Final").upper()
+
+    overlay = io.BytesIO()
+    c = canvas.Canvas(overlay, pagesize=(596, 842))
+    c.setFillColorRGB(0, 0, 0)
+
+    # Cabeçalho e identificação
+    _pdf_escrever(c, data_solicitacao, 173, 710, 85, 9)
+    tipo = _pdf_primeiro(dados, "Tipo_Solicitacao", padrao="INCLUSÃO").upper()
+    _pdf_marcar(c, "ALTER" not in tipo, 304, 710)
+    _pdf_marcar(c, "ALTER" in tipo, 374, 710)
+    _pdf_escrever(c, solicitante, 207, 672, 365, 8.5)
+    _pdf_escrever(c, descricao, 152, 642, 415, 8, max_linhas=2, entrelinha=17)
+
+    # Motivo e dados do teste
+    motivos = [
+        ("PRODUTO NOVO/LANÇAMENTO", 511),
+        ("MELHORAMENTO DO PRODUTO", 498),
+        ("PRODUTO EXISTENTE NÃO USADO NO HMV", 485),
+        ("PRODUTO SIMILAR AO USADO NO HMV", 472),
+        ("SUPRIR A FALTA DE UM PRODUTO", 459),
+    ]
+    motivo_normalizado = motivo.upper()
+    for descricao_motivo, y in motivos:
+        _pdf_marcar(c, descricao_motivo in motivo_normalizado, 68, y, 8)
+    _pdf_escrever(c, consumo, 448, 511, 125, 8)
+    _pdf_escrever(c, quantidade, 448, 485, 125, 8)
+    _pdf_escrever(c, setores_teste, 448, 459, 125, 8)
+
+    # Solicitante e liderança
+    _pdf_escrever(c, solicitante, 364, 414, 205, 8)
+    _pdf_escrever(c, setor, 76, 386, 130, 8)
+    _pdf_escrever(c, ramal, 242, 386, 120, 8)
+    _pdf_escrever(c, responsavel_area, 408, 359, 160, 8)
+    _pdf_escrever(c, ramal, 82, 333, 135, 8)
+    _pdf_escrever(c, data_solicitacao, 318, 333, 110, 8)
+
+    # Campos CAPROQ
+    _pdf_escrever(c, rms, 123, 258, 165, 8)
+    _pdf_escrever(c, validade_rms, 430, 258, 135, 8)
+    for valor, x in (("SIM", 193), ("NÃO", 235), ("NA", 276)):
+        _pdf_marcar(c, rediluido == valor or (valor == "NA" and rediluido in {"N/A", "NÃO SE APLICA"}), x, 234, 8)
+    for valor, x in (("SIM", 432), ("NÃO", 476), ("NA", 518)):
+        _pdf_marcar(c, monitoramento == valor or (valor == "NA" and monitoramento in {"N/A", "NÃO SE APLICA"}), x, 234, 8)
+
+    _pdf_escrever(c, decisao_final, 168, 210, 390, 8, negrito=True)
+    for valor, x in (("APROVADO", 292), ("REPROVADO", 372), ("NÃO REALIZADO", 472)):
+        _pdf_marcar(c, resultado_teste == valor, x, 184, 8)
+    _pdf_escrever(c, data_teste, 523, 184, 55, 7.5)
+    _pdf_escrever(c, parecer_teste, 91, 158, 475, 7.5, max_linhas=3, entrelinha=13)
+
+    _pdf_marcar(c, indicado == "SIM", 242, 111, 8)
+    _pdf_marcar(c, indicado == "NÃO", 285, 111, 8)
+    _pdf_escrever(c, data_indicacao, 353, 111, 90, 7.5)
+    _pdf_escrever(c, parecer_indicacao, 91, 84, 475, 7.5, max_linhas=3, entrelinha=13)
+
+    c.save()
+    overlay.seek(0)
+
+    modelo = PdfReader(MODELO_FORMULARIO_CAPROQ)
+    preenchimento = PdfReader(overlay)
+    pagina = modelo.pages[0]
+    pagina.merge_page(preenchimento.pages[0])
+    saida = PdfWriter()
+    saida.add_page(pagina)
+    buffer_saida = io.BytesIO()
+    saida.write(buffer_saida)
+    return buffer_saida.getvalue()
+
 
 # ==============================================================================
 # 2. Configuração front-end da página                
@@ -5484,6 +5675,27 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
         st.session_state.get("is_admin", False)
         and st.session_state.get("pagina_atual") == "homologacao_final"
     ):
+        pdf_homologacao_pronto = st.session_state.get("pdf_homologacao_pronto")
+        if pdf_homologacao_pronto:
+            st.success(
+                f"Documento do Chamado #{pdf_homologacao_pronto['id']} gerado com sucesso."
+            )
+            st.download_button(
+                "🖨️ Imprimir / baixar formulário de homologação",
+                data=pdf_homologacao_pronto["bytes"],
+                file_name=pdf_homologacao_pronto["nome"],
+                mime="application/pdf",
+                key=f"baixar_formulario_homologacao_{pdf_homologacao_pronto['id']}",
+                type="primary",
+                use_container_width=True,
+            )
+            if st.button(
+                "Fechar documento gerado",
+                key=f"fechar_pdf_homologacao_{pdf_homologacao_pronto['id']}",
+            ):
+                st.session_state.pop("pdf_homologacao_pronto", None)
+                st.rerun()
+            st.markdown("---")
         exigir_admin()
 
 
@@ -6338,6 +6550,15 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
 
                                     st.session_state["df_dados_cache"] = df_dados.copy()
                                     st.session_state["df_dados_cache_timestamp"] = time.time()
+
+                                    # Gera o formulário institucional com os dados já homologados.
+                                    dados_pdf = df_dados.loc[mascara_chamado].iloc[0].to_dict()
+                                    pdf_bytes = gerar_formulario_homologacao_pdf(dados_pdf)
+                                    st.session_state["pdf_homologacao_pronto"] = {
+                                        "id": id_chamado,
+                                        "bytes": pdf_bytes,
+                                        "nome": f"CAPROQ_Homologacao_Chamado_{id_chamado}.pdf",
+                                    }
 
                                     destinatarios_resultado = emails_unicos(
                                         [email_solicitante, todos_emails_aprovadores()]
