@@ -3170,10 +3170,10 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
             # ----------------------------------------------------------------------
             with tab_logs:
 
-                st.markdown("### Log individual de atividades")
+                st.markdown("### Log de atividades por chamado")
                 st.caption(
-                    "Cada ação do processo é exibida como um registro independente, "
-                    "ordenado da mais recente para a mais antiga."
+                    "Cada chamado permanece agrupado em um único registro. Dentro dele, "
+                    "todas as ações são preservadas e exibidas em ordem cronológica."
                 )
 
                 def _data_evento(valor):
@@ -3394,99 +3394,214 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                         .str.lower()
                     )
 
+                # Os filtros localizam os chamados relevantes. Depois da seleção, a timeline
+                # exibe todas as ações desses chamados, sem ocultar ou substituir eventos.
+                df_eventos_completo = df_eventos.copy()
+
                 st.markdown('<div class="caproq-audit-filter-shell">', unsafe_allow_html=True)
                 f1_log, f2_log, f3_log, f4_log = st.columns([2.2, 1.2, 1.2, 1.35])
                 with f1_log:
                     busca_log = st.text_input(
                         "Buscar no log",
                         placeholder="Chamado, produto, responsável, alçada ou protocolo",
-                        key="audit_search_individual",
+                        key="audit_search_by_request",
                     )
                 categorias_log = ["Todas"]
-                if not df_eventos.empty:
-                    categorias_log += sorted({str(v).strip() for v in df_eventos["Categoria"].dropna() if str(v).strip()})
+                if not df_eventos_completo.empty:
+                    categorias_log += sorted({
+                        str(v).strip()
+                        for v in df_eventos_completo["Categoria"].dropna()
+                        if str(v).strip()
+                    })
                 with f2_log:
-                    categoria_log = st.selectbox("Categoria", categorias_log, key="audit_category_individual")
+                    categoria_log = st.selectbox(
+                        "Categoria",
+                        categorias_log,
+                        key="audit_category_by_request",
+                    )
                 alcadas_log = ["Todas"]
-                if not df_eventos.empty:
-                    alcadas_log += sorted({str(v).strip() for v in df_eventos["Alçada"].dropna() if str(v).strip() and str(v).strip() != "—"})
+                if not df_eventos_completo.empty:
+                    alcadas_log += sorted({
+                        str(v).strip()
+                        for v in df_eventos_completo["Alçada"].dropna()
+                        if str(v).strip() and str(v).strip() != "—"
+                    })
                 with f3_log:
-                    alcada_log = st.selectbox("Alçada", alcadas_log, key="audit_area_individual")
+                    alcada_log = st.selectbox(
+                        "Alçada",
+                        alcadas_log,
+                        key="audit_area_by_request",
+                    )
                 with f4_log:
                     periodo_log = st.selectbox(
                         "Período",
                         ["Todo o período", "Últimos 30 dias", "Últimos 90 dias", "Este ano"],
-                        key="audit_period_individual",
+                        key="audit_period_by_request",
                     )
                 st.markdown('</div>', unsafe_allow_html=True)
 
-                if not df_eventos.empty:
+                # Primeiro identificamos os chamados que atendem aos filtros.
+                eventos_para_localizacao = df_eventos_completo.copy()
+                if not eventos_para_localizacao.empty:
                     if busca_log:
-                        df_eventos = df_eventos[df_eventos["__texto_busca"].str.contains(busca_log.strip().lower(), na=False, regex=False)]
+                        eventos_para_localizacao = eventos_para_localizacao[
+                            eventos_para_localizacao["__texto_busca"].str.contains(
+                                busca_log.strip().lower(),
+                                na=False,
+                                regex=False,
+                            )
+                        ]
                     if categoria_log != "Todas":
-                        df_eventos = df_eventos[df_eventos["Categoria"].astype(str).eq(categoria_log)]
+                        eventos_para_localizacao = eventos_para_localizacao[
+                            eventos_para_localizacao["Categoria"].astype(str).eq(categoria_log)
+                        ]
                     if alcada_log != "Todas":
-                        df_eventos = df_eventos[df_eventos["Alçada"].astype(str).eq(alcada_log)]
+                        eventos_para_localizacao = eventos_para_localizacao[
+                            eventos_para_localizacao["Alçada"].astype(str).eq(alcada_log)
+                        ]
 
                     hoje_log = pd.Timestamp.now().normalize()
                     if periodo_log == "Últimos 30 dias":
-                        df_eventos = df_eventos[df_eventos["__data_evento"] >= hoje_log - pd.Timedelta(days=30)]
+                        eventos_para_localizacao = eventos_para_localizacao[
+                            eventos_para_localizacao["__data_evento"] >= hoje_log - pd.Timedelta(days=30)
+                        ]
                     elif periodo_log == "Últimos 90 dias":
-                        df_eventos = df_eventos[df_eventos["__data_evento"] >= hoje_log - pd.Timedelta(days=90)]
+                        eventos_para_localizacao = eventos_para_localizacao[
+                            eventos_para_localizacao["__data_evento"] >= hoje_log - pd.Timedelta(days=90)
+                        ]
                     elif periodo_log == "Este ano":
-                        df_eventos = df_eventos[df_eventos["__data_evento"].dt.year == hoje_log.year]
+                        eventos_para_localizacao = eventos_para_localizacao[
+                            eventos_para_localizacao["__data_evento"].dt.year == hoje_log.year
+                        ]
 
-                    df_eventos = df_eventos.sort_values(
-                        ["__data_evento", "Chamado"],
-                        ascending=[False, False],
-                        na_position="last",
-                    )
+                chamados_localizados = (
+                    set(eventos_para_localizacao["Chamado"].astype(str))
+                    if not eventos_para_localizacao.empty
+                    else set()
+                )
 
-                total_eventos = len(df_eventos)
-                total_revisoes = int(df_eventos["Categoria"].isin(["Revisão de parecer", "Validação administrativa"]).sum()) if not df_eventos.empty else 0
-                total_pareceres = int(df_eventos["Categoria"].eq("Parecer técnico").sum()) if not df_eventos.empty else 0
-                total_homologacoes = int(df_eventos["Categoria"].eq("Homologação").sum()) if not df_eventos.empty else 0
+                # Após localizar os chamados, recuperamos a timeline completa de cada um.
+                if chamados_localizados:
+                    df_eventos_exibicao = df_eventos_completo[
+                        df_eventos_completo["Chamado"].astype(str).isin(chamados_localizados)
+                    ].copy()
+                else:
+                    df_eventos_exibicao = df_eventos_completo.iloc[0:0].copy()
+
+                total_chamados = int(df_eventos_exibicao["Chamado"].astype(str).nunique()) if not df_eventos_exibicao.empty else 0
+                total_eventos = len(df_eventos_exibicao)
+                total_revisoes = int(
+                    df_eventos_exibicao["Categoria"].isin(
+                        ["Revisão de parecer", "Validação administrativa", "Reabertura"]
+                    ).sum()
+                ) if not df_eventos_exibicao.empty else 0
+                total_homologacoes = int(
+                    df_eventos_exibicao["Categoria"].eq("Homologação").sum()
+                ) if not df_eventos_exibicao.empty else 0
 
                 st.markdown(
                     f"""
 <div class="caproq-audit-summary-grid">
-    <div class="caproq-audit-summary-card"><div class="caproq-audit-summary-label">Eventos exibidos</div><div class="caproq-audit-summary-value">{total_eventos}</div></div>
-    <div class="caproq-audit-summary-card"><div class="caproq-audit-summary-label">Pareceres técnicos</div><div class="caproq-audit-summary-value">{total_pareceres}</div></div>
-    <div class="caproq-audit-summary-card"><div class="caproq-audit-summary-label">Revisões</div><div class="caproq-audit-summary-value">{total_revisoes}</div></div>
+    <div class="caproq-audit-summary-card"><div class="caproq-audit-summary-label">Chamados exibidos</div><div class="caproq-audit-summary-value">{total_chamados}</div></div>
+    <div class="caproq-audit-summary-card"><div class="caproq-audit-summary-label">Ações preservadas</div><div class="caproq-audit-summary-value">{total_eventos}</div></div>
+    <div class="caproq-audit-summary-card"><div class="caproq-audit-summary-label">Eventos de revisão</div><div class="caproq-audit-summary-value">{total_revisoes}</div></div>
     <div class="caproq-audit-summary-card"><div class="caproq-audit-summary-label">Homologações</div><div class="caproq-audit-summary-value">{total_homologacoes}</div></div>
 </div>
 """,
                     unsafe_allow_html=True,
                 )
 
-                if df_eventos.empty:
+                if df_eventos_exibicao.empty:
                     ui.render_empty_state(
-                        title="Nenhum evento encontrado",
+                        title="Nenhum chamado encontrado",
                         message="Ajuste os filtros para ampliar a consulta do log de atividades.",
                         icon="🕒",
                     )
                 else:
-                    for _, evento_log in df_eventos.iterrows():
-                        data_exibicao = valor_seguro(evento_log.get("Data", "Data não registrada"), "Data não registrada")
-                        chamado_exibicao = valor_seguro(evento_log.get("Chamado", "—"), "—")
-                        evento_titulo = valor_seguro(evento_log.get("Evento", "Atividade registrada"), "Atividade registrada")
-                        produto_exibicao = valor_seguro(evento_log.get("Produto", "Produto não informado"), "Produto não informado")
-                        classe_evento = str(evento_log.get("Classe", "info"))
-                        responsavel_evento = valor_seguro(evento_log.get("Responsável", "Não identificado"), "Não identificado")
-                        alcada_evento = valor_seguro(evento_log.get("Alçada", "—"), "—")
-                        detalhes_evento = valor_seguro(evento_log.get("Detalhes", "Sem detalhes adicionais"), "Sem detalhes adicionais")
-                        protocolo_evento = str(evento_log.get("Protocolo", "")).strip()
-                        protocolo_html = (
-                            f'<span><strong>Protocolo:</strong> {escape(protocolo_evento)}</span>'
-                            if protocolo_evento else ""
+                    # Ordena os chamados pela atividade mais recente. Dentro de cada chamado,
+                    # as ações seguem do evento mais antigo para o mais recente.
+                    ordem_chamados = (
+                        df_eventos_exibicao.groupby(df_eventos_exibicao["Chamado"].astype(str))["__data_evento"]
+                        .max()
+                        .sort_values(ascending=False, na_position="last")
+                        .index
+                        .tolist()
+                    )
+
+                    for chamado_log_id in ordem_chamados:
+                        timeline_chamado = df_eventos_exibicao[
+                            df_eventos_exibicao["Chamado"].astype(str).eq(chamado_log_id)
+                        ].copy()
+                        timeline_chamado = timeline_chamado.sort_values(
+                            "__data_evento",
+                            ascending=True,
+                            na_position="last",
                         )
 
-                        st.markdown(
-                            f"""
+                        primeiro_evento = timeline_chamado.iloc[0]
+                        produto_chamado = valor_seguro(
+                            primeiro_evento.get("Produto", "Produto não informado"),
+                            "Produto não informado",
+                        )
+                        # Usa a última atividade válida como referência do cabeçalho.
+                        datas_validas = timeline_chamado["__data_evento"].dropna()
+                        ultima_atividade = (
+                            datas_validas.max().strftime("%d/%m/%Y %H:%M")
+                            if not datas_validas.empty
+                            else "Data não registrada"
+                        )
+
+                        titulo_expander = (
+                            f"Chamado #{chamado_log_id} · {produto_chamado} · "
+                            f"{len(timeline_chamado)} ações · última atividade {ultima_atividade}"
+                        )
+
+                        with st.expander(titulo_expander, expanded=False):
+                            st.markdown(
+                                f"""
+<div class="caproq-audit-request-summary">
+    <strong>Timeline completa do chamado #{escape(str(chamado_log_id))}</strong><br>
+    <span>{escape(str(produto_chamado))}</span><br>
+    <span>{len(timeline_chamado)} ações registradas, sem substituição de eventos anteriores.</span>
+</div>
+""",
+                                unsafe_allow_html=True,
+                            )
+
+                            for _, evento_log in timeline_chamado.iterrows():
+                                data_exibicao = valor_seguro(
+                                    evento_log.get("Data", "Data não registrada"),
+                                    "Data não registrada",
+                                )
+                                evento_titulo = valor_seguro(
+                                    evento_log.get("Evento", "Atividade registrada"),
+                                    "Atividade registrada",
+                                )
+                                classe_evento = str(evento_log.get("Classe", "info"))
+                                responsavel_evento = valor_seguro(
+                                    evento_log.get("Responsável", "Não identificado"),
+                                    "Não identificado",
+                                )
+                                alcada_evento = valor_seguro(
+                                    evento_log.get("Alçada", "—"),
+                                    "—",
+                                )
+                                detalhes_evento = valor_seguro(
+                                    evento_log.get("Detalhes", "Sem detalhes adicionais"),
+                                    "Sem detalhes adicionais",
+                                )
+                                protocolo_evento = str(evento_log.get("Protocolo", "")).strip()
+                                protocolo_html = (
+                                    f'<span><strong>Protocolo:</strong> {escape(protocolo_evento)}</span>'
+                                    if protocolo_evento
+                                    else ""
+                                )
+
+                                st.markdown(
+                                    f"""
 <div class="caproq-audit-event" style="margin-bottom:12px;">
     <span class="caproq-audit-dot {escape(classe_evento)}"></span>
-    <p class="caproq-audit-event-title">{escape(str(evento_titulo))} · Chamado #{escape(str(chamado_exibicao))}</p>
-    <p class="caproq-audit-event-text"><strong>{escape(str(produto_exibicao))}</strong></p>
+    <p class="caproq-audit-event-title">{escape(str(evento_titulo))}</p>
     <p class="caproq-audit-event-text">{escape(str(detalhes_evento))}</p>
     <p class="caproq-audit-event-text">
         <span><strong>Data:</strong> {escape(str(data_exibicao))}</span> ·
@@ -3496,8 +3611,8 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
     </p>
 </div>
 """,
-                            unsafe_allow_html=True,
-                        )
+                                    unsafe_allow_html=True,
+                                )
 
             # ----------------------------------------------------------------------
             # 8.4. Aba "Indicadores"
