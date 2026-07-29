@@ -561,6 +561,206 @@ def criar_registro_historico_homologacao(
         "Situacao_Registro": str(situacao_registro).strip() or "Vigente",
     }
 
+
+def salvar_base_principal_revisao(df_atualizado: pd.DataFrame) -> bool:
+    """Salva a base principal e mantém o cache sincronizado."""
+    try:
+        dados = garantir_colunas_revisao_chamado(df_atualizado)
+        conn.update(data=dados)
+        st.session_state["df_dados_cache"] = dados.copy()
+        st.session_state["df_dados_cache_timestamp"] = time.time()
+        return True
+    except Exception as erro:
+        st.error(f"Não foi possível atualizar a base principal: {erro}")
+        return False
+
+
+def registrar_versao_atual_antes_reabertura(
+    row: pd.Series,
+    *,
+    motivo_reabertura: str,
+    alcada_reaberta: str,
+    admin_nome: str,
+    admin_email: str,
+) -> bool:
+    """Preserva uma decisão final existente antes de reabrir o processo."""
+    status_final = str(row.get("Status_Final", "")).strip()
+    if status_final.lower() in {"", "em análise", "em analise", "nan", "none"}:
+        return True
+
+    historico = carregar_historico_homologacoes(forcar_atualizacao=True)
+    ids = pd.to_numeric(historico.get("ID_Chamado", pd.Series(dtype=float)), errors="coerce")
+    alvo = pd.to_numeric(pd.Series([row.get("ID")]), errors="coerce").iloc[0]
+    vigentes = historico[
+        ids.eq(alvo)
+        & historico.get("Situacao_Registro", pd.Series(index=historico.index, dtype=str))
+        .astype(str).str.strip().str.lower().eq("vigente")
+    ]
+
+    # Evita registrar a mesma versão duas vezes em reexecuções do Streamlit.
+    if not vigentes.empty:
+        historico.loc[vigentes.index, "Situacao_Registro"] = "Substituída após reabertura"
+    else:
+        registro = criar_registro_historico_homologacao(
+            id_chamado=row.get("ID"),
+            status_final=status_final,
+            parecer_final_admin=str(row.get("Parecer_Final_Admin", "")),
+            consideracoes_finais=str(
+                row.get(
+                    "Consideracoes_Finais_Homologacao",
+                    row.get("obs_admin", ""),
+                )
+            ),
+            admin_nome=str(row.get("Responsavel_Homologacao_Final", "")),
+            admin_email="",
+            situacao_registro="Substituída após reabertura",
+            motivo_reabertura=motivo_reabertura,
+            alcada_reaberta=alcada_reaberta,
+            data_reabertura=_data_hora_registro(),
+            admin_reabertura=admin_nome,
+            email_admin_reabertura=admin_email,
+            df_historico=historico,
+        )
+        historico = pd.concat([historico, pd.DataFrame([registro])], ignore_index=True)
+
+    return salvar_historico_homologacoes(historico)
+
+
+def reabrir_chamado_para_revisao(
+    *,
+    id_chamado,
+    alcada: str,
+    motivo: str,
+    admin_nome: str,
+    admin_email: str,
+) -> tuple[bool, str]:
+    """Reabre formalmente um processo e libera uma única alçada para revisão."""
+    if not str(alcada).strip() or not str(motivo).strip():
+        return False, "Informe a alçada e o motivo da reabertura."
+
+    dados = carregar_dados(forcar_atualizacao=True)
+    if dados.empty or "ID" not in dados.columns:
+        return False, "A base principal não está disponível."
+
+    ids = pd.to_numeric(dados["ID"], errors="coerce")
+    alvo = pd.to_numeric(pd.Series([id_chamado]), errors="coerce").iloc[0]
+    indices = dados.index[ids.eq(alvo)].tolist()
+    if not indices:
+        return False, f"Chamado #{id_chamado} não localizado."
+
+    indice = indices[0]
+    row = dados.loc[indice].copy()
+    status_revisao = str(row.get("Status_Revisao", "")).strip().lower()
+    if status_revisao in {
+        STATUS_REVISAO_REABERTO.lower(),
+        STATUS_REVISAO_AGUARDANDO_ALTERACAO.lower(),
+        STATUS_REVISAO_ALTERACAO_EM_ANALISE.lower(),
+    }:
+        return False, "Este chamado já possui uma revisão técnica em andamento."
+
+    if not registrar_versao_atual_antes_reabertura(
+        row,
+        motivo_reabertura=motivo,
+        alcada_reaberta=alcada,
+        admin_nome=admin_nome,
+        admin_email=admin_email,
+    ):
+        return False, "Não foi possível preservar o histórico da homologação anterior."
+
+    id_reabertura = gerar_id_registro("REAB")
+    quantidade = pd.to_numeric(
+        pd.Series([row.get("Quantidade_Reaberturas", 0)]), errors="coerce"
+    ).fillna(0).iloc[0]
+
+    dados.at[indice, "Chamado_Reaberto"] = "SIM"
+    dados.at[indice, "ID_Reabertura_Atual"] = id_reabertura
+    dados.at[indice, "Motivo_Reabertura"] = str(motivo).strip()
+    dados.at[indice, "Alcada_Reaberta"] = str(alcada).strip()
+    dados.at[indice, "Admin_Reabertura"] = str(admin_nome).strip()
+    dados.at[indice, "Email_Admin_Reabertura"] = str(admin_email).strip().lower()
+    dados.at[indice, "Data_Reabertura"] = _data_hora_registro()
+    dados.at[indice, "Status_Revisao"] = STATUS_REVISAO_AGUARDANDO_ALTERACAO
+    dados.at[indice, "Quantidade_Reaberturas"] = int(quantidade) + 1
+    dados.at[indice, "Retornou_Homologacao_Apos_Revisao"] = "NÃO"
+    dados.at[indice, "Status_Aprovadores"] = "Reaberto para revisão técnica"
+    dados.at[indice, "Status_Final"] = "Em análise"
+
+    # A decisão anterior já foi preservada na aba histórica.
+    for coluna in [
+        "Parecer_Final_Admin",
+        "Data_Homologacao_Final",
+        "Responsavel_Homologacao_Final",
+        "Consideracoes_Finais_Homologacao",
+        "obs_admin",
+    ]:
+        if coluna in dados.columns:
+            dados.at[indice, coluna] = ""
+
+    if not salvar_base_principal_revisao(dados):
+        return False, "A reabertura não pôde ser gravada na base principal."
+
+    return True, id_reabertura
+
+
+def analisar_solicitacao_alteracao(
+    *,
+    id_alteracao: str,
+    decisao_admin: str,
+    admin_nome: str,
+    admin_email: str,
+    motivo_recusa: str = "",
+) -> tuple[bool, str]:
+    """Registra a decisão administrativa sem substituir ainda o parecer oficial."""
+    alteracoes = carregar_alteracoes_pareceres(forcar_atualizacao=True)
+    if alteracoes.empty:
+        return False, "A solicitação de alteração não foi localizada."
+
+    mascara = alteracoes["ID_Alteracao"].astype(str).str.strip().eq(str(id_alteracao).strip())
+    indices = alteracoes.index[mascara].tolist()
+    if not indices:
+        return False, "A solicitação de alteração não foi localizada."
+
+    indice = indices[0]
+    status_atual = str(alteracoes.at[indice, "Status_Alteracao"]).strip()
+    if status_atual.lower() != STATUS_ALTERACAO_PENDENTE.lower():
+        return False, f"Esta solicitação já foi analisada ({status_atual})."
+
+    confirmar = str(decisao_admin).strip().lower() == "confirmar"
+    if not confirmar and not str(motivo_recusa).strip():
+        return False, "Informe o motivo da recusa."
+
+    novo_status = STATUS_ALTERACAO_CONFIRMADA if confirmar else STATUS_ALTERACAO_RECUSADA
+    alteracoes.at[indice, "Status_Alteracao"] = novo_status
+    alteracoes.at[indice, "Admin_Responsavel"] = str(admin_nome).strip()
+    alteracoes.at[indice, "Admin_Email"] = str(admin_email).strip().lower()
+    alteracoes.at[indice, "Data_Analise"] = _data_hora_registro()
+    alteracoes.at[indice, "Motivo_Recusa"] = "" if confirmar else str(motivo_recusa).strip()
+
+    if not salvar_alteracoes_pareceres(alteracoes):
+        return False, "Não foi possível registrar a análise administrativa."
+
+    # Atualiza apenas o controle do fluxo; a decisão oficial será aplicada na Etapa 4.
+    dados = carregar_dados(forcar_atualizacao=True)
+    id_chamado = alteracoes.at[indice, "ID_Chamado"]
+    if not dados.empty and "ID" in dados.columns:
+        ids = pd.to_numeric(dados["ID"], errors="coerce")
+        alvo = pd.to_numeric(pd.Series([id_chamado]), errors="coerce").iloc[0]
+        idx_chamado = dados.index[ids.eq(alvo)].tolist()
+        if idx_chamado:
+            idx = idx_chamado[0]
+            dados.at[idx, "Status_Revisao"] = (
+                STATUS_REVISAO_ALTERACAO_CONFIRMADA
+                if confirmar
+                else (
+                    STATUS_REVISAO_AGUARDANDO_ALTERACAO
+                    if str(dados.at[idx, "Chamado_Reaberto"]).strip().upper() == "SIM"
+                    else STATUS_REVISAO_NAO_APLICAVEL
+                )
+            )
+            salvar_base_principal_revisao(dados)
+
+    return True, novo_status
+
 def carregar_dados(forcar_atualizacao=False):
     try:
         agora = time.time()
@@ -1431,6 +1631,14 @@ if usuario_eh_admin():
         key="menu_homologacao",
     ):
         st.session_state["pagina_atual"] = "homologacao_final"
+        st.rerun()
+
+    if st.sidebar.button(
+        "🔄 Alterações de parecer",
+        use_container_width=True,
+        key="menu_alteracoes_parecer",
+    ):
+        st.session_state["pagina_atual"] = "alteracoes_parecer_admin"
         st.rerun()
 
     if st.sidebar.button(
@@ -3648,6 +3856,165 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                     )
 
     # ==============================================================================
+    # 8.5. Análise administrativa das alterações de parecer
+    # ==============================================================================
+    if (
+        st.session_state.get("is_admin", False)
+        and st.session_state.get("pagina_atual") == "alteracoes_parecer_admin"
+    ):
+        exigir_admin()
+
+        ui.render_page_header(
+            title="Alterações de parecer",
+            subtitle="Analise solicitações de revisão antes que qualquer decisão técnica seja substituída.",
+            icon="🔄",
+        )
+
+        df_alteracoes_admin = carregar_alteracoes_pareceres(forcar_atualizacao=True)
+        if df_alteracoes_admin.empty:
+            ui.render_empty_state(
+                "Nenhuma solicitação registrada",
+                "As solicitações enviadas pelos aprovadores aparecerão nesta área.",
+                icon="📭",
+            )
+        else:
+            status_admin = df_alteracoes_admin["Status_Alteracao"].astype(str).str.strip()
+            pendentes_admin = df_alteracoes_admin[
+                status_admin.str.lower().eq(STATUS_ALTERACAO_PENDENTE.lower())
+            ].copy()
+            confirmadas_admin = int(status_admin.str.lower().eq(STATUS_ALTERACAO_CONFIRMADA.lower()).sum())
+            recusadas_admin = int(status_admin.str.lower().eq(STATUS_ALTERACAO_RECUSADA.lower()).sum())
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Aguardando análise", len(pendentes_admin))
+            c2.metric("Confirmadas", confirmadas_admin)
+            c3.metric("Recusadas", recusadas_admin)
+
+            if pendentes_admin.empty:
+                ui.render_empty_state(
+                    "Nenhuma análise pendente",
+                    "Todas as solicitações de alteração já foram avaliadas.",
+                    icon="✅",
+                )
+            else:
+                pendentes_admin["__data"] = pd.to_datetime(
+                    pendentes_admin["Data_Solicitacao"], dayfirst=True, errors="coerce"
+                )
+                pendentes_admin = pendentes_admin.sort_values("__data", ascending=True)
+
+                for _, alt in pendentes_admin.iterrows():
+                    id_alt = str(alt.get("ID_Alteracao", "")).strip()
+                    id_chamado_alt = alt.get("ID_Chamado", "")
+                    alcada_alt = str(alt.get("Alcada", "")).strip()
+                    titulo_alt = (
+                        f"Chamado #{id_chamado_alt} · {alcada_alt} · "
+                        f"{alt.get('Data_Solicitacao', 'Data não informada')}"
+                    )
+
+                    with st.expander(titulo_alt, expanded=False):
+                        st.markdown(
+                            f"""
+                            <div class="caproq-summary-grid">
+                                <div class="caproq-summary-card"><div class="caproq-summary-label">Aprovador</div><div class="caproq-summary-value">{escape(str(alt.get('Solicitante_Nome', 'Não informado')))}</div></div>
+                                <div class="caproq-summary-card"><div class="caproq-summary-label">E-mail</div><div class="caproq-summary-value">{escape(str(alt.get('Solicitante_Email', 'Não informado')))}</div></div>
+                                <div class="caproq-summary-card"><div class="caproq-summary-label">Origem</div><div class="caproq-summary-value">{'Reabertura administrativa' if str(alt.get('Origem_Reabertura', '')).upper() == 'SIM' else 'Fluxo técnico ativo'}</div></div>
+                                <div class="caproq-summary-card"><div class="caproq-summary-label">ID da alteração</div><div class="caproq-summary-value">{escape(id_alt)}</div></div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+
+                        col_antes, col_depois = st.columns(2)
+                        with col_antes:
+                            st.markdown("#### Parecer vigente")
+                            st.info(f"**Decisão:** {alt.get('Decisao_Anterior', 'Não informada')}")
+                            st.write(alt.get("Parecer_Anterior", "Sem parecer descritivo."))
+                        with col_depois:
+                            st.markdown("#### Alteração proposta")
+                            st.warning(f"**Nova decisão:** {alt.get('Decisao_Solicitada', 'Não informada')}")
+                            st.write(alt.get("Parecer_Solicitado", "Sem parecer descritivo."))
+
+                        st.markdown("#### Justificativa do aprovador")
+                        st.write(alt.get("Justificativa_Alteracao", "Não informada."))
+
+                        with st.form(f"form_analise_alt_{id_alt}"):
+                            decisao_admin_alt = st.radio(
+                                "Decisão administrativa",
+                                ["Confirmar", "Recusar"],
+                                horizontal=True,
+                                key=f"decisao_admin_alt_{id_alt}",
+                            )
+                            motivo_recusa_alt = st.text_area(
+                                "Motivo da recusa",
+                                placeholder="Obrigatório apenas quando a alteração for recusada.",
+                                disabled=decisao_admin_alt == "Confirmar",
+                                key=f"motivo_recusa_alt_{id_alt}",
+                            )
+                            ciencia_admin_alt = st.checkbox(
+                                "Confirmo que comparei o parecer vigente com a alteração proposta.",
+                                key=f"ciencia_admin_alt_{id_alt}",
+                            )
+                            enviar_analise_alt = st.form_submit_button(
+                                "Registrar análise administrativa",
+                                use_container_width=True,
+                            )
+
+                        if enviar_analise_alt:
+                            if not ciencia_admin_alt:
+                                ui.render_feedback(
+                                    "Confirme a ciência antes de registrar a análise.",
+                                    kind="warning",
+                                    title="Confirmação necessária",
+                                    icon="⚠️",
+                                )
+                            else:
+                                sucesso_alt, retorno_alt = analisar_solicitacao_alteracao(
+                                    id_alteracao=id_alt,
+                                    decisao_admin=decisao_admin_alt,
+                                    admin_nome=user_name,
+                                    admin_email=user_email,
+                                    motivo_recusa=motivo_recusa_alt,
+                                )
+                                if sucesso_alt:
+                                    mensagem_alt = (
+                                        "A alteração foi confirmada e está pronta para aplicação oficial na próxima etapa."
+                                        if retorno_alt == STATUS_ALTERACAO_CONFIRMADA
+                                        else "A alteração foi recusada e o parecer vigente foi preservado."
+                                    )
+                                    ui.render_feedback(
+                                        mensagem_alt,
+                                        kind="success" if retorno_alt == STATUS_ALTERACAO_CONFIRMADA else "warning",
+                                        title="Análise registrada",
+                                        icon="✅" if retorno_alt == STATUS_ALTERACAO_CONFIRMADA else "↩️",
+                                    )
+                                    st.rerun()
+                                else:
+                                    ui.render_feedback(
+                                        retorno_alt,
+                                        kind="error",
+                                        title="Não foi possível registrar",
+                                        icon="⛔",
+                                    )
+
+            with st.expander("Histórico de solicitações analisadas", expanded=False):
+                historico_alt_admin = df_alteracoes_admin[
+                    ~status_admin.str.lower().eq(STATUS_ALTERACAO_PENDENTE.lower())
+                ].copy()
+                if historico_alt_admin.empty:
+                    st.caption("Nenhuma análise concluída até o momento.")
+                else:
+                    colunas_historico_alt = [
+                        "ID_Alteracao", "ID_Chamado", "Alcada", "Decisao_Anterior",
+                        "Decisao_Solicitada", "Status_Alteracao", "Admin_Responsavel",
+                        "Data_Analise", "Motivo_Recusa",
+                    ]
+                    st.dataframe(
+                        historico_alt_admin[[c for c in colunas_historico_alt if c in historico_alt_admin.columns]],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+    # ==============================================================================
     # 9. Segunda Etapa: Homologação e Decisão Final (Exclusivo Administradores)
     # ==============================================================================
     if (
@@ -3679,6 +4046,116 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                     .isin(status_validos_admin)
                 )
             ]
+
+            st.markdown("### Reabertura para revisão técnica")
+            st.caption(
+                "Use esta operação quando uma alçada precisar revisar o parecer de um processo que já chegou à homologação ou foi finalizado."
+            )
+
+            status_final_normalizado = df_dados.get(
+                "Status_Final", pd.Series(index=df_dados.index, dtype=str)
+            ).astype(str).str.strip().str.lower()
+            status_aprov_normalizado = df_dados.get(
+                "Status_Aprovadores", pd.Series(index=df_dados.index, dtype=str)
+            ).astype(str).str.strip().str.lower()
+            status_revisao_normalizado = df_dados.get(
+                "Status_Revisao", pd.Series(index=df_dados.index, dtype=str)
+            ).astype(str).str.strip().str.lower()
+
+            candidatos_reabertura = df_dados[
+                (
+                    ~status_final_normalizado.isin(["", "em análise", "em analise", "nan", "none"])
+                    | status_aprov_normalizado.isin([
+                        "aguardando homologação", "aguardando homologacao",
+                        "em homologação", "em homologacao",
+                        "reunião necessária", "reuniao necessaria",
+                    ])
+                )
+                & ~status_revisao_normalizado.isin([
+                    STATUS_REVISAO_REABERTO.lower(),
+                    STATUS_REVISAO_AGUARDANDO_ALTERACAO.lower(),
+                    STATUS_REVISAO_ALTERACAO_EM_ANALISE.lower(),
+                    STATUS_REVISAO_ALTERACAO_CONFIRMADA.lower(),
+                ])
+            ].copy()
+
+            with st.expander("Reabrir chamado", expanded=False):
+                if candidatos_reabertura.empty:
+                    st.caption("Nenhum chamado está elegível para reabertura neste momento.")
+                else:
+                    opcoes_reabertura = {}
+                    for _, candidato in candidatos_reabertura.sort_values("ID", ascending=False).iterrows():
+                        descricao_candidato = valor_seguro(
+                            candidato.get(
+                                "Descrição completa do produto",
+                                candidato.get("Descrição do produto", candidato.get("Descricao_Produto", "Produto não informado")),
+                            )
+                        )
+                        rotulo = (
+                            f"Chamado #{candidato.get('ID')} · {descricao_candidato} · "
+                            f"{valor_seguro(candidato.get('Status_Final', candidato.get('Status_Aprovadores', '')))}"
+                        )
+                        opcoes_reabertura[rotulo] = candidato.get("ID")
+
+                    with st.form("form_reabrir_homologacao"):
+                        chamado_reabrir_rotulo = st.selectbox(
+                            "Chamado",
+                            list(opcoes_reabertura.keys()),
+                        )
+                        alcadas_reabrir = [info["label"] for info in ALCADAS_INFO.values()]
+                        alcada_reabrir = st.selectbox("Alçada que deverá revisar o parecer", alcadas_reabrir)
+                        motivo_reabrir = st.text_area(
+                            "Motivo da reabertura",
+                            placeholder="Descreva o fato novo, documento complementar ou razão técnica que justifica a revisão.",
+                        )
+                        confirmar_reabrir = st.checkbox(
+                            "Estou ciente de que o processo sairá da homologação e deverá retornar para uma nova decisão final."
+                        )
+                        enviar_reabertura = st.form_submit_button(
+                            "Reabrir para revisão técnica",
+                            use_container_width=True,
+                        )
+
+                    if enviar_reabertura:
+                        if not confirmar_reabrir:
+                            ui.render_feedback(
+                                "Confirme a ciência para concluir a reabertura.",
+                                kind="warning",
+                                title="Confirmação necessária",
+                                icon="⚠️",
+                            )
+                        elif len(str(motivo_reabrir).strip()) < 10:
+                            ui.render_feedback(
+                                "Informe um motivo claro para a reabertura, com pelo menos 10 caracteres.",
+                                kind="warning",
+                                title="Motivo insuficiente",
+                                icon="📝",
+                            )
+                        else:
+                            sucesso_reab, retorno_reab = reabrir_chamado_para_revisao(
+                                id_chamado=opcoes_reabertura[chamado_reabrir_rotulo],
+                                alcada=alcada_reabrir,
+                                motivo=motivo_reabrir,
+                                admin_nome=user_name,
+                                admin_email=user_email,
+                            )
+                            if sucesso_reab:
+                                ui.render_feedback(
+                                    f"Chamado reaberto com sucesso. Protocolo: {retorno_reab}",
+                                    kind="success",
+                                    title="Reabertura registrada",
+                                    icon="🔓",
+                                )
+                                st.rerun()
+                            else:
+                                ui.render_feedback(
+                                    retorno_reab,
+                                    kind="error",
+                                    title="Não foi possível reabrir",
+                                    icon="⛔",
+                                )
+
+            st.markdown("---")
 
             if chamados_para_decisao.empty:
                 ui.render_empty_state(
