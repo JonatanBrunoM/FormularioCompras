@@ -864,6 +864,155 @@ def agendar_reuniao_caproq(
     return True, resultado
 
 
+
+def registrar_ata_reuniao_caproq(
+    *,
+    id_reuniao: str,
+    data_realizacao,
+    participantes_presentes: str,
+    participantes_ausentes: str,
+    responsavel_conducao: str,
+    responsavel_ata: str,
+    resumo_discussao: str,
+    decisao_reuniao: str,
+    encaminhamento_chamado: str,
+    pendencias: str,
+    responsaveis_pendencias: str,
+    prazos_pendencias: str,
+    ata_texto: str,
+    link_ata: str,
+    anexos_reuniao: str,
+    admin_nome: str,
+    admin_email: str,
+) -> tuple[bool, str]:
+    """Registra a realização, a ata e o encaminhamento sem apagar reuniões anteriores."""
+    obrigatorios = {
+        "participantes presentes": participantes_presentes,
+        "responsável pela condução": responsavel_conducao,
+        "responsável pela ata": responsavel_ata,
+        "resumo da discussão": resumo_discussao,
+        "decisão da reunião": decisao_reuniao,
+        "encaminhamento do chamado": encaminhamento_chamado,
+        "ata da reunião": ata_texto,
+    }
+    faltantes = [nome for nome, valor in obrigatorios.items() if not str(valor).strip()]
+    if faltantes:
+        return False, "Preencha: " + ", ".join(faltantes) + "."
+
+    reunioes = carregar_reunioes_caproq(forcar_atualizacao=True)
+    if reunioes.empty:
+        return False, "A reunião não foi localizada."
+
+    mascara = reunioes["ID_Reuniao"].astype(str).str.strip().eq(str(id_reuniao).strip())
+    indices = reunioes.index[mascara].tolist()
+    if not indices:
+        return False, "A reunião não foi localizada."
+
+    indice = indices[0]
+    status_atual = _texto_limpo(reunioes.at[indice, "Status_Reuniao"]).lower()
+    if status_atual in {STATUS_REUNIAO_CANCELADA.lower(), STATUS_REUNIAO_CONCLUIDA.lower()}:
+        return False, "Esta reunião já foi encerrada e não pode ser sobrescrita."
+
+    id_chamado = reunioes.at[indice, "ID_Chamado"]
+    sem_decisao = str(decisao_reuniao).strip().lower() == "sem decisão"
+    nova_reuniao = str(encaminhamento_chamado).strip().lower() == "agendar nova reunião"
+    status_registro = STATUS_REUNIAO_SEM_DECISAO if (sem_decisao or nova_reuniao) else STATUS_REUNIAO_CONCLUIDA
+
+    atualizacoes = {
+        "Status_Reuniao": status_registro,
+        "Participantes_Presentes": str(participantes_presentes).strip(),
+        "Participantes_Ausentes": str(participantes_ausentes).strip(),
+        "Data_Realizacao": data_realizacao.strftime("%d/%m/%Y"),
+        "Responsavel_Conducao": str(responsavel_conducao).strip(),
+        "Responsavel_Ata": str(responsavel_ata).strip(),
+        "Resumo_Discussao": str(resumo_discussao).strip(),
+        "Decisao_Reuniao": str(decisao_reuniao).strip(),
+        "Encaminhamento_Chamado": str(encaminhamento_chamado).strip(),
+        "Pendencias": str(pendencias).strip(),
+        "Responsaveis_Pendencias": str(responsaveis_pendencias).strip(),
+        "Prazos_Pendencias": str(prazos_pendencias).strip(),
+        "Ata_Texto": str(ata_texto).strip(),
+        "Link_Ata": str(link_ata).strip(),
+        "Anexos_Reuniao": str(anexos_reuniao).strip(),
+        "Atualizado_Por": str(admin_nome).strip(),
+        "Atualizado_Por_Email": str(admin_email).strip().lower(),
+        "Data_Atualizacao": _data_hora_registro(),
+    }
+    for coluna, valor in atualizacoes.items():
+        reunioes.at[indice, coluna] = valor
+
+    dados = carregar_dados(forcar_atualizacao=True)
+    if dados.empty or "ID" not in dados.columns:
+        return False, "A base principal não está disponível."
+    ids = pd.to_numeric(dados["ID"], errors="coerce")
+    alvo = pd.to_numeric(pd.Series([id_chamado]), errors="coerce").iloc[0]
+    idxs = dados.index[ids.eq(alvo)].tolist()
+    if not idxs:
+        return False, f"Chamado #{id_chamado} não localizado."
+    idx = idxs[0]
+
+    encaminhamento = str(encaminhamento_chamado).strip()
+    dados.at[idx, "Data_Ultima_Reuniao"] = data_realizacao.strftime("%d/%m/%Y")
+    dados.at[idx, "Encaminhamento_Ultima_Reuniao"] = encaminhamento
+    dados.at[idx, "ID_Reuniao_Atual"] = "" if status_registro in {STATUS_REUNIAO_CONCLUIDA, STATUS_REUNIAO_SEM_DECISAO} else str(id_reuniao)
+
+    if encaminhamento == "Prosseguir para homologação":
+        dados.at[idx, "Status_Aprovadores"] = "Aguardando homologação"
+        dados.at[idx, "Status_Final"] = "Em análise"
+        dados.at[idx, "Reuniao_Necessaria"] = "NÃO"
+        dados.at[idx, "Status_Reuniao"] = STATUS_REUNIAO_CONCLUIDA
+    elif encaminhamento == "Solicitar alteração de parecer":
+        dados.at[idx, "Status_Aprovadores"] = "Reaberto para revisão técnica"
+        dados.at[idx, "Status_Revisao"] = STATUS_REVISAO_AGUARDANDO_ALTERACAO
+        dados.at[idx, "Reuniao_Necessaria"] = "NÃO"
+        dados.at[idx, "Status_Reuniao"] = STATUS_REUNIAO_CONCLUIDA
+    elif encaminhamento == "Retornar para avaliação das alçadas":
+        dados.at[idx, "Status_Aprovadores"] = "Em deliberação"
+        dados.at[idx, "Reuniao_Necessaria"] = "NÃO"
+        dados.at[idx, "Status_Reuniao"] = STATUS_REUNIAO_CONCLUIDA
+    elif encaminhamento == "Manter reprovação":
+        dados.at[idx, "Status_Aprovadores"] = "Reunião concluída — reprovação mantida"
+        dados.at[idx, "Reuniao_Necessaria"] = "NÃO"
+        dados.at[idx, "Status_Reuniao"] = STATUS_REUNIAO_CONCLUIDA
+    elif encaminhamento == "Cancelar solicitação":
+        dados.at[idx, "Status_Aprovadores"] = "Processo encerrado em reunião"
+        dados.at[idx, "Status_Final"] = "Reprovado"
+        dados.at[idx, "Reuniao_Necessaria"] = "NÃO"
+        dados.at[idx, "Status_Reuniao"] = STATUS_REUNIAO_CONCLUIDA
+    elif encaminhamento == "Agendar nova reunião":
+        dados.at[idx, "Status_Aprovadores"] = "Reunião Necessária"
+        dados.at[idx, "Reuniao_Necessaria"] = "SIM"
+        dados.at[idx, "Status_Reuniao"] = STATUS_REUNIAO_AGUARDANDO_AGENDAMENTO
+        dados.at[idx, "ID_Reuniao_Atual"] = ""
+    else:
+        dados.at[idx, "Status_Aprovadores"] = "Aguardando encaminhamento da reunião"
+        dados.at[idx, "Reuniao_Necessaria"] = "SIM"
+        dados.at[idx, "Status_Reuniao"] = STATUS_REUNIAO_SEM_DECISAO
+
+    if not salvar_reunioes_caproq(reunioes):
+        return False, "Não foi possível salvar a ata na aba Reunioes_CAPROQ."
+    if not salvar_base_principal_revisao(dados):
+        return False, "A ata foi salva, mas não foi possível atualizar o chamado."
+
+    convidados = _emails_texto_para_lista(_texto_limpo(reunioes.at[indice, "Participantes_Convidados"]))
+    assunto = f"CAPROQ — Ata e encaminhamento da reunião do chamado #{id_chamado}"
+    corpo = f"""
+    <p>Olá,</p>
+    <p>A ata da reunião vinculada ao chamado <strong>#{id_chamado}</strong> foi registrada.</p>
+    <p><strong>Decisão:</strong> {escape(str(decisao_reuniao))}<br>
+    <strong>Encaminhamento:</strong> {escape(encaminhamento)}<br>
+    <strong>Data:</strong> {data_realizacao.strftime('%d/%m/%Y')}</p>
+    <p><strong>Resumo:</strong><br>{escape(str(resumo_discussao)).replace(chr(10), '<br>')}</p>
+    """
+    if link_ata:
+        corpo += f'<p><a href="{escape(str(link_ata))}">Abrir documento da ata</a></p>'
+    corpo += "<p>CAPROQ — Hospital Moinhos de Vento</p>"
+    for email in convidados:
+        enviar_email(email, assunto, corpo)
+
+    return True, "Ata registrada e encaminhamento aplicado ao chamado."
+
+
 def chamado_requer_reuniao(row: pd.Series) -> bool:
     """Centraliza a regra estrutural usada pela futura tela de reuniões."""
     status_tecnico = str(row.get("Status_Aprovadores", "")).strip().lower()
@@ -4893,6 +5042,176 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                             msg_agenda, kind="error", title="Não foi possível criar o convite", icon="⛔"
                                         )
 
+                            st.markdown("---")
+                            st.markdown("#### Registrar realização e ata")
+                            st.caption(
+                                "O registro encerra esta reunião sem apagar o agendamento e preserva toda a trilha do chamado."
+                            )
+                            with st.form(f"form_ata_reuniao_{id_reuniao}"):
+                                ca1, ca2 = st.columns(2)
+                                data_realizacao = ca1.date_input(
+                                    "Data real da reunião *",
+                                    value=datetime.date.today(),
+                                    key=f"data_realizacao_{id_reuniao}",
+                                )
+                                responsavel_conducao = ca2.text_input(
+                                    "Responsável pela condução *",
+                                    value=user_name,
+                                    key=f"conducao_{id_reuniao}",
+                                )
+                                cb1, cb2 = st.columns(2)
+                                responsavel_ata = cb1.text_input(
+                                    "Responsável pela ata *",
+                                    value=user_name,
+                                    key=f"responsavel_ata_{id_reuniao}",
+                                )
+                                participantes_presentes = cb2.text_area(
+                                    "Participantes presentes *",
+                                    placeholder="Nome ou e-mail, separados por ponto e vírgula",
+                                    key=f"presentes_{id_reuniao}",
+                                )
+                                participantes_ausentes = st.text_area(
+                                    "Participantes ausentes",
+                                    placeholder="Nome ou e-mail, separados por ponto e vírgula",
+                                    key=f"ausentes_{id_reuniao}",
+                                )
+                                resumo_discussao = st.text_area(
+                                    "Resumo das discussões *",
+                                    height=140,
+                                    key=f"resumo_reuniao_{id_reuniao}",
+                                )
+                                cc1, cc2 = st.columns(2)
+                                decisao_reuniao = cc1.selectbox(
+                                    "Decisão da reunião *",
+                                    [
+                                        "",
+                                        "Reprovação mantida",
+                                        "Parecer deverá ser revisado",
+                                        "Produto liberado para continuidade",
+                                        "Solicitação cancelada",
+                                        "Sem decisão",
+                                    ],
+                                    key=f"decisao_reuniao_{id_reuniao}",
+                                )
+                                encaminhamento_chamado = cc2.selectbox(
+                                    "Encaminhamento do chamado *",
+                                    [
+                                        "",
+                                        "Manter reprovação",
+                                        "Solicitar alteração de parecer",
+                                        "Retornar para avaliação das alçadas",
+                                        "Prosseguir para homologação",
+                                        "Cancelar solicitação",
+                                        "Agendar nova reunião",
+                                        "Aguardar definição posterior",
+                                    ],
+                                    key=f"encaminhamento_reuniao_{id_reuniao}",
+                                )
+                                pendencias = st.text_area(
+                                    "Pendências definidas",
+                                    key=f"pendencias_reuniao_{id_reuniao}",
+                                )
+                                cd1, cd2 = st.columns(2)
+                                responsaveis_pendencias = cd1.text_area(
+                                    "Responsáveis pelas pendências",
+                                    key=f"responsaveis_pendencias_{id_reuniao}",
+                                )
+                                prazos_pendencias = cd2.text_area(
+                                    "Prazos acordados",
+                                    key=f"prazos_pendencias_{id_reuniao}",
+                                )
+                                ata_texto = st.text_area(
+                                    "Ata completa da reunião *",
+                                    height=240,
+                                    placeholder="Registre os assuntos discutidos, manifestações, decisões e encaminhamentos.",
+                                    key=f"ata_texto_{id_reuniao}",
+                                )
+                                ce1, ce2 = st.columns(2)
+                                arquivo_ata = ce1.file_uploader(
+                                    "Documento da ata (opcional)",
+                                    type=["pdf", "doc", "docx"],
+                                    key=f"arquivo_ata_{id_reuniao}",
+                                )
+                                anexos_ata = ce2.file_uploader(
+                                    "Outros anexos (opcional)",
+                                    accept_multiple_files=True,
+                                    key=f"anexos_ata_{id_reuniao}",
+                                )
+                                confirmar_ata = st.checkbox(
+                                    "Confirmo que a ata e o encaminhamento estão corretos.",
+                                    key=f"confirmar_ata_{id_reuniao}",
+                                )
+                                salvar_ata = st.form_submit_button(
+                                    "Registrar realização, ata e encaminhamento",
+                                    use_container_width=True,
+                                )
+
+                            if salvar_ata:
+                                if not confirmar_ata:
+                                    ui.render_feedback(
+                                        "Confirme os dados antes de registrar a ata.",
+                                        kind="warning",
+                                        title="Confirmação necessária",
+                                        icon="⚠️",
+                                    )
+                                else:
+                                    link_ata = ""
+                                    links_anexos = []
+                                    upload_falhou = False
+                                    if arquivo_ata is not None:
+                                        link_ata = upload_para_google_drive(arquivo_ata) or ""
+                                        upload_falhou = not bool(link_ata)
+                                    if not upload_falhou:
+                                        for anexo in anexos_ata or []:
+                                            link = upload_para_google_drive(anexo)
+                                            if link:
+                                                links_anexos.append(link)
+                                            else:
+                                                upload_falhou = True
+                                                break
+                                    if upload_falhou:
+                                        ui.render_feedback(
+                                            "Não foi possível enviar um dos arquivos. A ata não foi registrada.",
+                                            kind="error",
+                                            title="Falha no upload",
+                                            icon="⛔",
+                                        )
+                                    else:
+                                        ok_ata, msg_ata = registrar_ata_reuniao_caproq(
+                                            id_reuniao=id_reuniao,
+                                            data_realizacao=data_realizacao,
+                                            participantes_presentes=participantes_presentes,
+                                            participantes_ausentes=participantes_ausentes,
+                                            responsavel_conducao=responsavel_conducao,
+                                            responsavel_ata=responsavel_ata,
+                                            resumo_discussao=resumo_discussao,
+                                            decisao_reuniao=decisao_reuniao,
+                                            encaminhamento_chamado=encaminhamento_chamado,
+                                            pendencias=pendencias,
+                                            responsaveis_pendencias=responsaveis_pendencias,
+                                            prazos_pendencias=prazos_pendencias,
+                                            ata_texto=ata_texto,
+                                            link_ata=link_ata,
+                                            anexos_reuniao="; ".join(links_anexos),
+                                            admin_nome=user_name,
+                                            admin_email=user_email,
+                                        )
+                                        if ok_ata:
+                                            ui.render_feedback(
+                                                msg_ata,
+                                                kind="success",
+                                                title="Ata registrada",
+                                                icon="✅",
+                                            )
+                                            st.rerun()
+                                        else:
+                                            ui.render_feedback(
+                                                msg_ata,
+                                                kind="error",
+                                                title="Não foi possível registrar a ata",
+                                                icon="⛔",
+                                            )
+
             with aba_historico:
                 if historico_tela.empty:
                     ui.render_empty_state(
@@ -4907,11 +5226,33 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                         "Modalidade", "Alcada_Origem", "Organizador_Nome",
                         "Data_Criacao", "Data_Atualizacao",
                     ]
-                    st.dataframe(
-                        historico_tela[[c for c in colunas_historico if c in historico_tela.columns]],
-                        use_container_width=True,
-                        hide_index=True,
+                    historico_tela = historico_tela.copy()
+                    historico_tela["__ordem"] = pd.to_datetime(
+                        historico_tela.get("Data_Realizacao", historico_tela.get("Data_Agendamento", "")),
+                        dayfirst=True, errors="coerce"
                     )
+                    historico_tela = historico_tela.sort_values("__ordem", ascending=False)
+                    for _, reuniao_hist in historico_tela.iterrows():
+                        id_hist = _texto_limpo(reuniao_hist.get("ID_Reuniao", ""))
+                        chamado_hist = reuniao_hist.get("ID_Chamado", "")
+                        with st.expander(
+                            f"Chamado #{chamado_hist} · Reunião {reuniao_hist.get('Numero_Reuniao_Chamado', '')} · {_texto_limpo(reuniao_hist.get('Status_Reuniao', ''))}",
+                            expanded=False,
+                        ):
+                            h1, h2, h3 = st.columns(3)
+                            h1.metric("Data realizada", _texto_limpo(reuniao_hist.get("Data_Realizacao", "Não informada")) or "Não informada")
+                            h2.metric("Decisão", _texto_limpo(reuniao_hist.get("Decisao_Reuniao", "Não informada")) or "Não informada")
+                            h3.metric("Protocolo", id_hist)
+                            st.markdown(f"**Encaminhamento:** {_texto_limpo(reuniao_hist.get('Encaminhamento_Chamado', 'Não informado')) or 'Não informado'}")
+                            st.markdown(f"**Condução:** {_texto_limpo(reuniao_hist.get('Responsavel_Conducao', 'Não informado')) or 'Não informado'}")
+                            st.markdown(f"**Responsável pela ata:** {_texto_limpo(reuniao_hist.get('Responsavel_Ata', 'Não informado')) or 'Não informado'}")
+                            st.markdown("**Resumo da discussão:**")
+                            st.write(_texto_limpo(reuniao_hist.get("Resumo_Discussao", "Não informado")) or "Não informado")
+                            st.markdown("**Ata:**")
+                            st.write(_texto_limpo(reuniao_hist.get("Ata_Texto", "Não informada")) or "Não informada")
+                            link_ata_hist = _texto_limpo(reuniao_hist.get("Link_Ata", ""))
+                            if link_ata_hist:
+                                st.link_button("Abrir documento da ata", link_ata_hist, use_container_width=True)
 
     # ==============================================================================
     # 8.5. Análise administrativa das alterações de parecer
