@@ -3166,422 +3166,338 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                         st.markdown(f"**Produto de teste:** {valor_seguro(row.get('Produto_Teste', row.get('Este produto é um Produto de Teste / Piloto?', 'Não informado')))}")
 
             # ----------------------------------------------------------------------
-            # 8.3. Aba "Log de atividades"
+            # 8.3. Aba "Log de atividades" — eventos individuais em ordem cronológica
             # ----------------------------------------------------------------------
             with tab_logs:
 
-                st.markdown("### Eventos de revisão e auditoria")
-                eventos_revisao = []
-                try:
-                    alteracoes_log = carregar_alteracoes_pareceres(forcar_atualizacao=True)
-                    for _, evento_alt in alteracoes_log.iterrows():
-                        status_evento = str(evento_alt.get("Status_Alteracao", "")).strip()
-                        eventos_revisao.append({
-                            "Data": evento_alt.get("Data_Solicitacao", ""),
-                            "Chamado": evento_alt.get("ID_Chamado", ""),
-                            "Evento": "Alteração de parecer solicitada",
-                            "Alçada": evento_alt.get("Alcada", ""),
-                            "Responsável": evento_alt.get("Solicitante_Nome", ""),
-                            "Detalhes": f"{evento_alt.get('Decisao_Anterior', '')} → {evento_alt.get('Decisao_Solicitada', '')}",
-                            "Protocolo": evento_alt.get("ID_Alteracao", ""),
-                        })
-                        if status_evento and status_evento.lower() != STATUS_ALTERACAO_PENDENTE.lower():
-                            eventos_revisao.append({
-                                "Data": evento_alt.get("Data_Analise", ""),
-                                "Chamado": evento_alt.get("ID_Chamado", ""),
-                                "Evento": f"Alteração de parecer {status_evento.lower()}",
-                                "Alçada": evento_alt.get("Alcada", ""),
-                                "Responsável": evento_alt.get("Admin_Responsavel", ""),
-                                "Detalhes": evento_alt.get("Motivo_Recusa", "") or f"Nova decisão oficial: {evento_alt.get('Decisao_Solicitada', '')}",
-                                "Protocolo": evento_alt.get("ID_Alteracao", ""),
-                            })
-                    if "Data_Reabertura" in df_dados.columns:
-                        for _, evento_reab in df_dados[df_dados["Data_Reabertura"].astype(str).str.strip().ne("")].iterrows():
-                            eventos_revisao.append({
-                                "Data": evento_reab.get("Data_Reabertura", ""),
-                                "Chamado": evento_reab.get("ID", ""),
-                                "Evento": "Chamado reaberto para revisão técnica",
-                                "Alçada": evento_reab.get("Alcada_Reaberta", ""),
-                                "Responsável": evento_reab.get("Admin_Reabertura", ""),
-                                "Detalhes": evento_reab.get("Motivo_Reabertura", ""),
-                                "Protocolo": evento_reab.get("ID_Reabertura_Atual", ""),
-                            })
-                except Exception as erro_auditoria:
-                    print(f"Falha ao consolidar eventos de revisão: {erro_auditoria}")
-                if eventos_revisao:
-                    df_eventos_revisao = pd.DataFrame(eventos_revisao)
-                    df_eventos_revisao["__ordem"] = pd.to_datetime(df_eventos_revisao["Data"], dayfirst=True, errors="coerce")
-                    df_eventos_revisao = df_eventos_revisao.sort_values("__ordem", ascending=False).drop(columns=["__ordem"])
-                    with st.expander(f"Revisões registradas ({len(df_eventos_revisao)})", expanded=False):
-                        st.dataframe(df_eventos_revisao.head(200), use_container_width=True, hide_index=True)
-                else:
-                    st.caption("Nenhum evento de revisão foi registrado até o momento.")
-
-                df_logs = df_dados.copy()
-
-                coluna_data_log = None
-                for coluna_candidata in ["Carimbo de data/hora", "Timestamp"]:
-                    if coluna_candidata in df_logs.columns:
-                        coluna_data_log = coluna_candidata
-                        break
-
-                if coluna_data_log:
-                    df_logs["__data_log"] = pd.to_datetime(
-                        df_logs[coluna_data_log],
-                        errors="coerce",
-                        dayfirst=True,
-                    )
-                else:
-                    df_logs["__data_log"] = pd.NaT
-
-                with st.container():
-                    st.markdown('<div class="caproq-audit-filter-shell">', unsafe_allow_html=True)
-                    f1_log, f2_log, f3_log, f4_log = st.columns([2.2, 1.2, 1.2, 1.35])
-
-                    with f1_log:
-                        busca_log = st.text_input(
-                            "Buscar no histórico",
-                            placeholder="Chamado, produto, solicitante, e-mail ou fornecedor",
-                            key="audit_search",
-                        )
-
-                    status_disponiveis_log = ["Todos"]
-                    if "Status_Final" in df_logs.columns:
-                        status_disponiveis_log += sorted(
-                            {
-                                str(v).strip()
-                                for v in df_logs["Status_Final"].dropna().tolist()
-                                if str(v).strip()
-                            }
-                        )
-
-                    with f2_log:
-                        status_log = st.selectbox(
-                            "Status",
-                            status_disponiveis_log,
-                            key="audit_status",
-                        )
-
-                    alcadas_filtro_log = ["Todas"] + [
-                        info["label"] for info in ALCADAS_INFO.values()
-                    ]
-                    with f3_log:
-                        alcada_log = st.selectbox(
-                            "Alçada",
-                            alcadas_filtro_log,
-                            key="audit_area",
-                        )
-
-                    with f4_log:
-                        periodo_log = st.selectbox(
-                            "Período",
-                            ["Todo o período", "Últimos 30 dias", "Últimos 90 dias", "Este ano"],
-                            key="audit_period",
-                        )
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-                if busca_log:
-                    termo_log = busca_log.strip().lower()
-                    colunas_busca_log = [
-                        "ID",
-                        "Descrição completa do produto",
-                        "Nome solicitante",
-                        "Nome",
-                        "Endereço de e-mail",
-                        "Fornecedor",
-                        "Nome do fornecedor",
-                    ]
-                    mascara_busca_log = pd.Series(False, index=df_logs.index)
-                    for coluna_busca_log in colunas_busca_log:
-                        if coluna_busca_log in df_logs.columns:
-                            mascara_busca_log = mascara_busca_log | (
-                                df_logs[coluna_busca_log]
-                                .astype(str)
-                                .str.lower()
-                                .str.contains(termo_log, na=False, regex=False)
-                            )
-                    df_logs = df_logs[mascara_busca_log]
-
-                if status_log != "Todos" and "Status_Final" in df_logs.columns:
-                    df_logs = df_logs[
-                        df_logs["Status_Final"].astype(str).str.strip() == status_log
-                    ]
-
-                if alcada_log != "Todas":
-                    info_alcada_log = next(
-                        (
-                            info
-                            for info in ALCADAS_INFO.values()
-                            if info["label"] == alcada_log
-                        ),
-                        None,
-                    )
-                    if info_alcada_log:
-                        coluna_alcada_log = info_alcada_log["coluna_sheets"]
-                        if coluna_alcada_log in df_logs.columns:
-                            df_logs = df_logs[
-                                ~df_logs[coluna_alcada_log]
-                                .astype(str)
-                                .str.strip()
-                                .str.lower()
-                                .isin(["", "pendente", "nan", "none"])
-                            ]
-
-                hoje_log = pd.Timestamp.now().normalize()
-                if periodo_log == "Últimos 30 dias":
-                    df_logs = df_logs[df_logs["__data_log"] >= hoje_log - pd.Timedelta(days=30)]
-                elif periodo_log == "Últimos 90 dias":
-                    df_logs = df_logs[df_logs["__data_log"] >= hoje_log - pd.Timedelta(days=90)]
-                elif periodo_log == "Este ano":
-                    df_logs = df_logs[df_logs["__data_log"].dt.year == hoje_log.year]
-
-                df_logs = df_logs.sort_values(
-                    by=["__data_log", "ID"],
-                    ascending=[False, False],
-                    na_position="last",
+                st.markdown("### Log individual de atividades")
+                st.caption(
+                    "Cada ação do processo é exibida como um registro independente, "
+                    "ordenado da mais recente para a mais antiga."
                 )
 
-                total_logs = len(df_logs)
-                finalizados_logs = 0
-                pareceres_logs = 0
-                pendentes_logs = 0
+                def _data_evento(valor):
+                    return pd.to_datetime(valor, dayfirst=True, errors="coerce")
 
-                for _, linha_log_metricas in df_logs.iterrows():
-                    status_metrica_log = str(
-                        linha_log_metricas.get("Status_Final", "")
-                    ).strip().lower()
-                    if status_metrica_log in {
-                        "aprovado",
-                        "aprovado com ressalva",
-                        "reprovado",
-                    }:
-                        finalizados_logs += 1
+                def _extrair_metadados_parecer(valor):
+                    """Extrai data, responsável e observação do texto gravado no parecer."""
+                    texto = str(valor or "").strip()
+                    data_txt = ""
+                    responsavel = ""
+                    observacao = ""
+                    if "(" in texto and texto.endswith(")"):
+                        conteudo = texto.split("(", 1)[1][:-1].strip()
+                        # Formato original: DD/MM/YYYY HH:MM - Nome: observação
+                        if " - " in conteudo:
+                            data_txt, restante = conteudo.split(" - ", 1)
+                            if ":" in restante:
+                                responsavel, observacao = restante.split(":", 1)
+                            else:
+                                responsavel = restante
+                        elif ":" in conteudo:
+                            cabecalho, observacao = conteudo.split(":", 1)
+                            data_txt = cabecalho
+                    return data_txt.strip(), responsavel.strip(), observacao.strip()
 
-                    votos_registrados_log = 0
+                eventos_auditoria = []
+
+                # 1. Abertura, pareceres vigentes e decisão final.
+                for _, chamado_log in df_dados.iterrows():
+                    try:
+                        id_log = int(float(chamado_log.get("ID", 0)))
+                    except (TypeError, ValueError):
+                        id_log = chamado_log.get("ID", "—")
+
+                    produto_log = valor_seguro(
+                        chamado_log.get("Descrição completa do produto", "Sem descrição"),
+                        "Sem descrição",
+                    )
+                    solicitante_log = valor_seguro(
+                        chamado_log.get("Nome solicitante", chamado_log.get("Nome", "Não informado")),
+                        "Não informado",
+                    )
+                    email_log = valor_seguro(
+                        chamado_log.get("Endereço de e-mail", "Não informado"),
+                        "Não informado",
+                    )
+                    fornecedor_log = valor_seguro(
+                        chamado_log.get("Fornecedor", chamado_log.get("Nome do fornecedor", "Não informado")),
+                        "Não informado",
+                    )
+                    data_abertura_log = chamado_log.get(
+                        "Carimbo de data/hora",
+                        chamado_log.get("Timestamp", ""),
+                    )
+
+                    eventos_auditoria.append({
+                        "Data": data_abertura_log,
+                        "Chamado": id_log,
+                        "Produto": produto_log,
+                        "Evento": "Abertura da solicitação",
+                        "Categoria": "Solicitação",
+                        "Alçada": "—",
+                        "Responsável": solicitante_log,
+                        "E-mail": email_log,
+                        "Fornecedor": fornecedor_log,
+                        "Detalhes": "Processo cadastrado no CAPROQ.",
+                        "Protocolo": "",
+                        "Classe": "info",
+                    })
+
                     for info_log in ALCADAS_INFO.values():
                         coluna_voto_log = info_log["coluna_sheets"]
-                        voto_log = str(
-                            linha_log_metricas.get(coluna_voto_log, "Pendente")
-                        ).strip().lower()
-                        if voto_log not in {"", "pendente", "nan", "none"}:
-                            votos_registrados_log += 1
-                    pareceres_logs += votos_registrados_log
-                    if votos_registrados_log < len(ALCADAS_INFO):
-                        pendentes_logs += 1
+                        voto_detalhado = str(chamado_log.get(coluna_voto_log, "")).strip()
+                        if voto_detalhado.lower() in {"", "pendente", "nan", "none"}:
+                            continue
+
+                        data_parecer, responsavel_parecer, observacao_parecer = _extrair_metadados_parecer(voto_detalhado)
+                        decisao_parecer, parecer_textual = extrair_decisao_e_parecer_registrado(voto_detalhado)
+                        detalhe_parecer = observacao_parecer or parecer_textual or "Sem observação adicional."
+                        decisao_lower = str(decisao_parecer).lower()
+                        if "reprov" in decisao_lower:
+                            classe = "rejected"
+                        elif "ressalva" in decisao_lower:
+                            classe = "warning"
+                        else:
+                            classe = "approved"
+
+                        eventos_auditoria.append({
+                            "Data": data_parecer,
+                            "Chamado": id_log,
+                            "Produto": produto_log,
+                            "Evento": f"Parecer técnico · {decisao_parecer}",
+                            "Categoria": "Parecer técnico",
+                            "Alçada": info_log["label"],
+                            "Responsável": responsavel_parecer or "Não identificado",
+                            "E-mail": "",
+                            "Fornecedor": fornecedor_log,
+                            "Detalhes": detalhe_parecer,
+                            "Protocolo": "",
+                            "Classe": classe,
+                        })
+
+                    status_final_log = str(chamado_log.get("Status_Final", "")).strip()
+                    if status_final_log.lower() in {"aprovado", "aprovado com ressalva", "reprovado"}:
+                        data_final = chamado_log.get("Data_Homologacao_Final", "")
+                        responsavel_final = chamado_log.get("Responsavel_Homologacao_Final", "")
+                        consideracoes_final = chamado_log.get(
+                            "Consideracoes_Finais_Homologacao",
+                            chamado_log.get("obs_admin", "Sem considerações registradas"),
+                        )
+                        status_final_lower = status_final_log.lower()
+                        classe_final = (
+                            "rejected" if "reprov" in status_final_lower
+                            else "warning" if "ressalva" in status_final_lower
+                            else "approved"
+                        )
+                        eventos_auditoria.append({
+                            "Data": data_final,
+                            "Chamado": id_log,
+                            "Produto": produto_log,
+                            "Evento": f"Decisão final · {status_final_log}",
+                            "Categoria": "Homologação",
+                            "Alçada": "Administração",
+                            "Responsável": responsavel_final or "Não identificado",
+                            "E-mail": "",
+                            "Fornecedor": fornecedor_log,
+                            "Detalhes": valor_seguro(consideracoes_final, "Sem considerações registradas"),
+                            "Protocolo": "",
+                            "Classe": classe_final,
+                        })
+
+                    # Reabertura atual registrada na base principal.
+                    data_reabertura = str(chamado_log.get("Data_Reabertura", "")).strip()
+                    if data_reabertura and data_reabertura.lower() not in {"nan", "none"}:
+                        eventos_auditoria.append({
+                            "Data": data_reabertura,
+                            "Chamado": id_log,
+                            "Produto": produto_log,
+                            "Evento": "Chamado reaberto para revisão técnica",
+                            "Categoria": "Reabertura",
+                            "Alçada": chamado_log.get("Alcada_Reaberta", ""),
+                            "Responsável": chamado_log.get("Admin_Reabertura", ""),
+                            "E-mail": chamado_log.get("Email_Admin_Reabertura", ""),
+                            "Fornecedor": fornecedor_log,
+                            "Detalhes": chamado_log.get("Motivo_Reabertura", ""),
+                            "Protocolo": chamado_log.get("ID_Reabertura_Atual", ""),
+                            "Classe": "warning",
+                        })
+
+                # 2. Solicitações e análises de alteração: um registro por ação.
+                try:
+                    alteracoes_log = carregar_alteracoes_pareceres(forcar_atualizacao=True)
+                    for _, alteracao_log in alteracoes_log.iterrows():
+                        id_alt_log = alteracao_log.get("ID_Chamado", "")
+                        produto_alt = ""
+                        fornecedor_alt = ""
+                        try:
+                            alvo_alt = pd.to_numeric(pd.Series([id_alt_log]), errors="coerce").iloc[0]
+                            linhas_alt = df_dados[pd.to_numeric(df_dados["ID"], errors="coerce").eq(alvo_alt)]
+                            if not linhas_alt.empty:
+                                linha_alt = linhas_alt.iloc[0]
+                                produto_alt = valor_seguro(linha_alt.get("Descrição completa do produto", ""), "")
+                                fornecedor_alt = valor_seguro(linha_alt.get("Fornecedor", linha_alt.get("Nome do fornecedor", "")), "")
+                        except Exception:
+                            pass
+
+                        eventos_auditoria.append({
+                            "Data": alteracao_log.get("Data_Solicitacao", ""),
+                            "Chamado": id_alt_log,
+                            "Produto": produto_alt,
+                            "Evento": "Alteração de parecer solicitada",
+                            "Categoria": "Revisão de parecer",
+                            "Alçada": alteracao_log.get("Alcada", ""),
+                            "Responsável": alteracao_log.get("Solicitante_Nome", ""),
+                            "E-mail": alteracao_log.get("Solicitante_Email", ""),
+                            "Fornecedor": fornecedor_alt,
+                            "Detalhes": (
+                                f"{alteracao_log.get('Decisao_Anterior', '')} → "
+                                f"{alteracao_log.get('Decisao_Solicitada', '')}. "
+                                f"Justificativa: {alteracao_log.get('Justificativa_Alteracao', '')}"
+                            ),
+                            "Protocolo": alteracao_log.get("ID_Alteracao", ""),
+                            "Classe": "info",
+                        })
+
+                        status_alt = str(alteracao_log.get("Status_Alteracao", "")).strip()
+                        data_analise_alt = str(alteracao_log.get("Data_Analise", "")).strip()
+                        if status_alt and status_alt.lower() != STATUS_ALTERACAO_PENDENTE.lower() and data_analise_alt:
+                            confirmado_alt = status_alt.lower() == STATUS_ALTERACAO_CONFIRMADA.lower()
+                            eventos_auditoria.append({
+                                "Data": data_analise_alt,
+                                "Chamado": id_alt_log,
+                                "Produto": produto_alt,
+                                "Evento": f"Alteração de parecer {status_alt.lower()}",
+                                "Categoria": "Validação administrativa",
+                                "Alçada": alteracao_log.get("Alcada", ""),
+                                "Responsável": alteracao_log.get("Admin_Responsavel", ""),
+                                "E-mail": alteracao_log.get("Admin_Email", ""),
+                                "Fornecedor": fornecedor_alt,
+                                "Detalhes": (
+                                    f"Nova decisão oficial: {alteracao_log.get('Decisao_Solicitada', '')}"
+                                    if confirmado_alt
+                                    else f"Motivo da recusa: {alteracao_log.get('Motivo_Recusa', '')}"
+                                ),
+                                "Protocolo": alteracao_log.get("ID_Alteracao", ""),
+                                "Classe": "approved" if confirmado_alt else "rejected",
+                            })
+                except Exception as erro_auditoria:
+                    print(f"Falha ao consolidar alterações no log: {erro_auditoria}")
+
+                df_eventos = pd.DataFrame(eventos_auditoria)
+                if not df_eventos.empty:
+                    df_eventos["__data_evento"] = df_eventos["Data"].apply(_data_evento)
+                    df_eventos["__texto_busca"] = (
+                        df_eventos.fillna("")
+                        .astype(str)
+                        .agg(" ".join, axis=1)
+                        .str.lower()
+                    )
+
+                st.markdown('<div class="caproq-audit-filter-shell">', unsafe_allow_html=True)
+                f1_log, f2_log, f3_log, f4_log = st.columns([2.2, 1.2, 1.2, 1.35])
+                with f1_log:
+                    busca_log = st.text_input(
+                        "Buscar no log",
+                        placeholder="Chamado, produto, responsável, alçada ou protocolo",
+                        key="audit_search_individual",
+                    )
+                categorias_log = ["Todas"]
+                if not df_eventos.empty:
+                    categorias_log += sorted({str(v).strip() for v in df_eventos["Categoria"].dropna() if str(v).strip()})
+                with f2_log:
+                    categoria_log = st.selectbox("Categoria", categorias_log, key="audit_category_individual")
+                alcadas_log = ["Todas"]
+                if not df_eventos.empty:
+                    alcadas_log += sorted({str(v).strip() for v in df_eventos["Alçada"].dropna() if str(v).strip() and str(v).strip() != "—"})
+                with f3_log:
+                    alcada_log = st.selectbox("Alçada", alcadas_log, key="audit_area_individual")
+                with f4_log:
+                    periodo_log = st.selectbox(
+                        "Período",
+                        ["Todo o período", "Últimos 30 dias", "Últimos 90 dias", "Este ano"],
+                        key="audit_period_individual",
+                    )
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                if not df_eventos.empty:
+                    if busca_log:
+                        df_eventos = df_eventos[df_eventos["__texto_busca"].str.contains(busca_log.strip().lower(), na=False, regex=False)]
+                    if categoria_log != "Todas":
+                        df_eventos = df_eventos[df_eventos["Categoria"].astype(str).eq(categoria_log)]
+                    if alcada_log != "Todas":
+                        df_eventos = df_eventos[df_eventos["Alçada"].astype(str).eq(alcada_log)]
+
+                    hoje_log = pd.Timestamp.now().normalize()
+                    if periodo_log == "Últimos 30 dias":
+                        df_eventos = df_eventos[df_eventos["__data_evento"] >= hoje_log - pd.Timedelta(days=30)]
+                    elif periodo_log == "Últimos 90 dias":
+                        df_eventos = df_eventos[df_eventos["__data_evento"] >= hoje_log - pd.Timedelta(days=90)]
+                    elif periodo_log == "Este ano":
+                        df_eventos = df_eventos[df_eventos["__data_evento"].dt.year == hoje_log.year]
+
+                    df_eventos = df_eventos.sort_values(
+                        ["__data_evento", "Chamado"],
+                        ascending=[False, False],
+                        na_position="last",
+                    )
+
+                total_eventos = len(df_eventos)
+                total_revisoes = int(df_eventos["Categoria"].isin(["Revisão de parecer", "Validação administrativa"]).sum()) if not df_eventos.empty else 0
+                total_pareceres = int(df_eventos["Categoria"].eq("Parecer técnico").sum()) if not df_eventos.empty else 0
+                total_homologacoes = int(df_eventos["Categoria"].eq("Homologação").sum()) if not df_eventos.empty else 0
 
                 st.markdown(
                     f"""
 <div class="caproq-audit-summary-grid">
-    <div class="caproq-audit-summary-card">
-        <div class="caproq-audit-summary-label">Chamados exibidos</div>
-        <div class="caproq-audit-summary-value">{total_logs}</div>
-    </div>
-    <div class="caproq-audit-summary-card">
-        <div class="caproq-audit-summary-label">Eventos técnicos</div>
-        <div class="caproq-audit-summary-value">{pareceres_logs}</div>
-    </div>
-    <div class="caproq-audit-summary-card">
-        <div class="caproq-audit-summary-label">Fluxos finalizados</div>
-        <div class="caproq-audit-summary-value">{finalizados_logs}</div>
-    </div>
-    <div class="caproq-audit-summary-card">
-        <div class="caproq-audit-summary-label">Com etapas pendentes</div>
-        <div class="caproq-audit-summary-value">{pendentes_logs}</div>
-    </div>
+    <div class="caproq-audit-summary-card"><div class="caproq-audit-summary-label">Eventos exibidos</div><div class="caproq-audit-summary-value">{total_eventos}</div></div>
+    <div class="caproq-audit-summary-card"><div class="caproq-audit-summary-label">Pareceres técnicos</div><div class="caproq-audit-summary-value">{total_pareceres}</div></div>
+    <div class="caproq-audit-summary-card"><div class="caproq-audit-summary-label">Revisões</div><div class="caproq-audit-summary-value">{total_revisoes}</div></div>
+    <div class="caproq-audit-summary-card"><div class="caproq-audit-summary-label">Homologações</div><div class="caproq-audit-summary-value">{total_homologacoes}</div></div>
 </div>
 """,
                     unsafe_allow_html=True,
                 )
 
-                if df_logs.empty:
-                    st.markdown(
-                        """
-<div class="caproq-audit-empty">
-    <strong>Nenhum registro encontrado.</strong><br>
-    Ajuste os filtros para ampliar a consulta da trilha de auditoria.
-</div>
-""",
-                        unsafe_allow_html=True,
+                if df_eventos.empty:
+                    ui.render_empty_state(
+                        title="Nenhum evento encontrado",
+                        message="Ajuste os filtros para ampliar a consulta do log de atividades.",
+                        icon="🕒",
                     )
                 else:
-                    for _, row in df_logs.iterrows():
-                        try:
-                            id_c = int(float(row.get("ID", 0)))
-                        except (TypeError, ValueError):
-                            id_c = row.get("ID", "—")
-
-                        desc_l = valor_seguro(
-                            row.get("Descrição completa do produto", "Sem descrição"),
-                            "Sem descrição",
-                        )
-                        solicitante_nome = valor_seguro(
-                            row.get("Nome solicitante", row.get("Nome", "Não informado")),
-                            "Não informado",
-                        )
-                        solicitante_email = valor_seguro(
-                            row.get("Endereço de e-mail", "Não informado"),
-                            "Não informado",
-                        )
-                        fornecedor_log = valor_seguro(
-                            row.get("Fornecedor", row.get("Nome do fornecedor", "Não informado")),
-                            "Não informado",
-                        )
-                        status_atual_log = valor_seguro(
-                            row.get("Status_Final", "Em análise"),
-                            "Em análise",
-                        )
-                        carimbo_abertura = valor_seguro(
-                            row.get("Carimbo de data/hora", row.get("Timestamp", "Data não registrada")),
-                            "Data não registrada",
+                    for _, evento_log in df_eventos.iterrows():
+                        data_exibicao = valor_seguro(evento_log.get("Data", "Data não registrada"), "Data não registrada")
+                        chamado_exibicao = valor_seguro(evento_log.get("Chamado", "—"), "—")
+                        evento_titulo = valor_seguro(evento_log.get("Evento", "Atividade registrada"), "Atividade registrada")
+                        produto_exibicao = valor_seguro(evento_log.get("Produto", "Produto não informado"), "Produto não informado")
+                        classe_evento = str(evento_log.get("Classe", "info"))
+                        responsavel_evento = valor_seguro(evento_log.get("Responsável", "Não identificado"), "Não identificado")
+                        alcada_evento = valor_seguro(evento_log.get("Alçada", "—"), "—")
+                        detalhes_evento = valor_seguro(evento_log.get("Detalhes", "Sem detalhes adicionais"), "Sem detalhes adicionais")
+                        protocolo_evento = str(evento_log.get("Protocolo", "")).strip()
+                        protocolo_html = (
+                            f'<span><strong>Protocolo:</strong> {escape(protocolo_evento)}</span>'
+                            if protocolo_evento else ""
                         )
 
-                        titulo_expander_log = (
-                            f"🕒 Chamado #{id_c} · {desc_l} · {status_atual_log}"
-                        )
-
-                        with st.expander(titulo_expander_log, expanded=False):
-                            st.markdown(
-                                f"""
-<div class="caproq-audit-meta-grid">
-    <div class="caproq-audit-meta-card">
-        <div class="caproq-audit-meta-label">Solicitante</div>
-        <div class="caproq-audit-meta-value">{escape(str(solicitante_nome))}</div>
-    </div>
-    <div class="caproq-audit-meta-card">
-        <div class="caproq-audit-meta-label">E-mail</div>
-        <div class="caproq-audit-meta-value">{escape(str(solicitante_email))}</div>
-    </div>
-    <div class="caproq-audit-meta-card">
-        <div class="caproq-audit-meta-label">Fornecedor</div>
-        <div class="caproq-audit-meta-value">{escape(str(fornecedor_log))}</div>
-    </div>
-    <div class="caproq-audit-meta-card">
-        <div class="caproq-audit-meta-label">Abertura</div>
-        <div class="caproq-audit-meta-value">{escape(str(carimbo_abertura))}</div>
-    </div>
+                        st.markdown(
+                            f"""
+<div class="caproq-audit-event" style="margin-bottom:12px;">
+    <span class="caproq-audit-dot {escape(classe_evento)}"></span>
+    <p class="caproq-audit-event-title">{escape(str(evento_titulo))} · Chamado #{escape(str(chamado_exibicao))}</p>
+    <p class="caproq-audit-event-text"><strong>{escape(str(produto_exibicao))}</strong></p>
+    <p class="caproq-audit-event-text">{escape(str(detalhes_evento))}</p>
+    <p class="caproq-audit-event-text">
+        <span><strong>Data:</strong> {escape(str(data_exibicao))}</span> ·
+        <span><strong>Responsável:</strong> {escape(str(responsavel_evento))}</span> ·
+        <span><strong>Alçada:</strong> {escape(str(alcada_evento))}</span>
+        {(' · ' + protocolo_html) if protocolo_html else ''}
+    </p>
 </div>
-<div class="caproq-audit-section-label">Trilha cronológica do processo</div>
 """,
-                                unsafe_allow_html=True,
-                            )
-
-                            eventos_html_log = [
-                                f"""
-<div class="caproq-audit-event">
-    <span class="caproq-audit-dot info"></span>
-    <p class="caproq-audit-event-title">Abertura da solicitação</p>
-    <p class="caproq-audit-event-text">
-        Processo cadastrado em {escape(str(carimbo_abertura))} por
-        <strong>{escape(str(solicitante_nome))}</strong>.
-    </p>
-</div>
-"""
-                            ]
-
-                            logs_encontrados = False
-                            for info in ALCADAS_INFO.values():
-                                c_nome = info["coluna_sheets"]
-                                voto_detalhado = valor_seguro(
-                                    row.get(c_nome, "Pendente"),
-                                    "Pendente",
-                                )
-                                voto_lower_log = str(voto_detalhado).strip().lower()
-
-                                if voto_lower_log in {"", "pendente", "nan", "none"}:
-                                    continue
-
-                                logs_encontrados = True
-                                if "reprov" in voto_lower_log:
-                                    classe_evento_log = "rejected"
-                                    rotulo_evento_log = "Parecer reprovado"
-                                elif "ressalva" in voto_lower_log:
-                                    classe_evento_log = "warning"
-                                    rotulo_evento_log = "Parecer com ressalva"
-                                else:
-                                    classe_evento_log = "approved"
-                                    rotulo_evento_log = "Parecer aprovado"
-
-                                eventos_html_log.append(
-                                    f"""
-<div class="caproq-audit-event">
-    <span class="caproq-audit-dot {classe_evento_log}"></span>
-    <p class="caproq-audit-event-title">{escape(str(info['label']))} · {rotulo_evento_log}</p>
-    <p class="caproq-audit-event-text">{escape(str(voto_detalhado))}</p>
-</div>
-"""
-                                )
-
-                            status_lower_log = str(status_atual_log).strip().lower()
-                            if status_lower_log in {
-                                "aprovado",
-                                "aprovado com ressalva",
-                                "reprovado",
-                            }:
-                                if "reprov" in status_lower_log:
-                                    classe_final_log = "rejected"
-                                elif "ressalva" in status_lower_log:
-                                    classe_final_log = "warning"
-                                else:
-                                    classe_final_log = "approved"
-
-                                responsavel_final_log = valor_seguro(
-                                    row.get("Responsavel_Homologacao_Final", "Não informado"),
-                                    "Não informado",
-                                )
-                                data_final_log = valor_seguro(
-                                    row.get("Data_Homologacao_Final", "Data não registrada"),
-                                    "Data não registrada",
-                                )
-                                consideracoes_log = valor_seguro(
-                                    row.get("Consideracoes_Finais_Homologacao", row.get("obs_admin", "Sem considerações registradas")),
-                                    "Sem considerações registradas",
-                                )
-
-                                eventos_html_log.append(
-                                    f"""
-<div class="caproq-audit-event">
-    <span class="caproq-audit-dot {classe_final_log}"></span>
-    <p class="caproq-audit-event-title">Decisão final · {escape(str(status_atual_log))}</p>
-    <p class="caproq-audit-event-text">
-        Registrada por <strong>{escape(str(responsavel_final_log))}</strong>
-        em {escape(str(data_final_log))}.<br>
-        {escape(str(consideracoes_log))}
-    </p>
-</div>
-"""
-                                )
-                            elif not logs_encontrados:
-                                eventos_html_log.append(
-                                    """
-<div class="caproq-audit-event">
-    <span class="caproq-audit-dot"></span>
-    <p class="caproq-audit-event-title">Aguardando deliberações técnicas</p>
-    <p class="caproq-audit-event-text">
-        Nenhuma alçada registrou parecer para este chamado até o momento.
-    </p>
-</div>
-"""
-                                )
-
-                            st.markdown(
-                                "".join(eventos_html_log),
-                                unsafe_allow_html=True,
-                            )
-
-                            with st.expander("Dados brutos para conferência", expanded=False):
-                                dados_auditoria_log = {
-                                    "ID": id_c,
-                                    "Produto": desc_l,
-                                    "Status final": status_atual_log,
-                                    "Status dos aprovadores": valor_seguro(
-                                        row.get("Status_Aprovadores", "Não informado"),
-                                        "Não informado",
-                                    ),
-                                    "Solicitante": solicitante_nome,
-                                    "E-mail": solicitante_email,
-                                    "Abertura": carimbo_abertura,
-                                }
-                                st.json(dados_auditoria_log)
+                            unsafe_allow_html=True,
+                        )
 
             # ----------------------------------------------------------------------
             # 8.4. Aba "Indicadores"
