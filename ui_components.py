@@ -1263,6 +1263,786 @@ def load_global_css() -> None:
     </style>
     """, unsafe_allow_html=True)
 
+    load_screen_css()
+
+
+def load_login_css() -> None:
+    """Aplica ajustes visuais exclusivos da tela de autenticação."""
+    st.markdown(
+        """
+        <style>
+            section[data-testid="stSidebar"] {
+                display: none !important;
+            }
+
+            header[data-testid="stHeader"] {
+                height: 0 !important;
+                min-height: 0 !important;
+                background: transparent !important;
+            }
+
+            div[data-testid="stToolbar"] {
+                display: none !important;
+            }
+
+            .block-container {
+                max-width: 100% !important;
+                padding-top: 1.2rem !important;
+                padding-bottom: 1rem !important;
+            }
+        
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def load_screen_css() -> None:
+    """Carrega estilos específicos das telas consolidadas do CAPROQ."""
+    st.markdown(
+        """
+        <style>
+.caproq-admin-hero {
+    padding: 1.55rem 1.65rem;
+    border: 1px solid rgba(0, 86, 145, .16);
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(0, 86, 145, .12), rgba(0, 86, 145, .03));
+    margin-bottom: 1rem;
+}
+.caproq-admin-kicker {
+    margin: 0 0 .35rem 0;
+    color: #005691;
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+.caproq-admin-title {
+    margin: 0;
+    font-size: clamp(1.65rem, 3vw, 2.35rem);
+    line-height: 1.12;
+}
+.caproq-admin-subtitle {
+    margin: .6rem 0 0 0;
+    max-width: 880px;
+    opacity: .76;
+    line-height: 1.55;
+}
+.caproq-admin-section {
+    margin: 1.2rem 0 .65rem 0;
+}
+.caproq-admin-section h3 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+.caproq-admin-section p {
+    margin: .25rem 0 0 0;
+    opacity: .7;
+    font-size: .9rem;
+}
+.caproq-admin-note {
+    padding: .9rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 86, 145, .14);
+    background: rgba(0, 86, 145, .045);
+    margin-bottom: .8rem;
+}
+.caproq-admin-danger {
+    padding: .95rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(198, 40, 40, .24);
+    background: rgba(198, 40, 40, .06);
+    margin-bottom: .8rem;
+}
+@media (prefers-color-scheme: dark) {
+    .caproq-admin-hero,
+    .caproq-admin-note {
+        border-color: rgba(120, 190, 235, .20);
+        background: rgba(0, 86, 145, .12);
+    }
+}
+
+.caproq-history-hero {
+    padding: 1.3rem 1.45rem;
+    border: 1px solid rgba(0, 86, 145, .18);
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(0, 86, 145, .13), rgba(0, 86, 145, .025));
+    margin: .15rem 0 1rem;
+}
+.caproq-history-kicker {
+    margin: 0 0 .3rem;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    opacity: .7;
+}
+.caproq-history-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 850;
+    line-height: 1.2;
+}
+.caproq-history-subtitle {
+    margin: .4rem 0 0;
+    opacity: .76;
+    line-height: 1.5;
+}
+.caproq-history-filter-shell {
+    padding: .95rem 1rem .3rem;
+    border: 1px solid rgba(128, 128, 128, .18);
+    border-radius: 16px;
+    background: rgba(128, 128, 128, .035);
+    margin-bottom: .9rem;
+}
+.caproq-history-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .7rem;
+    margin: .25rem 0 1rem;
+}
+.caproq-history-summary-card {
+    border: 1px solid rgba(128, 128, 128, .17);
+    border-radius: 15px;
+    padding: .82rem .9rem;
+    background: rgba(128, 128, 128, .025);
+}
+.caproq-history-summary-label {
+    margin: 0;
+    font-size: .72rem;
+    font-weight: 750;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    opacity: .64;
+}
+.caproq-history-summary-value {
+    margin: .16rem 0 0;
+    font-size: 1.28rem;
+    line-height: 1.15;
+    font-weight: 850;
+}
+.caproq-history-request {
+    border: 1px solid rgba(128, 128, 128, .17);
+    border-radius: 15px;
+    padding: .9rem 1rem;
+    background: rgba(128, 128, 128, .025);
+    margin: .2rem 0 .85rem;
+}
+.caproq-history-request-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+}
+.caproq-history-field-label {
+    font-size: .7rem;
+    font-weight: 780;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    opacity: .6;
+    margin-bottom: .18rem;
+}
+.caproq-history-field-value {
+    font-size: .88rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+.caproq-history-scoreboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: .55rem;
+    margin: .45rem 0 .85rem;
+}
+.caproq-history-area-card {
+    border: 1px solid rgba(128, 128, 128, .16);
+    border-radius: 13px;
+    padding: .72rem .78rem;
+    background: rgba(128, 128, 128, .025);
+}
+.caproq-history-area-name {
+    font-size: .74rem;
+    font-weight: 800;
+    margin-bottom: .28rem;
+    line-height: 1.25;
+}
+.caproq-history-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .28rem;
+    padding: .22rem .48rem;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 800;
+}
+.caproq-history-badge.approved { background: rgba(34, 197, 94, .14); color: #16823a; }
+.caproq-history-badge.warning { background: rgba(245, 158, 11, .16); color: #9a6100; }
+.caproq-history-badge.rejected { background: rgba(239, 68, 68, .14); color: #b42318; }
+.caproq-history-badge.pending { background: rgba(107, 114, 128, .13); color: #60646c; }
+.caproq-history-section-label {
+    margin: .95rem 0 .45rem;
+    font-size: .82rem;
+    font-weight: 820;
+    letter-spacing: .01em;
+}
+@media (max-width: 850px) {
+    .caproq-history-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .caproq-history-request-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+    .caproq-history-hero { padding: 1.05rem 1rem; }
+    .caproq-history-title { font-size: 1.28rem; }
+    .caproq-history-summary { grid-template-columns: 1fr; }
+    .caproq-history-request-grid { grid-template-columns: 1fr; }
+}
+
+.caproq-audit-hero {
+    padding: 1.35rem 1.5rem;
+    border: 1px solid rgba(49, 130, 206, .20);
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(0, 86, 145, .14), rgba(0, 86, 145, .025));
+    margin: .15rem 0 1rem;
+}
+.caproq-audit-kicker {
+    margin: 0 0 .32rem;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    opacity: .72;
+}
+.caproq-audit-title {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 850;
+    line-height: 1.2;
+}
+.caproq-audit-subtitle {
+    margin: .42rem 0 0;
+    opacity: .76;
+    line-height: 1.5;
+}
+.caproq-audit-filter-shell {
+    padding: .95rem 1rem .35rem;
+    border: 1px solid rgba(128, 128, 128, .18);
+    border-radius: 16px;
+    background: rgba(128, 128, 128, .035);
+    margin-bottom: .95rem;
+}
+.caproq-audit-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+    margin: .25rem 0 1rem;
+}
+.caproq-audit-summary-card {
+    padding: .9rem 1rem;
+    border: 1px solid rgba(128, 128, 128, .17);
+    border-radius: 15px;
+    background: rgba(128, 128, 128, .025);
+}
+.caproq-audit-summary-label {
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    opacity: .62;
+}
+.caproq-audit-summary-value {
+    margin-top: .2rem;
+    font-size: 1.42rem;
+    font-weight: 850;
+}
+.caproq-audit-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .7rem;
+    margin: .2rem 0 1rem;
+}
+.caproq-audit-meta-card {
+    padding: .78rem .86rem;
+    border-radius: 13px;
+    border: 1px solid rgba(128, 128, 128, .16);
+    background: rgba(128, 128, 128, .025);
+}
+.caproq-audit-meta-label {
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    opacity: .6;
+}
+.caproq-audit-meta-value {
+    margin-top: .22rem;
+    font-size: .9rem;
+    font-weight: 720;
+    overflow-wrap: anywhere;
+}
+.caproq-audit-section-label {
+    margin: 1rem 0 .55rem;
+    font-size: .78rem;
+    font-weight: 850;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    opacity: .68;
+}
+.caproq-audit-event {
+    position: relative;
+    margin-left: .55rem;
+    padding: .15rem 0 1rem 1.35rem;
+    border-left: 2px solid rgba(128, 128, 128, .22);
+}
+.caproq-audit-event:last-child {
+    padding-bottom: .25rem;
+}
+.caproq-audit-dot {
+    position: absolute;
+    left: -.48rem;
+    top: .16rem;
+    width: .84rem;
+    height: .84rem;
+    border-radius: 999px;
+    border: 3px solid var(--background-color, #fff);
+    background: #94a3b8;
+}
+.caproq-audit-dot.approved { background: #16a34a; }
+.caproq-audit-dot.warning { background: #d97706; }
+.caproq-audit-dot.rejected { background: #dc2626; }
+.caproq-audit-dot.info { background: #0284c7; }
+.caproq-audit-event-title {
+    font-size: .92rem;
+    font-weight: 820;
+    margin: 0;
+}
+.caproq-audit-event-text {
+    margin: .22rem 0 0;
+    opacity: .78;
+    line-height: 1.45;
+    font-size: .86rem;
+}
+.caproq-audit-empty {
+    padding: 1.25rem;
+    border: 1px dashed rgba(128, 128, 128, .35);
+    border-radius: 15px;
+    text-align: center;
+    opacity: .72;
+}
+@media (max-width: 900px) {
+    .caproq-audit-summary-grid,
+    .caproq-audit-meta-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 620px) {
+    .caproq-audit-summary-grid,
+    .caproq-audit-meta-grid {
+        grid-template-columns: 1fr;
+    }
+    .caproq-audit-hero {
+        padding: 1.05rem 1rem;
+    }
+}
+
+.caproq-dashboard-hero {
+    padding: 1.35rem 1.5rem;
+    border: 1px solid rgba(49, 130, 206, .20);
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(0, 86, 145, .14), rgba(0, 86, 145, .025));
+    margin: .15rem 0 1rem;
+}
+.caproq-dashboard-kicker {
+    margin: 0 0 .32rem;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    opacity: .72;
+}
+.caproq-dashboard-title {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 850;
+    line-height: 1.2;
+}
+.caproq-dashboard-subtitle {
+    margin: .42rem 0 0;
+    opacity: .76;
+    line-height: 1.5;
+}
+.caproq-filter-shell {
+    padding: .95rem 1rem .35rem;
+    border: 1px solid rgba(128, 128, 128, .18);
+    border-radius: 16px;
+    background: rgba(128, 128, 128, .035);
+    margin-bottom: .95rem;
+}
+.caproq-dashboard-section {
+    margin: 1.15rem 0 .58rem;
+    font-size: .98rem;
+    font-weight: 800;
+    letter-spacing: -.01em;
+}
+.caproq-dashboard-card {
+    border: 1px solid rgba(128, 128, 128, .17);
+    border-radius: 16px;
+    padding: .95rem 1rem;
+    background: rgba(128, 128, 128, .025);
+    min-height: 100%;
+}
+.caproq-dashboard-card-title {
+    font-size: .88rem;
+    font-weight: 800;
+    margin: 0 0 .15rem;
+}
+.caproq-dashboard-card-caption {
+    font-size: .76rem;
+    opacity: .65;
+    margin-bottom: .4rem;
+}
+.caproq-dashboard-note {
+    padding: .8rem .95rem;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 86, 145, .18);
+    background: rgba(0, 86, 145, .055);
+    line-height: 1.45;
+    font-size: .86rem;
+}
+@media (max-width: 700px) {
+    .caproq-dashboard-hero { padding: 1.05rem 1rem; }
+    .caproq-dashboard-title { font-size: 1.3rem; }
+}
+
+            .caproq-homolog-header {
+                padding: 1.45rem 1.55rem;
+                border: 1px solid rgba(49, 130, 206, .20);
+                border-radius: 18px;
+                background: linear-gradient(135deg, rgba(0, 86, 145, .13), rgba(0, 86, 145, .03));
+                margin: .25rem 0 1.1rem;
+            }
+            .caproq-homolog-kicker {
+                font-size: .74rem; font-weight: 800; letter-spacing: .13em;
+                text-transform: uppercase; opacity: .72; margin-bottom: .35rem;
+            }
+            .caproq-homolog-title {
+                font-size: 1.7rem; font-weight: 800; line-height: 1.15; margin: 0;
+            }
+            .caproq-homolog-subtitle {
+                margin-top: .45rem; opacity: .78; line-height: 1.5;
+            }
+            .caproq-summary-grid {
+                display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: .7rem; margin: .8rem 0 1rem;
+            }
+            .caproq-summary-card {
+                padding: .8rem .9rem; border-radius: 13px;
+                border: 1px solid rgba(128,128,128,.20);
+                background: rgba(128,128,128,.055); min-height: 74px;
+            }
+            .caproq-summary-label {
+                font-size: .70rem; font-weight: 800; letter-spacing: .06em;
+                text-transform: uppercase; opacity: .62; margin-bottom: .28rem;
+            }
+            .caproq-summary-value { font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+            .caproq-score-grid {
+                display:grid; grid-template-columns:repeat(auto-fit,minmax(135px,1fr));
+                gap:.55rem; margin:.65rem 0 1rem;
+            }
+            .caproq-score-card {
+                padding:.72rem .75rem; border-radius:12px; border:1px solid var(--score-border);
+                background:var(--score-bg);
+            }
+            .caproq-score-label { font-size:.72rem; font-weight:800; opacity:.75; margin-bottom:.25rem; }
+            .caproq-score-status { font-size:.84rem; font-weight:800; }
+            .caproq-section-title {
+                margin: 1.1rem 0 .6rem; padding-left:.7rem; border-left:4px solid #005691;
+                font-size:1.02rem; font-weight:800;
+            }
+            .caproq-parecer-card {
+                padding:.85rem .95rem; margin:.55rem 0; border-radius:12px;
+                border:1px solid rgba(128,128,128,.18); background:rgba(128,128,128,.045);
+            }
+            .caproq-parecer-head { font-weight:800; margin-bottom:.35rem; }
+            .caproq-parecer-text { opacity:.82; line-height:1.5; overflow-wrap:anywhere; }
+            .caproq-decision-box {
+                margin:1.2rem 0 .7rem; padding:1rem 1.1rem; border-radius:14px;
+                border:1px solid rgba(0,86,145,.28); background:rgba(0,86,145,.07);
+            }
+            @media (max-width: 900px) {
+                .caproq-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+            }
+            @media (max-width: 560px) {
+                .caproq-summary-grid { grid-template-columns:1fr; }
+                .caproq-homolog-title { font-size:1.35rem; }
+            }
+            
+
+    .caproq-request-hero {
+        padding: 26px 28px;
+        border: 1px solid color-mix(in srgb, #005691 24%, transparent);
+        border-radius: 18px;
+        background: linear-gradient(135deg, color-mix(in srgb, #005691 12%, transparent), color-mix(in srgb, #ffffff 94%, transparent));
+        margin: 4px 0 18px 0;
+        box-shadow: 0 12px 30px rgba(0, 86, 145, .08);
+    }
+    .caproq-request-kicker {
+        color: #005691;
+        font-size: .78rem;
+        font-weight: 800;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        margin-bottom: 7px;
+    }
+    .caproq-request-title {
+        font-size: clamp(1.55rem, 2.8vw, 2.35rem);
+        font-weight: 800;
+        line-height: 1.12;
+        margin: 0;
+    }
+    .caproq-request-subtitle {
+        margin: 9px 0 0 0;
+        opacity: .76;
+        max-width: 760px;
+        line-height: 1.55;
+    }
+    .caproq-steps {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 8px;
+        margin: 0 0 18px 0;
+    }
+    .caproq-step {
+        min-height: 68px;
+        border: 1px solid color-mix(in srgb, #005691 18%, transparent);
+        border-radius: 13px;
+        padding: 10px 9px;
+        background: color-mix(in srgb, #005691 5%, transparent);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .caproq-step-number {
+        min-width: 27px;
+        height: 27px;
+        border-radius: 50%;
+        background: #005691;
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .78rem;
+        font-weight: 800;
+    }
+    .caproq-step-label {
+        font-size: .78rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .caproq-form-section {
+        margin: 22px 0 13px 0;
+        padding: 15px 17px;
+        border-left: 5px solid #005691;
+        border-radius: 0 13px 13px 0;
+        background: color-mix(in srgb, #005691 7%, transparent);
+    }
+    .caproq-form-section-title {
+        font-size: 1.03rem;
+        font-weight: 800;
+        margin: 0;
+    }
+    .caproq-form-section-help {
+        font-size: .84rem;
+        opacity: .72;
+        margin-top: 4px;
+    }
+    .caproq-required-note {
+        margin: 4px 0 13px 0;
+        font-size: .82rem;
+        opacity: .7;
+    }
+    .caproq-test-banner {
+        padding: 16px 18px;
+        border-radius: 14px;
+        background: color-mix(in srgb, #e6a23c 13%, transparent);
+        border: 1px solid color-mix(in srgb, #e6a23c 32%, transparent);
+        margin-bottom: 15px;
+    }
+    .caproq-test-title {font-weight: 800; margin-bottom: 4px;}
+    .caproq-test-copy {font-size: .88rem; opacity: .78;}
+    div[data-testid="stForm"] {
+        border: 1px solid color-mix(in srgb, #005691 17%, transparent);
+        border-radius: 18px;
+        padding: 1.05rem 1.15rem 1.2rem 1.15rem;
+        background: color-mix(in srgb, var(--background-color, #ffffff) 97%, #005691 3%);
+        box-shadow: 0 12px 28px rgba(0, 86, 145, .05);
+    }
+    div[data-testid="stFileUploader"] {
+        border-radius: 14px;
+        padding: 4px 8px;
+        background: color-mix(in srgb, #005691 4%, transparent);
+    }
+    @media (max-width: 900px) {
+        .caproq-steps {grid-template-columns: repeat(3, minmax(0, 1fr));}
+    }
+    @media (max-width: 560px) {
+        .caproq-request-hero {padding: 21px 18px;}
+        .caproq-steps {grid-template-columns: repeat(2, minmax(0, 1fr));}
+        div[data-testid="stForm"] {padding: .75rem;}
+    }
+    
+
+        .caproq-my-hero {
+            border: 1px solid rgba(0, 86, 145, .18);
+            border-radius: 18px;
+            padding: 22px 24px;
+            margin: 8px 0 18px 0;
+            background: linear-gradient(135deg, rgba(0,86,145,.12), rgba(0,86,145,.025));
+        }
+        .caproq-my-kicker {
+            color: #005691;
+            font-size: .78rem;
+            font-weight: 800;
+            letter-spacing: .10em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .caproq-my-title {
+            font-size: 1.65rem;
+            line-height: 1.15;
+            font-weight: 800;
+            margin: 0 0 7px 0;
+        }
+        .caproq-my-subtitle {
+            opacity: .76;
+            line-height: 1.55;
+            max-width: 780px;
+        }
+        .caproq-my-metric {
+            border: 1px solid rgba(128,128,128,.22);
+            border-radius: 15px;
+            padding: 15px 16px;
+            min-height: 104px;
+            background: rgba(255,255,255,.035);
+        }
+        .caproq-my-metric-label {
+            opacity: .68;
+            font-size: .77rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+        .caproq-my-metric-value {
+            font-size: 1.65rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-top: 7px;
+        }
+        .caproq-my-metric-help {
+            opacity: .64;
+            font-size: .80rem;
+            margin-top: 4px;
+        }
+        .caproq-my-summary {
+            display:grid;
+            grid-template-columns:repeat(4,minmax(0,1fr));
+            gap:10px;
+            margin: 6px 0 16px 0;
+        }
+        .caproq-my-summary-item {
+            border:1px solid rgba(128,128,128,.20);
+            border-radius:12px;
+            padding:12px 13px;
+            background:rgba(255,255,255,.025);
+        }
+        .caproq-my-summary-label {
+            opacity:.62;
+            font-size:.72rem;
+            font-weight:800;
+            letter-spacing:.04em;
+            text-transform:uppercase;
+            margin-bottom:4px;
+        }
+        .caproq-my-summary-value {
+            font-weight:700;
+            line-height:1.35;
+            overflow-wrap:anywhere;
+        }
+        .caproq-my-badge {
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+            border-radius:999px;
+            padding:5px 10px;
+            font-size:.76rem;
+            font-weight:800;
+            border:1px solid transparent;
+        }
+        .caproq-my-badge-blue {color:#005691;background:rgba(0,86,145,.12);border-color:rgba(0,86,145,.24)}
+        .caproq-my-badge-green {color:#087443;background:rgba(8,116,67,.12);border-color:rgba(8,116,67,.24)}
+        .caproq-my-badge-yellow {color:#9a6700;background:rgba(230,162,60,.14);border-color:rgba(230,162,60,.28)}
+        .caproq-my-badge-red {color:#b3261e;background:rgba(217,48,37,.11);border-color:rgba(217,48,37,.23)}
+        .caproq-my-badge-gray {color:inherit;background:rgba(128,128,128,.11);border-color:rgba(128,128,128,.20)}
+        .caproq-my-stage {
+            border:1px solid rgba(128,128,128,.20);
+            border-radius:14px;
+            padding:14px 15px;
+            margin:10px 0 14px 0;
+            background:rgba(255,255,255,.025);
+        }
+        .caproq-my-stage-title {font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;opacity:.65;margin-bottom:5px}
+        .caproq-my-stage-value {font-size:1.02rem;font-weight:800}
+        .caproq-my-scoreboard {
+            display:grid;
+            grid-template-columns:repeat(4,minmax(0,1fr));
+            gap:9px;
+            margin:8px 0 14px 0;
+        }
+        .caproq-my-score {
+            border-radius:12px;
+            padding:11px 12px;
+            border:1px solid rgba(128,128,128,.18);
+            min-height:72px;
+        }
+        .caproq-my-score-label {font-size:.72rem;font-weight:800;line-height:1.25;margin-bottom:5px}
+        .caproq-my-score-status {font-size:.75rem;font-weight:700;opacity:.83}
+        .caproq-score-pending {background:rgba(128,128,128,.08)}
+        .caproq-score-approved {background:rgba(8,116,67,.10);border-color:rgba(8,116,67,.24)}
+        .caproq-score-warning {background:rgba(230,162,60,.12);border-color:rgba(230,162,60,.27)}
+        .caproq-score-rejected {background:rgba(217,48,37,.09);border-color:rgba(217,48,37,.23)}
+        .caproq-my-opinion {
+            border-left:4px solid rgba(128,128,128,.35);
+            border-radius:0 12px 12px 0;
+            padding:12px 14px;
+            margin:8px 0;
+            background:rgba(128,128,128,.06);
+        }
+        .caproq-my-opinion-green {border-left-color:#087443;background:rgba(8,116,67,.075)}
+        .caproq-my-opinion-yellow {border-left-color:#e6a23c;background:rgba(230,162,60,.085)}
+        .caproq-my-opinion-red {border-left-color:#d93025;background:rgba(217,48,37,.065)}
+        .caproq-my-opinion-area {font-weight:800;margin-bottom:5px}
+        .caproq-my-opinion-text {opacity:.86;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+        .caproq-empty-state {
+            border:1px dashed rgba(128,128,128,.32);
+            border-radius:16px;
+            padding:34px 24px;
+            text-align:center;
+            margin-top:14px;
+            background:rgba(128,128,128,.035);
+        }
+        .caproq-empty-icon {font-size:2.1rem;margin-bottom:8px}
+        .caproq-empty-title {font-size:1.05rem;font-weight:800;margin-bottom:5px}
+        .caproq-empty-text {opacity:.68;line-height:1.5}
+        @media (max-width: 900px) {
+            .caproq-my-summary,.caproq-my-scoreboard {grid-template-columns:repeat(2,minmax(0,1fr));}
+        }
+        @media (max-width: 560px) {
+            .caproq-my-hero {padding:18px 16px}
+            .caproq-my-title {font-size:1.35rem}
+            .caproq-my-summary,.caproq-my-scoreboard {grid-template-columns:1fr;}
+        }
+        
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 FEEDBACK_CONFIG = {
     "success": ("✅", "Concluído"),
