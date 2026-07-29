@@ -543,6 +543,140 @@ def criar_registro_reuniao(
     }
 
 
+
+def _texto_limpo(valor) -> str:
+    texto = str(valor or "").strip()
+    return "" if texto.lower() in {"nan", "none", "nat"} else texto
+
+
+def _emails_texto_para_lista(texto: str) -> list[str]:
+    bruto = str(texto or "").replace(";", ",").replace("\n", ",")
+    return emails_unicos([item.strip() for item in bruto.split(",")])
+
+
+def _participantes_padrao_reuniao() -> list[str]:
+    """Retorna aprovadores e administradores sem duplicidade."""
+    return emails_unicos([todos_emails_aprovadores(), ADMINS])
+
+
+def _alcadas_reprovadoras_chamado(row: pd.Series) -> list[dict]:
+    """Identifica as alçadas cujo parecer oficial começa com Reprovar."""
+    resultado = []
+    for info in ALCADAS_INFO.values():
+        coluna = info.get("coluna_sheets", "")
+        label = info.get("label", coluna)
+        parecer = _texto_limpo(row.get(coluna, ""))
+        if parecer.lower().startswith("reprovar"):
+            resultado.append({"label": label, "coluna": coluna, "parecer": parecer})
+    return resultado
+
+
+def _reuniao_ativa_do_chamado(id_chamado, df_reunioes: pd.DataFrame | None = None) -> pd.DataFrame:
+    registros = reunioes_do_chamado(id_chamado, df_reunioes=df_reunioes)
+    if registros.empty:
+        return registros
+    status = registros["Status_Reuniao"].astype(str).str.strip().str.lower()
+    ativos = {
+        STATUS_REUNIAO_AGUARDANDO_AGENDAMENTO.lower(),
+        STATUS_REUNIAO_AGENDADA.lower(),
+        STATUS_REUNIAO_REAGENDADA.lower(),
+        STATUS_REUNIAO_SEM_DECISAO.lower(),
+    }
+    return registros.loc[status.isin(ativos)].copy()
+
+
+def agendar_reuniao_caproq(
+    *,
+    id_chamado,
+    alcada_origem: str,
+    motivo_reuniao: str,
+    parecer_origem: str,
+    data_agendamento,
+    hora_inicio,
+    hora_fim,
+    modalidade: str,
+    local_reuniao: str,
+    participantes: list[str],
+    pauta: str,
+    observacoes: str,
+    organizador_nome: str,
+    organizador_email: str,
+) -> tuple[bool, str]:
+    """Cria uma reunião agendada e sincroniza os campos de controle do chamado."""
+    if not str(motivo_reuniao).strip():
+        return False, "Informe o motivo da reunião."
+    if not str(pauta).strip():
+        return False, "Informe a pauta da reunião."
+    if not participantes:
+        return False, "Informe ao menos um participante."
+    if hora_fim <= hora_inicio:
+        return False, "O horário final deve ser posterior ao horário inicial."
+    if modalidade in {"Presencial", "Híbrida"} and not str(local_reuniao).strip():
+        return False, "Informe o local da reunião presencial ou híbrida."
+
+    dados = carregar_dados(forcar_atualizacao=True)
+    if dados.empty or "ID" not in dados.columns:
+        return False, "A base principal não está disponível."
+
+    ids = pd.to_numeric(dados["ID"], errors="coerce")
+    alvo = pd.to_numeric(pd.Series([id_chamado]), errors="coerce").iloc[0]
+    indices = dados.index[ids.eq(alvo)].tolist()
+    if not indices:
+        return False, f"Chamado #{id_chamado} não localizado."
+
+    indice = indices[0]
+    row = dados.loc[indice]
+    if not chamado_requer_reuniao(row):
+        return False, "Este chamado não está sinalizado como necessitando de reunião."
+
+    reunioes = carregar_reunioes_caproq(forcar_atualizacao=True)
+    ativas = _reuniao_ativa_do_chamado(id_chamado, reunioes)
+    if not ativas.empty:
+        return False, "Este chamado já possui uma reunião ativa. Abra a aba de reuniões agendadas."
+
+    registro = criar_registro_reuniao(
+        id_chamado=id_chamado,
+        motivo_reuniao=motivo_reuniao,
+        alcada_origem=alcada_origem,
+        parecer_origem=parecer_origem,
+        criado_por=organizador_nome,
+        criado_por_email=organizador_email,
+        status_reuniao=STATUS_REUNIAO_AGENDADA,
+        df_reunioes=reunioes,
+    )
+    registro.update({
+        "Data_Agendamento": data_agendamento.strftime("%d/%m/%Y"),
+        "Hora_Inicio": hora_inicio.strftime("%H:%M"),
+        "Hora_Fim": hora_fim.strftime("%H:%M"),
+        "Modalidade": str(modalidade).strip(),
+        "Local_Reuniao": str(local_reuniao).strip(),
+        "Organizador_Nome": str(organizador_nome).strip(),
+        "Organizador_Email": str(organizador_email).strip().lower(),
+        "Participantes_Convidados": "; ".join(participantes),
+        "Pauta": str(pauta).strip(),
+        "Observacoes_Agendamento": str(observacoes).strip(),
+    })
+
+    reunioes_atualizadas = pd.concat([reunioes, pd.DataFrame([registro])], ignore_index=True)
+    if not salvar_reunioes_caproq(reunioes_atualizadas):
+        return False, "Não foi possível gravar a reunião na aba Reunioes_CAPROQ."
+
+    quantidade = pd.to_numeric(pd.Series([row.get("Quantidade_Reunioes", 0)]), errors="coerce").fillna(0).iloc[0]
+    dados.at[indice, "Reuniao_Necessaria"] = "SIM"
+    dados.at[indice, "Status_Reuniao"] = STATUS_REUNIAO_AGENDADA
+    dados.at[indice, "ID_Reuniao_Atual"] = registro["ID_Reuniao"]
+    dados.at[indice, "Quantidade_Reunioes"] = int(quantidade) + 1
+    dados.at[indice, "Alcada_Origem_Reuniao"] = str(alcada_origem).strip()
+    dados.at[indice, "Motivo_Reuniao_Atual"] = str(motivo_reuniao).strip()
+
+    if not salvar_base_principal_revisao(dados):
+        # rollback da aba de reuniões para não deixar registros divergentes
+        salvar_reunioes_caproq(reunioes)
+        return False, "A reunião foi preparada, mas não foi possível atualizar o chamado. Nenhum registro foi mantido."
+
+    return True, str(registro["ID_Reuniao"])
+
+
 def chamado_requer_reuniao(row: pd.Series) -> bool:
     """Centraliza a regra estrutural usada pela futura tela de reuniões."""
     status_tecnico = str(row.get("Status_Aprovadores", "")).strip().lower()
@@ -1941,6 +2075,14 @@ if usuario_eh_admin():
         key="menu_homologacao",
     ):
         st.session_state["pagina_atual"] = "homologacao_final"
+        st.rerun()
+
+    if st.sidebar.button(
+        "📅 Reuniões",
+        use_container_width=True,
+        key="menu_reunioes",
+    ):
+        st.session_state["pagina_atual"] = "reunioes_admin"
         st.rerun()
 
     if st.sidebar.button(
@@ -4240,6 +4382,281 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
 </div>
 """,
                         unsafe_allow_html=True,
+                    )
+
+    # ==============================================================================
+    # 8.45. Reuniões técnicas — agendamento e acompanhamento
+    # ==============================================================================
+    if (
+        st.session_state.get("is_admin", False)
+        and st.session_state.get("pagina_atual") == "reunioes_admin"
+    ):
+        exigir_admin()
+
+        ui.render_page_header(
+            title="Reuniões técnicas",
+            subtitle="Agende e acompanhe as reuniões necessárias após uma reprovação técnica.",
+            icon="📅",
+        )
+
+        dados_reunioes_tela = carregar_dados(forcar_atualizacao=True)
+        reunioes_tela = carregar_reunioes_caproq(forcar_atualizacao=True)
+
+        if dados_reunioes_tela.empty:
+            ui.render_empty_state(
+                "Nenhum chamado disponível",
+                "Os chamados que exigirem reunião aparecerão nesta área.",
+                icon="📭",
+            )
+        else:
+            mascara_necessaria = dados_reunioes_tela.apply(chamado_requer_reuniao, axis=1)
+            status_reuniao_chamado = dados_reunioes_tela.get(
+                "Status_Reuniao", pd.Series(index=dados_reunioes_tela.index, dtype=str)
+            ).astype(str).str.strip().str.lower()
+            pendentes_reuniao = dados_reunioes_tela.loc[
+                mascara_necessaria
+                & status_reuniao_chamado.isin({
+                    "",
+                    STATUS_REUNIAO_NAO_NECESSARIA.lower(),
+                    STATUS_REUNIAO_AGUARDANDO_AGENDAMENTO.lower(),
+                    "nan",
+                    "none",
+                })
+            ].copy()
+
+            status_registros = reunioes_tela.get(
+                "Status_Reuniao", pd.Series(index=reunioes_tela.index, dtype=str)
+            ).astype(str).str.strip()
+            agendadas_tela = reunioes_tela.loc[
+                status_registros.str.lower().isin({
+                    STATUS_REUNIAO_AGENDADA.lower(),
+                    STATUS_REUNIAO_REAGENDADA.lower(),
+                })
+            ].copy()
+            historico_tela = reunioes_tela.loc[
+                ~status_registros.str.lower().isin({
+                    STATUS_REUNIAO_AGENDADA.lower(),
+                    STATUS_REUNIAO_REAGENDADA.lower(),
+                })
+            ].copy()
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Pendentes de agendamento", len(pendentes_reuniao))
+            c2.metric("Reuniões agendadas", len(agendadas_tela))
+            c3.metric("Registros no histórico", len(historico_tela))
+
+            aba_pendentes, aba_agendadas, aba_historico = st.tabs([
+                "Pendentes de agendamento",
+                "Reuniões agendadas",
+                "Histórico de reuniões",
+            ])
+
+            with aba_pendentes:
+                if pendentes_reuniao.empty:
+                    ui.render_empty_state(
+                        "Nenhuma reunião aguardando agendamento",
+                        "Não existem chamados reprovados sem uma reunião ativa.",
+                        icon="✅",
+                    )
+                else:
+                    if "ID" in pendentes_reuniao.columns:
+                        pendentes_reuniao = pendentes_reuniao.sort_values("ID", ascending=False)
+
+                    for _, chamado_reuniao in pendentes_reuniao.iterrows():
+                        id_chamado_reuniao = chamado_reuniao.get("ID", "")
+                        titulo_chamado = _texto_limpo(
+                            chamado_reuniao.get("Título", chamado_reuniao.get("Titulo", "Produto não informado"))
+                        )
+                        reprovadoras = _alcadas_reprovadoras_chamado(chamado_reuniao)
+                        opcoes_alcadas = [item["label"] for item in reprovadoras] or [
+                            _texto_limpo(chamado_reuniao.get("Alcada_Origem_Reuniao", "")) or "Não identificada"
+                        ]
+                        mapa_pareceres = {item["label"]: item["parecer"] for item in reprovadoras}
+
+                        with st.expander(
+                            f"Chamado #{id_chamado_reuniao} · {titulo_chamado}",
+                            expanded=False,
+                        ):
+                            st.markdown(
+                                f"**Solicitante:** {_texto_limpo(chamado_reuniao.get('Remetente_Nome', 'Não informado'))}  \n"
+                                f"**Setor:** {_texto_limpo(chamado_reuniao.get('Setor', 'Não informado'))}  \n"
+                                f"**Status técnico:** {_texto_limpo(chamado_reuniao.get('Status_Aprovadores', 'Não informado'))}"
+                            )
+
+                            if reprovadoras:
+                                st.markdown("#### Pareceres que originaram a reunião")
+                                for item in reprovadoras:
+                                    st.error(f"**{item['label']}:** {item['parecer']}")
+
+                            with st.form(f"form_agendar_reuniao_{id_chamado_reuniao}"):
+                                col_data, col_inicio, col_fim = st.columns(3)
+                                data_reuniao = col_data.date_input(
+                                    "Data",
+                                    value=datetime.date.today() + datetime.timedelta(days=1),
+                                    min_value=datetime.date.today(),
+                                    key=f"data_reuniao_{id_chamado_reuniao}",
+                                )
+                                hora_inicio_reuniao = col_inicio.time_input(
+                                    "Início",
+                                    value=datetime.time(14, 0),
+                                    key=f"inicio_reuniao_{id_chamado_reuniao}",
+                                )
+                                hora_fim_reuniao = col_fim.time_input(
+                                    "Término",
+                                    value=datetime.time(15, 0),
+                                    key=f"fim_reuniao_{id_chamado_reuniao}",
+                                )
+
+                                col_alcada, col_modalidade = st.columns(2)
+                                alcada_reuniao = col_alcada.selectbox(
+                                    "Alçada de origem",
+                                    opcoes_alcadas,
+                                    key=f"alcada_reuniao_{id_chamado_reuniao}",
+                                )
+                                modalidade_reuniao = col_modalidade.selectbox(
+                                    "Modalidade",
+                                    ["Google Meet", "Presencial", "Híbrida"],
+                                    key=f"modalidade_reuniao_{id_chamado_reuniao}",
+                                )
+                                local_reuniao = st.text_input(
+                                    "Local",
+                                    placeholder="Obrigatório para reunião presencial ou híbrida.",
+                                    key=f"local_reuniao_{id_chamado_reuniao}",
+                                )
+                                motivo_padrao = (
+                                    f"Discussão técnica decorrente da reprovação da alçada {alcada_reuniao}."
+                                )
+                                motivo_reuniao = st.text_area(
+                                    "Motivo da reunião",
+                                    value=motivo_padrao,
+                                    key=f"motivo_reuniao_{id_chamado_reuniao}",
+                                )
+                                pauta_reuniao = st.text_area(
+                                    "Pauta",
+                                    value=(
+                                        f"Analisar os pareceres técnicos do Chamado #{id_chamado_reuniao}, "
+                                        "discutir os riscos e definir os próximos encaminhamentos."
+                                    ),
+                                    key=f"pauta_reuniao_{id_chamado_reuniao}",
+                                )
+                                participantes_padrao = ", ".join(_participantes_padrao_reuniao())
+                                participantes_texto = st.text_area(
+                                    "Participantes convidados",
+                                    value=participantes_padrao,
+                                    help="Separe os e-mails por vírgula, ponto e vírgula ou linha.",
+                                    key=f"participantes_reuniao_{id_chamado_reuniao}",
+                                )
+                                observacoes_reuniao = st.text_area(
+                                    "Observações do agendamento",
+                                    placeholder="Informações adicionais, documentos necessários ou orientações aos participantes.",
+                                    key=f"observacoes_reuniao_{id_chamado_reuniao}",
+                                )
+                                confirmar_agendamento = st.checkbox(
+                                    "Confirmo os dados do agendamento.",
+                                    key=f"confirmar_agendamento_{id_chamado_reuniao}",
+                                )
+                                enviar_agendamento = st.form_submit_button(
+                                    "Salvar agendamento",
+                                    use_container_width=True,
+                                )
+
+                            if enviar_agendamento:
+                                if not confirmar_agendamento:
+                                    ui.render_feedback(
+                                        "Confirme os dados antes de salvar.",
+                                        kind="warning",
+                                        title="Confirmação necessária",
+                                        icon="⚠️",
+                                    )
+                                else:
+                                    lista_participantes = _emails_texto_para_lista(participantes_texto)
+                                    sucesso_reuniao, retorno_reuniao = agendar_reuniao_caproq(
+                                        id_chamado=id_chamado_reuniao,
+                                        alcada_origem=alcada_reuniao,
+                                        motivo_reuniao=motivo_reuniao,
+                                        parecer_origem=mapa_pareceres.get(alcada_reuniao, ""),
+                                        data_agendamento=data_reuniao,
+                                        hora_inicio=hora_inicio_reuniao,
+                                        hora_fim=hora_fim_reuniao,
+                                        modalidade=modalidade_reuniao,
+                                        local_reuniao=local_reuniao,
+                                        participantes=lista_participantes,
+                                        pauta=pauta_reuniao,
+                                        observacoes=observacoes_reuniao,
+                                        organizador_nome=user_name,
+                                        organizador_email=user_email,
+                                    )
+                                    if sucesso_reuniao:
+                                        ui.render_feedback(
+                                            f"Reunião registrada com o protocolo {retorno_reuniao}.",
+                                            kind="success",
+                                            title="Agendamento salvo",
+                                            icon="✅",
+                                        )
+                                        st.rerun()
+                                    else:
+                                        ui.render_feedback(
+                                            retorno_reuniao,
+                                            kind="error",
+                                            title="Não foi possível agendar",
+                                            icon="⛔",
+                                        )
+
+            with aba_agendadas:
+                if agendadas_tela.empty:
+                    ui.render_empty_state(
+                        "Nenhuma reunião agendada",
+                        "Os agendamentos confirmados aparecerão nesta aba.",
+                        icon="📆",
+                    )
+                else:
+                    agendadas_tela["__data_ordem"] = pd.to_datetime(
+                        agendadas_tela["Data_Agendamento"], dayfirst=True, errors="coerce"
+                    )
+                    agendadas_tela = agendadas_tela.sort_values(
+                        ["__data_ordem", "Hora_Inicio"], ascending=[True, True]
+                    )
+                    for _, reuniao in agendadas_tela.iterrows():
+                        id_reuniao = _texto_limpo(reuniao.get("ID_Reuniao", ""))
+                        id_chamado = reuniao.get("ID_Chamado", "")
+                        numero = reuniao.get("Numero_Reuniao_Chamado", "")
+                        with st.expander(
+                            f"Chamado #{id_chamado} · Reunião {numero} · {reuniao.get('Data_Agendamento', '')} às {reuniao.get('Hora_Inicio', '')}",
+                            expanded=False,
+                        ):
+                            c1, c2, c3 = st.columns(3)
+                            c1.metric("Status", _texto_limpo(reuniao.get("Status_Reuniao", "")))
+                            c2.metric("Modalidade", _texto_limpo(reuniao.get("Modalidade", "")))
+                            c3.metric("Protocolo", id_reuniao)
+                            st.markdown(f"**Alçada de origem:** {_texto_limpo(reuniao.get('Alcada_Origem', ''))}")
+                            st.markdown(f"**Organizador:** {_texto_limpo(reuniao.get('Organizador_Nome', ''))}")
+                            st.markdown(f"**Local:** {_texto_limpo(reuniao.get('Local_Reuniao', 'A definir')) or 'A definir'}")
+                            st.markdown("**Pauta:**")
+                            st.write(_texto_limpo(reuniao.get("Pauta", "Não informada")))
+                            st.markdown("**Participantes convidados:**")
+                            st.write(_texto_limpo(reuniao.get("Participantes_Convidados", "Não informados")))
+                            st.info(
+                                "A criação do convite no Google Agenda, o reagendamento e o cancelamento serão habilitados na Etapa 3."
+                            )
+
+            with aba_historico:
+                if historico_tela.empty:
+                    ui.render_empty_state(
+                        "Histórico ainda vazio",
+                        "Reuniões realizadas, canceladas ou concluídas aparecerão aqui nas próximas etapas.",
+                        icon="🗂️",
+                    )
+                else:
+                    colunas_historico = [
+                        "ID_Reuniao", "ID_Chamado", "Numero_Reuniao_Chamado",
+                        "Status_Reuniao", "Data_Agendamento", "Hora_Inicio",
+                        "Modalidade", "Alcada_Origem", "Organizador_Nome",
+                        "Data_Criacao", "Data_Atualizacao",
+                    ]
+                    st.dataframe(
+                        historico_tela[[c for c in colunas_historico if c in historico_tela.columns]],
+                        use_container_width=True,
+                        hide_index=True,
                     )
 
     # ==============================================================================
