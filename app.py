@@ -556,6 +556,7 @@ def escolha_padronizada(
     key: str,
     valor_padrao=None,
     help: str | None = None,
+    format_func=None,
 ):
     """Exibe escolhas da homologação no mesmo padrão visual.
 
@@ -571,6 +572,7 @@ def escolha_padronizada(
                 selection_mode="single",
                 key=key,
                 help=help,
+                format_func=format_func,
                 width="stretch",
             )
         except TypeError:
@@ -582,6 +584,7 @@ def escolha_padronizada(
                 selection_mode="single",
                 key=key,
                 help=help,
+                format_func=format_func,
             )
 
     indice = opcoes.index(valor_padrao) if valor_padrao in opcoes else None
@@ -592,6 +595,7 @@ def escolha_padronizada(
         horizontal=True,
         key=key,
         help=help,
+        format_func=format_func,
     )
 
 
@@ -2751,9 +2755,19 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                         ["Aprovador", "Solicitante", "Visualizador"],
                     )
                 with col_permissao2:
-                    is_admin_input = st.selectbox("Administrador", ["NÃO", "SIM"])
+                    is_admin_input = escolha_padronizada(
+                        "Administrador",
+                        ["SIM", "NÃO"],
+                        key="usuario_is_admin",
+                        valor_padrao="NÃO",
+                    )
                 with col_permissao3:
-                    is_ativo_input = st.selectbox("Usuário ativo", ["SIM", "NÃO"])
+                    is_ativo_input = escolha_padronizada(
+                        "Usuário ativo",
+                        ["SIM", "NÃO"],
+                        key="usuario_is_ativo",
+                        valor_padrao="SIM",
+                    )
 
                 st.markdown("#### Alçadas técnicas")
                 st.caption("Selecione somente as áreas pelas quais o usuário será responsável.")
@@ -3228,13 +3242,12 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                         key_voto = f"voto_escolha_{id_chamado}_{letra_col}"
                                         key_parecer = f"parecer_text_{id_chamado}_{letra_col}"
                                         
-                                        voto_opcao = st.radio(
+                                        voto_opcao = escolha_padronizada(
                                             "Decisão da Alçada:",
-                                            options=["Aprovar", "Aprovar com ressalva", "Reprovar"],
+                                            ["Aprovar", "Aprovar com ressalva", "Reprovar"],
+                                            key=key_voto,
+                                            valor_padrao=None,
                                             format_func=lambda x: "👍 Aprovar" if x == "Aprovar" else "⚠️ Aprovar com ressalva" if x == "Aprovar com ressalva" else "👎 Reprovar",
-                                            index=None,
-                                            horizontal=True,
-                                            key=key_voto
                                         )
                                         
                                         if voto_opcao:
@@ -3756,15 +3769,16 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                                     st.caption("O registro atual não possui observação textual separada.")
 
                                                 with st.form(chave_revisao, clear_on_submit=False):
-                                                    nova_decisao = st.selectbox(
+                                                    nova_decisao = escolha_padronizada(
                                                         "Nova decisão proposta *",
                                                         ["Aprovar", "Aprovar com ressalva", "Reprovar"],
-                                                        index=(
-                                                            ["Aprovar", "Aprovar com ressalva", "Reprovar"].index(decisao_atual_revisao)
-                                                            if decisao_atual_revisao in ["Aprovar", "Aprovar com ressalva", "Reprovar"]
-                                                            else 0
-                                                        ),
                                                         key=f"nova_decisao_{chave_revisao}",
+                                                        valor_padrao=(
+                                                            decisao_atual_revisao
+                                                            if decisao_atual_revisao in ["Aprovar", "Aprovar com ressalva", "Reprovar"]
+                                                            else "Aprovar"
+                                                        ),
+                                                        format_func=lambda x: "👍 Aprovar" if x == "Aprovar" else "⚠️ Aprovar com ressalva" if x == "Aprovar com ressalva" else "👎 Reprovar",
                                                     )
                                                     novo_parecer = st.text_area(
                                                         "Novo parecer técnico",
@@ -4900,11 +4914,13 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                     opcoes_alcadas,
                                     key=f"alcada_reuniao_{id_chamado_reuniao}",
                                 )
-                                modalidade_reuniao = col_modalidade.selectbox(
-                                    "Modalidade",
-                                    ["Google Meet", "Presencial", "Híbrida"],
-                                    key=f"modalidade_reuniao_{id_chamado_reuniao}",
-                                )
+                                with col_modalidade:
+                                    modalidade_reuniao = escolha_padronizada(
+                                        "Modalidade",
+                                        ["Google Meet", "Presencial", "Híbrida"],
+                                        key=f"modalidade_reuniao_{id_chamado_reuniao}",
+                                        valor_padrao="Google Meet",
+                                    )
                                 local_reuniao = st.text_input(
                                     "Local",
                                     placeholder="Obrigatório para reunião presencial ou híbrida.",
@@ -5384,11 +5400,12 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                         st.write(alt.get("Justificativa_Alteracao", "Não informada."))
 
                         with st.form(f"form_analise_alt_{id_alt}"):
-                            decisao_admin_alt = st.radio(
+                            decisao_admin_alt = escolha_padronizada(
                                 "Decisão administrativa",
                                 ["Confirmar", "Recusar"],
-                                horizontal=True,
                                 key=f"decisao_admin_alt_{id_alt}",
+                                valor_padrao="Confirmar",
+                                format_func=lambda x: "✅ Confirmar alteração" if x == "Confirmar" else "❌ Recusar alteração",
                             )
                             motivo_recusa_alt = st.text_area(
                                 "Motivo da recusa",
@@ -6407,13 +6424,12 @@ else:
                 <div class="caproq-form-section-help">Informe se o item seguirá o fluxo padrão ou se será avaliado como produto de teste ou piloto.</div>
             </div>
             """, unsafe_allow_html=True)
-            valor_produto_teste = st.radio(
+            valor_produto_teste = escolha_padronizada(
                 "Este produto é um Produto de Teste / Piloto? *",
-                options=["SIM", "NÃO"],
-                index=1,  # Padrão NÃO
-                horizontal=True,
+                ["SIM", "NÃO"],
                 key=f"produto_teste_reativo_{v}",
-                help="Selecione SIM se este produto passará por um período de testes práticos antes da compra final."
+                valor_padrao="NÃO",
+                help="Selecione SIM se este produto passará por um período de testes práticos antes da compra final.",
             )
             respostas_formulario["Este produto é um Produto de Teste / Piloto?"] = valor_produto_teste
 
@@ -6449,18 +6465,26 @@ else:
                 elif campo["tipo"] == "area_texto":
                     respostas_formulario[campo["label"]] = st.text_area(label_final, key=campo["id"])
                 elif campo["tipo"] == "selecao_tripla":
-                    respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "Sim", "Não", "Não se aplica"], key=campo["id"])
+                    respostas_formulario[campo["label"]] = escolha_padronizada(
+                        label_final,
+                        ["Sim", "Não", "Não se aplica"],
+                        key=campo["id"],
+                        valor_padrao=None,
+                    )
                 elif campo["tipo"] == "selecao_binaria":
-                    respostas_formulario[campo["label"]] = st.selectbox(label_final, options=["", "Sim", "Não"], key=campo["id"])
+                    respostas_formulario[campo["label"]] = escolha_padronizada(
+                        label_final,
+                        ["Sim", "Não"],
+                        key=campo["id"],
+                        valor_padrao=None,
+                    )
                 elif campo["tipo"] == "radio_horizontal":
                     opcoes_radio = ["Sim", "Não"] if "estudos_cientificos" in campo["id"] else ["Sim", "Não", "Não se aplica"]
-                    
-                    respostas_formulario[campo["label"]] = st.radio(
-                        label_final, 
-                        options=opcoes_radio, 
-                        index=None,  
-                        horizontal=True, 
-                        key=campo["id"]
+                    respostas_formulario[campo["label"]] = escolha_padronizada(
+                        label_final,
+                        opcoes_radio,
+                        key=campo["id"],
+                        valor_padrao=None,
                     )
             
             # 9.2. Seção anexos
