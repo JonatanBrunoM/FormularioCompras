@@ -20,6 +20,7 @@ from googleapiclient.http import MediaIoBaseUpload
 from google.oauth2.credentials import Credentials
 from cryptography.fernet import Fernet, InvalidToken
 import io
+import uuid
 
 if "form_count" not in st.session_state:
     st.session_state["form_count"] = 0
@@ -113,6 +114,385 @@ ui.load_global_css()
 # ==============================================================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# ------------------------------------------------------------------------------
+# Estrutura de dados para revisão de pareceres e reabertura de homologações
+# ------------------------------------------------------------------------------
+WORKSHEET_ALTERACOES_PARECERES = "Alteracoes_Pareceres"
+WORKSHEET_HISTORICO_HOMOLOGACOES = "Historico_Homologacoes"
+
+STATUS_ALTERACAO_PENDENTE = "Pendente"
+STATUS_ALTERACAO_CONFIRMADA = "Confirmada"
+STATUS_ALTERACAO_RECUSADA = "Recusada"
+STATUS_ALTERACAO_CANCELADA = "Cancelada"
+
+STATUS_REVISAO_NAO_APLICAVEL = "Não aplicável"
+STATUS_REVISAO_REABERTO = "Reaberto"
+STATUS_REVISAO_AGUARDANDO_ALTERACAO = "Aguardando alteração"
+STATUS_REVISAO_ALTERACAO_EM_ANALISE = "Alteração em análise"
+STATUS_REVISAO_ALTERACAO_CONFIRMADA = "Alteração confirmada"
+STATUS_REVISAO_RETORNADO_HOMOLOGACAO = "Retornado à homologação"
+
+COLUNAS_ALTERACOES_PARECERES = [
+    "ID_Alteracao",
+    "ID_Chamado",
+    "Alcada",
+    "Coluna_Parecer",
+    "Decisao_Anterior",
+    "Parecer_Anterior",
+    "Decisao_Solicitada",
+    "Parecer_Solicitado",
+    "Justificativa_Alteracao",
+    "Solicitante_Nome",
+    "Solicitante_Email",
+    "Data_Solicitacao",
+    "Status_Alteracao",
+    "Admin_Responsavel",
+    "Admin_Email",
+    "Data_Analise",
+    "Motivo_Recusa",
+    "Origem_Reabertura",
+    "ID_Reabertura",
+]
+
+COLUNAS_HISTORICO_HOMOLOGACOES = [
+    "ID_Historico",
+    "ID_Chamado",
+    "Versao_Homologacao",
+    "Status_Final",
+    "Parecer_Final_Admin",
+    "Consideracoes_Finais",
+    "Admin_Nome",
+    "Admin_Email",
+    "Data_Homologacao",
+    "Motivo_Reabertura",
+    "Alcada_Reaberta",
+    "Data_Reabertura",
+    "Admin_Reabertura",
+    "Email_Admin_Reabertura",
+    "Situacao_Registro",
+]
+
+COLUNAS_REVISAO_CHAMADO = {
+    "Chamado_Reaberto": "NÃO",
+    "ID_Reabertura_Atual": "",
+    "Motivo_Reabertura": "",
+    "Alcada_Reaberta": "",
+    "Admin_Reabertura": "",
+    "Email_Admin_Reabertura": "",
+    "Data_Reabertura": "",
+    "Status_Revisao": STATUS_REVISAO_NAO_APLICAVEL,
+    "Quantidade_Reaberturas": 0,
+    "Retornou_Homologacao_Apos_Revisao": "NÃO",
+}
+
+
+def _data_hora_registro() -> str:
+    """Retorna data e hora em padrão estável para registros de auditoria."""
+    return datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+
+def gerar_id_registro(prefixo: str) -> str:
+    """Gera identificador único e legível para alterações e homologações."""
+    prefixo_limpo = str(prefixo).strip().upper().replace(" ", "_")
+    instante = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    sufixo = uuid.uuid4().hex[:8].upper()
+    return f"{prefixo_limpo}-{instante}-{sufixo}"
+
+
+def garantir_colunas_dataframe(
+    df: pd.DataFrame,
+    colunas: list[str],
+) -> pd.DataFrame:
+    """Devolve uma cópia com todas as colunas exigidas, na ordem definida."""
+    resultado = df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
+
+    for coluna in colunas:
+        if coluna not in resultado.columns:
+            resultado[coluna] = ""
+
+    colunas_extras = [
+        coluna for coluna in resultado.columns
+        if coluna not in colunas
+    ]
+    return resultado[colunas + colunas_extras]
+
+
+def garantir_colunas_revisao_chamado(df: pd.DataFrame) -> pd.DataFrame:
+    """Acrescenta os campos de controle sem alterar os registros existentes."""
+    resultado = df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
+
+    for coluna, valor_padrao in COLUNAS_REVISAO_CHAMADO.items():
+        if coluna not in resultado.columns:
+            resultado[coluna] = valor_padrao
+        else:
+            resultado[coluna] = resultado[coluna].where(
+                resultado[coluna].notna(),
+                valor_padrao,
+            )
+
+    if "Quantidade_Reaberturas" in resultado.columns:
+        resultado["Quantidade_Reaberturas"] = pd.to_numeric(
+            resultado["Quantidade_Reaberturas"],
+            errors="coerce",
+        ).fillna(0).astype(int)
+
+    return resultado
+
+
+def _carregar_worksheet_controlada(
+    worksheet: str,
+    colunas: list[str],
+    cache_key: str,
+    timestamp_key: str,
+    forcar_atualizacao: bool = False,
+) -> pd.DataFrame:
+    """Lê uma aba de controle com cache e devolve sempre o schema completo."""
+    agora = time.time()
+    cache_valido = (
+        cache_key in st.session_state
+        and not forcar_atualizacao
+        and (agora - st.session_state.get(timestamp_key, 0)) < 60
+    )
+
+    if cache_valido:
+        return garantir_colunas_dataframe(
+            st.session_state[cache_key],
+            colunas,
+        )
+
+    try:
+        df = conn.read(worksheet=worksheet, ttl=0)
+        df = df.dropna(how="all")
+        df = garantir_colunas_dataframe(df, colunas)
+        st.session_state[cache_key] = df.copy()
+        st.session_state[timestamp_key] = agora
+        return df
+    except Exception as erro:
+        if cache_key in st.session_state:
+            return garantir_colunas_dataframe(
+                st.session_state[cache_key],
+                colunas,
+            )
+
+        # A interface das etapas seguintes exibirá uma orientação específica.
+        # Nesta etapa estrutural, retornamos o schema vazio sem interromper o app.
+        print(f"Não foi possível ler a aba {worksheet}: {erro}")
+        return pd.DataFrame(columns=colunas)
+
+
+def _salvar_worksheet_controlada(
+    worksheet: str,
+    df: pd.DataFrame,
+    colunas: list[str],
+    cache_key: str,
+    timestamp_key: str,
+) -> bool:
+    """Persiste uma aba de controle e sincroniza o cache local."""
+    dados = garantir_colunas_dataframe(df, colunas)
+
+    try:
+        conn.update(worksheet=worksheet, data=dados)
+        st.session_state[cache_key] = dados.copy()
+        st.session_state[timestamp_key] = time.time()
+        return True
+    except Exception as erro:
+        st.error(
+            f"Não foi possível atualizar a aba '{worksheet}': {erro}"
+        )
+        return False
+
+
+def carregar_alteracoes_pareceres(
+    forcar_atualizacao: bool = False,
+) -> pd.DataFrame:
+    return _carregar_worksheet_controlada(
+        worksheet=WORKSHEET_ALTERACOES_PARECERES,
+        colunas=COLUNAS_ALTERACOES_PARECERES,
+        cache_key="df_alteracoes_pareceres_cache",
+        timestamp_key="df_alteracoes_pareceres_cache_timestamp",
+        forcar_atualizacao=forcar_atualizacao,
+    )
+
+
+def salvar_alteracoes_pareceres(df: pd.DataFrame) -> bool:
+    return _salvar_worksheet_controlada(
+        worksheet=WORKSHEET_ALTERACOES_PARECERES,
+        df=df,
+        colunas=COLUNAS_ALTERACOES_PARECERES,
+        cache_key="df_alteracoes_pareceres_cache",
+        timestamp_key="df_alteracoes_pareceres_cache_timestamp",
+    )
+
+
+def carregar_historico_homologacoes(
+    forcar_atualizacao: bool = False,
+) -> pd.DataFrame:
+    return _carregar_worksheet_controlada(
+        worksheet=WORKSHEET_HISTORICO_HOMOLOGACOES,
+        colunas=COLUNAS_HISTORICO_HOMOLOGACOES,
+        cache_key="df_historico_homologacoes_cache",
+        timestamp_key="df_historico_homologacoes_cache_timestamp",
+        forcar_atualizacao=forcar_atualizacao,
+    )
+
+
+def salvar_historico_homologacoes(df: pd.DataFrame) -> bool:
+    return _salvar_worksheet_controlada(
+        worksheet=WORKSHEET_HISTORICO_HOMOLOGACOES,
+        df=df,
+        colunas=COLUNAS_HISTORICO_HOMOLOGACOES,
+        cache_key="df_historico_homologacoes_cache",
+        timestamp_key="df_historico_homologacoes_cache_timestamp",
+    )
+
+
+def existe_alteracao_pendente(
+    id_chamado,
+    alcada: str,
+    df_alteracoes: pd.DataFrame | None = None,
+) -> bool:
+    """Impede mais de uma solicitação pendente para chamado e alçada."""
+    dados = (
+        carregar_alteracoes_pareceres()
+        if df_alteracoes is None
+        else garantir_colunas_dataframe(
+            df_alteracoes,
+            COLUNAS_ALTERACOES_PARECERES,
+        )
+    )
+
+    if dados.empty:
+        return False
+
+    ids = pd.to_numeric(dados["ID_Chamado"], errors="coerce")
+    alvo = pd.to_numeric(pd.Series([id_chamado]), errors="coerce").iloc[0]
+    alcadas = dados["Alcada"].astype(str).str.strip().str.lower()
+    statuses = dados["Status_Alteracao"].astype(str).str.strip().str.lower()
+
+    mascara = (
+        ids.eq(alvo)
+        & alcadas.eq(str(alcada).strip().lower())
+        & statuses.eq(STATUS_ALTERACAO_PENDENTE.lower())
+    )
+    return bool(mascara.any())
+
+
+def proxima_versao_homologacao(
+    id_chamado,
+    df_historico: pd.DataFrame | None = None,
+) -> int:
+    """Calcula a próxima versão administrativa sem sobrescrever o histórico."""
+    dados = (
+        carregar_historico_homologacoes()
+        if df_historico is None
+        else garantir_colunas_dataframe(
+            df_historico,
+            COLUNAS_HISTORICO_HOMOLOGACOES,
+        )
+    )
+
+    if dados.empty:
+        return 1
+
+    ids = pd.to_numeric(dados["ID_Chamado"], errors="coerce")
+    alvo = pd.to_numeric(pd.Series([id_chamado]), errors="coerce").iloc[0]
+    versoes = pd.to_numeric(
+        dados.loc[ids.eq(alvo), "Versao_Homologacao"],
+        errors="coerce",
+    ).dropna()
+
+    return int(versoes.max()) + 1 if not versoes.empty else 1
+
+
+def criar_registro_alteracao_parecer(
+    *,
+    id_chamado,
+    alcada: str,
+    coluna_parecer: str,
+    decisao_anterior: str,
+    parecer_anterior: str,
+    decisao_solicitada: str,
+    parecer_solicitado: str,
+    justificativa: str,
+    solicitante_nome: str,
+    solicitante_email: str,
+    origem_reabertura: str = "NÃO",
+    id_reabertura: str = "",
+) -> dict:
+    """Monta um registro validado; a gravação será feita pela etapa de tela."""
+    campos_obrigatorios = {
+        "alçada": alcada,
+        "nova decisão": decisao_solicitada,
+        "justificativa": justificativa,
+        "solicitante": solicitante_email,
+    }
+    ausentes = [nome for nome, valor in campos_obrigatorios.items() if not str(valor).strip()]
+    if ausentes:
+        raise ValueError(
+            "Campos obrigatórios ausentes: " + ", ".join(ausentes)
+        )
+
+    return {
+        "ID_Alteracao": gerar_id_registro("ALT"),
+        "ID_Chamado": id_chamado,
+        "Alcada": str(alcada).strip(),
+        "Coluna_Parecer": str(coluna_parecer).strip(),
+        "Decisao_Anterior": str(decisao_anterior).strip(),
+        "Parecer_Anterior": str(parecer_anterior).strip(),
+        "Decisao_Solicitada": str(decisao_solicitada).strip(),
+        "Parecer_Solicitado": str(parecer_solicitado).strip(),
+        "Justificativa_Alteracao": str(justificativa).strip(),
+        "Solicitante_Nome": str(solicitante_nome).strip(),
+        "Solicitante_Email": str(solicitante_email).strip().lower(),
+        "Data_Solicitacao": _data_hora_registro(),
+        "Status_Alteracao": STATUS_ALTERACAO_PENDENTE,
+        "Admin_Responsavel": "",
+        "Admin_Email": "",
+        "Data_Analise": "",
+        "Motivo_Recusa": "",
+        "Origem_Reabertura": str(origem_reabertura).strip().upper(),
+        "ID_Reabertura": str(id_reabertura).strip(),
+    }
+
+
+def criar_registro_historico_homologacao(
+    *,
+    id_chamado,
+    status_final: str,
+    parecer_final_admin: str,
+    consideracoes_finais: str,
+    admin_nome: str,
+    admin_email: str,
+    situacao_registro: str = "Vigente",
+    motivo_reabertura: str = "",
+    alcada_reaberta: str = "",
+    data_reabertura: str = "",
+    admin_reabertura: str = "",
+    email_admin_reabertura: str = "",
+    df_historico: pd.DataFrame | None = None,
+) -> dict:
+    """Cria uma versão imutável da homologação para auditoria futura."""
+    return {
+        "ID_Historico": gerar_id_registro("HOM"),
+        "ID_Chamado": id_chamado,
+        "Versao_Homologacao": proxima_versao_homologacao(
+            id_chamado,
+            df_historico=df_historico,
+        ),
+        "Status_Final": str(status_final).strip(),
+        "Parecer_Final_Admin": str(parecer_final_admin).strip(),
+        "Consideracoes_Finais": str(consideracoes_finais).strip(),
+        "Admin_Nome": str(admin_nome).strip(),
+        "Admin_Email": str(admin_email).strip().lower(),
+        "Data_Homologacao": _data_hora_registro(),
+        "Motivo_Reabertura": str(motivo_reabertura).strip(),
+        "Alcada_Reaberta": str(alcada_reaberta).strip(),
+        "Data_Reabertura": str(data_reabertura).strip(),
+        "Admin_Reabertura": str(admin_reabertura).strip(),
+        "Email_Admin_Reabertura": str(email_admin_reabertura).strip().lower(),
+        "Situacao_Registro": str(situacao_registro).strip() or "Vigente",
+    }
+
 def carregar_dados(forcar_atualizacao=False):
     try:
         agora = time.time()
@@ -134,6 +514,7 @@ def carregar_dados(forcar_atualizacao=False):
 
         df = conn.read(ttl=60)
         df = df.dropna(how="all")
+        df = garantir_colunas_revisao_chamado(df)
 
         if not df.empty and "ID" in df.columns:
             df["ID"] = pd.to_numeric(
@@ -697,14 +1078,7 @@ if (
 # 5. Confirgurações tela de Login                     
 # ==============================================================================
 if not st.session_state.connected:
-    if hasattr(ui, "load_login_css"):
-        ui.load_login_css()
-    else:
-        st.warning(
-            "O módulo ui_components.py carregado não possui "
-            "a função load_login_css(). Verifique se o arquivo "
-            "foi atualizado corretamente no repositório."
-        )
+    ui.load_login_css()
 
     auth_url = (
         "https://accounts.google.com/o/oauth2/auth?"
