@@ -702,63 +702,159 @@ def reabrir_chamado_para_revisao(
     return True, id_reabertura
 
 
-def analisar_solicitacao_alteracao(
-    *,
-    id_alteracao: str,
-    decisao_admin: str,
-    admin_nome: str,
-    admin_email: str,
-    motivo_recusa: str = "",
-) -> tuple[bool, str]:
-    """Registra a decisão administrativa sem substituir ainda o parecer oficial."""
+def _normalizar_decisao_planilha(decisao: str) -> str:
+    """Converte rótulos administrativos para o padrão usado nas colunas das alçadas."""
+    valor = str(decisao or "").strip().lower()
+    mapa = {
+        "aprovar": "Aprovar",
+        "aprovado": "Aprovar",
+        "aprovar com ressalva": "Aprovar com ressalva",
+        "aprovado com ressalva": "Aprovar com ressalva",
+        "reprovar": "Reprovar",
+        "reprovado": "Reprovar",
+    }
+    return mapa.get(valor, str(decisao or "").strip())
+
+
+def _montar_parecer_revisado(*, decisao: str, parecer: str, aprovador_nome: str, admin_nome: str, id_alteracao: str) -> str:
+    """Monta o conteúdo oficial preservando autoria e validação administrativa."""
+    decisao_padrao = _normalizar_decisao_planilha(decisao)
+    momento = _data_hora_registro()
+    parecer_limpo = str(parecer or "").strip().replace("\n", " ")
+    autoria = str(aprovador_nome or "Aprovador").strip()
+    validador = str(admin_nome or "Administrador").strip()
+    metadados = f"{momento} - {autoria}; alteração confirmada por {validador}; protocolo {id_alteracao}"
+    if parecer_limpo:
+        return f"{decisao_padrao} ({metadados}: {parecer_limpo})"
+    return f"{decisao_padrao} ({metadados})"
+
+
+def _recalcular_status_tecnico(row: pd.Series) -> tuple[str, int, int]:
+    """Aplica a mesma matriz usada no parecer inicial."""
+    votos = []
+    for info in ALCADAS_INFO.values():
+        coluna = info.get("coluna_sheets", "")
+        if coluna and coluna in row.index:
+            votos.append(str(row.get(coluna, "")).strip())
+    reprovados = sum(1 for voto in votos if voto.lower().startswith("reprovar"))
+    emitidos = sum(1 for voto in votos if voto.lower().startswith(("aprovar", "reprovar")))
+    if reprovados > 0:
+        status = "Reunião Necessária"
+    elif emitidos == len(ALCADAS_INFO):
+        status = "Aguardando homologação"
+    else:
+        status = "Em deliberação"
+    return status, emitidos, reprovados
+
+
+def _enviar_email_resultado_alteracao(*, registro: pd.Series, confirmado: bool, admin_nome: str, motivo_recusa: str = "", status_tecnico: str = "") -> None:
+    """Notifica o aprovador e os administradores sobre o resultado."""
+    destinatario = str(registro.get("Solicitante_Email", "")).strip().lower()
+    id_chamado = registro.get("ID_Chamado", "")
+    alcada = str(registro.get("Alcada", "")).strip()
+    decisao_nova = str(registro.get("Decisao_Solicitada", "")).strip()
+    protocolo = str(registro.get("ID_Alteracao", ""))
+    if confirmado:
+        titulo = f"Alteração de parecer confirmada · Chamado #{id_chamado}"
+        mensagem = f"A alteração da alçada <b>{escape(alcada)}</b> foi confirmada por <b>{escape(str(admin_nome))}</b> e já substituiu o parecer vigente."
+        detalhes = (
+            '<div style="margin-top:18px;padding:16px;background:#f3f8f5;border-left:4px solid #008D4C;border-radius:5px;">'
+            f'<p style="margin:0 0 7px;"><b>Nova decisão:</b> {escape(decisao_nova)}</p>'
+            f'<p style="margin:0 0 7px;"><b>Status técnico:</b> {escape(status_tecnico)}</p>'
+            f'<p style="margin:0;"><b>Protocolo:</b> {escape(protocolo)}</p></div>'
+        )
+        destaque = "#008D4C"
+    else:
+        titulo = f"Alteração de parecer recusada · Chamado #{id_chamado}"
+        mensagem = f"A solicitação da alçada <b>{escape(alcada)}</b> foi recusada. O parecer vigente foi preservado."
+        detalhes = (
+            '<div style="margin-top:18px;padding:16px;background:#fff8f1;border-left:4px solid #E6A23C;border-radius:5px;">'
+            f'<p style="margin:0 0 7px;"><b>Motivo:</b> {escape(str(motivo_recusa))}</p>'
+            f'<p style="margin:0;"><b>Protocolo:</b> {escape(protocolo)}</p></div>'
+        )
+        destaque = "#E6A23C"
+    html = template_email_caproq(titulo=titulo, mensagem=mensagem, detalhes=detalhes, destaque=destaque)
+    if "@" in destinatario:
+        enviar_email(destinatario, f"CAPROQ: {titulo}", html)
+    if confirmado:
+        for email_admin in emails_unicos(ADMINS):
+            if email_admin != destinatario:
+                enviar_email(email_admin, f"CAPROQ: {titulo}", html)
+
+
+def analisar_solicitacao_alteracao(*, id_alteracao: str, decisao_admin: str, admin_nome: str, admin_email: str, motivo_recusa: str = "") -> tuple[bool, str]:
+    """Analisa e aplica oficialmente a alteração quando confirmada."""
     alteracoes = carregar_alteracoes_pareceres(forcar_atualizacao=True)
     if alteracoes.empty:
         return False, "A solicitação de alteração não foi localizada."
-
     mascara = alteracoes["ID_Alteracao"].astype(str).str.strip().eq(str(id_alteracao).strip())
     indices = alteracoes.index[mascara].tolist()
     if not indices:
         return False, "A solicitação de alteração não foi localizada."
-
     indice = indices[0]
-    status_atual = str(alteracoes.at[indice, "Status_Alteracao"]).strip()
+    registro = alteracoes.loc[indice].copy()
+    status_atual = str(registro.get("Status_Alteracao", "")).strip()
     if status_atual.lower() != STATUS_ALTERACAO_PENDENTE.lower():
         return False, f"Esta solicitação já foi analisada ({status_atual})."
-
     confirmar = str(decisao_admin).strip().lower() == "confirmar"
     if not confirmar and not str(motivo_recusa).strip():
         return False, "Informe o motivo da recusa."
 
-    novo_status = STATUS_ALTERACAO_CONFIRMADA if confirmar else STATUS_ALTERACAO_RECUSADA
+    dados = carregar_dados(forcar_atualizacao=True)
+    if dados.empty or "ID" not in dados.columns:
+        return False, "A base principal não está disponível."
+    id_chamado = registro.get("ID_Chamado")
+    ids = pd.to_numeric(dados["ID"], errors="coerce")
+    alvo = pd.to_numeric(pd.Series([id_chamado]), errors="coerce").iloc[0]
+    indices_chamado = dados.index[ids.eq(alvo)].tolist()
+    if not indices_chamado:
+        return False, f"Chamado #{id_chamado} não localizado na base principal."
+    idx = indices_chamado[0]
+    coluna_parecer = str(registro.get("Coluna_Parecer", "")).strip()
+    if confirmar and (not coluna_parecer or coluna_parecer not in dados.columns):
+        return False, "A coluna da alçada não foi localizada na base principal."
+
+    dados_antes = dados.copy()
+    alteracoes_antes = alteracoes.copy()
+    agora = _data_hora_registro()
+    status_tecnico = str(dados.at[idx, "Status_Aprovadores"] if "Status_Aprovadores" in dados.columns else "")
+
+    if confirmar:
+        nova_decisao = _normalizar_decisao_planilha(registro.get("Decisao_Solicitada", ""))
+        novo_parecer = str(registro.get("Parecer_Solicitado", "")).strip()
+        if nova_decisao in {"Aprovar com ressalva", "Reprovar"} and not novo_parecer:
+            return False, "O novo parecer descritivo é obrigatório para esta decisão."
+        dados.at[idx, coluna_parecer] = _montar_parecer_revisado(decisao=nova_decisao, parecer=novo_parecer, aprovador_nome=str(registro.get("Solicitante_Nome", "")), admin_nome=admin_nome, id_alteracao=id_alteracao)
+        status_tecnico, _, _ = _recalcular_status_tecnico(dados.loc[idx])
+        dados.at[idx, "Status_Aprovadores"] = status_tecnico
+        retornou = status_tecnico in {"Aguardando homologação", "Reunião Necessária"}
+        dados.at[idx, "Status_Revisao"] = STATUS_REVISAO_RETORNADO_HOMOLOGACAO if retornou else STATUS_REVISAO_ALTERACAO_CONFIRMADA
+        dados.at[idx, "Retornou_Homologacao_Apos_Revisao"] = "SIM" if retornou else "NÃO"
+        dados.at[idx, "Chamado_Reaberto"] = "NÃO"
+        dados.at[idx, "Status_Final"] = "Em análise"
+        if not salvar_base_principal_revisao(dados):
+            return False, "O parecer oficial não pôde ser atualizado."
+        novo_status = STATUS_ALTERACAO_CONFIRMADA
+    else:
+        if str(dados.at[idx, "Chamado_Reaberto"]).strip().upper() == "SIM":
+            dados.at[idx, "Status_Revisao"] = STATUS_REVISAO_AGUARDANDO_ALTERACAO
+        else:
+            dados.at[idx, "Status_Revisao"] = STATUS_REVISAO_NAO_APLICAVEL
+        if not salvar_base_principal_revisao(dados):
+            return False, "Não foi possível atualizar o controle da revisão."
+        novo_status = STATUS_ALTERACAO_RECUSADA
+
     alteracoes.at[indice, "Status_Alteracao"] = novo_status
     alteracoes.at[indice, "Admin_Responsavel"] = str(admin_nome).strip()
     alteracoes.at[indice, "Admin_Email"] = str(admin_email).strip().lower()
-    alteracoes.at[indice, "Data_Analise"] = _data_hora_registro()
+    alteracoes.at[indice, "Data_Analise"] = agora
     alteracoes.at[indice, "Motivo_Recusa"] = "" if confirmar else str(motivo_recusa).strip()
-
     if not salvar_alteracoes_pareceres(alteracoes):
-        return False, "Não foi possível registrar a análise administrativa."
+        salvar_base_principal_revisao(dados_antes)
+        salvar_alteracoes_pareceres(alteracoes_antes)
+        return False, "Não foi possível concluir o registro de auditoria; a operação foi revertida."
 
-    # Atualiza apenas o controle do fluxo; a decisão oficial será aplicada na Etapa 4.
-    dados = carregar_dados(forcar_atualizacao=True)
-    id_chamado = alteracoes.at[indice, "ID_Chamado"]
-    if not dados.empty and "ID" in dados.columns:
-        ids = pd.to_numeric(dados["ID"], errors="coerce")
-        alvo = pd.to_numeric(pd.Series([id_chamado]), errors="coerce").iloc[0]
-        idx_chamado = dados.index[ids.eq(alvo)].tolist()
-        if idx_chamado:
-            idx = idx_chamado[0]
-            dados.at[idx, "Status_Revisao"] = (
-                STATUS_REVISAO_ALTERACAO_CONFIRMADA
-                if confirmar
-                else (
-                    STATUS_REVISAO_AGUARDANDO_ALTERACAO
-                    if str(dados.at[idx, "Chamado_Reaberto"]).strip().upper() == "SIM"
-                    else STATUS_REVISAO_NAO_APLICAVEL
-                )
-            )
-            salvar_base_principal_revisao(dados)
-
+    _enviar_email_resultado_alteracao(registro=alteracoes.loc[indice], confirmado=confirmar, admin_nome=admin_nome, motivo_recusa=motivo_recusa, status_tecnico=status_tecnico)
     return True, novo_status
 
 def carregar_dados(forcar_atualizacao=False):
@@ -3059,6 +3155,52 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
             # ----------------------------------------------------------------------
             with tab_logs:
 
+                st.markdown("### Eventos de revisão e auditoria")
+                eventos_revisao = []
+                try:
+                    alteracoes_log = carregar_alteracoes_pareceres(forcar_atualizacao=True)
+                    for _, evento_alt in alteracoes_log.iterrows():
+                        status_evento = str(evento_alt.get("Status_Alteracao", "")).strip()
+                        eventos_revisao.append({
+                            "Data": evento_alt.get("Data_Solicitacao", ""),
+                            "Chamado": evento_alt.get("ID_Chamado", ""),
+                            "Evento": "Alteração de parecer solicitada",
+                            "Alçada": evento_alt.get("Alcada", ""),
+                            "Responsável": evento_alt.get("Solicitante_Nome", ""),
+                            "Detalhes": f"{evento_alt.get('Decisao_Anterior', '')} → {evento_alt.get('Decisao_Solicitada', '')}",
+                            "Protocolo": evento_alt.get("ID_Alteracao", ""),
+                        })
+                        if status_evento and status_evento.lower() != STATUS_ALTERACAO_PENDENTE.lower():
+                            eventos_revisao.append({
+                                "Data": evento_alt.get("Data_Analise", ""),
+                                "Chamado": evento_alt.get("ID_Chamado", ""),
+                                "Evento": f"Alteração de parecer {status_evento.lower()}",
+                                "Alçada": evento_alt.get("Alcada", ""),
+                                "Responsável": evento_alt.get("Admin_Responsavel", ""),
+                                "Detalhes": evento_alt.get("Motivo_Recusa", "") or f"Nova decisão oficial: {evento_alt.get('Decisao_Solicitada', '')}",
+                                "Protocolo": evento_alt.get("ID_Alteracao", ""),
+                            })
+                    if "Data_Reabertura" in df_dados.columns:
+                        for _, evento_reab in df_dados[df_dados["Data_Reabertura"].astype(str).str.strip().ne("")].iterrows():
+                            eventos_revisao.append({
+                                "Data": evento_reab.get("Data_Reabertura", ""),
+                                "Chamado": evento_reab.get("ID", ""),
+                                "Evento": "Chamado reaberto para revisão técnica",
+                                "Alçada": evento_reab.get("Alcada_Reaberta", ""),
+                                "Responsável": evento_reab.get("Admin_Reabertura", ""),
+                                "Detalhes": evento_reab.get("Motivo_Reabertura", ""),
+                                "Protocolo": evento_reab.get("ID_Reabertura_Atual", ""),
+                            })
+                except Exception as erro_auditoria:
+                    print(f"Falha ao consolidar eventos de revisão: {erro_auditoria}")
+                if eventos_revisao:
+                    df_eventos_revisao = pd.DataFrame(eventos_revisao)
+                    df_eventos_revisao["__ordem"] = pd.to_datetime(df_eventos_revisao["Data"], dayfirst=True, errors="coerce")
+                    df_eventos_revisao = df_eventos_revisao.sort_values("__ordem", ascending=False).drop(columns=["__ordem"])
+                    with st.expander(f"Revisões registradas ({len(df_eventos_revisao)})", expanded=False):
+                        st.dataframe(df_eventos_revisao.head(200), use_container_width=True, hide_index=True)
+                else:
+                    st.caption("Nenhum evento de revisão foi registrado até o momento.")
 
                 df_logs = df_dados.copy()
 
@@ -3977,7 +4119,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                 )
                                 if sucesso_alt:
                                     mensagem_alt = (
-                                        "A alteração foi confirmada e está pronta para aplicação oficial na próxima etapa."
+                                        "A alteração foi confirmada, aplicada ao parecer oficial e o fluxo foi recalculado."
                                         if retorno_alt == STATUS_ALTERACAO_CONFIRMADA
                                         else "A alteração foi recusada e o parecer vigente foi preservado."
                                     )
