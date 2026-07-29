@@ -585,6 +585,175 @@ def _reuniao_ativa_do_chamado(id_chamado, df_reunioes: pd.DataFrame | None = Non
     return registros.loc[status.isin(ativos)].copy()
 
 
+
+def _datetime_google(data_reuniao, horario, fuso: str = "America/Sao_Paulo") -> str:
+    """Monta um dateTime RFC3339 sem depender de bibliotecas externas de fuso."""
+    combinado = datetime.datetime.combine(data_reuniao, horario)
+    return combinado.isoformat(timespec="seconds")
+
+
+def criar_evento_google_agenda(
+    *,
+    credentials,
+    id_chamado,
+    id_reuniao: str,
+    titulo_chamado: str,
+    data_agendamento,
+    hora_inicio,
+    hora_fim,
+    modalidade: str,
+    local_reuniao: str,
+    participantes: list[str],
+    pauta: str,
+    motivo_reuniao: str,
+    observacoes: str,
+    organizador_nome: str,
+) -> tuple[bool, dict | str]:
+    """Cria o evento no calendário principal do administrador autenticado."""
+    if credentials is None:
+        return False, "Sua autorização Google não está disponível. Saia e entre novamente."
+
+    try:
+        service = build("calendar", "v3", credentials=credentials, cache_discovery=False)
+        fuso = "America/Sao_Paulo"
+        titulo = f"CAPROQ — Reunião técnica do Chamado #{id_chamado}"
+        if str(titulo_chamado).strip():
+            titulo += f" · {str(titulo_chamado).strip()}"
+
+        descricao = (
+            f"Reunião técnica registrada no CAPROQ.\n\n"
+            f"Chamado: #{id_chamado}\n"
+            f"Protocolo da reunião: {id_reuniao}\n"
+            f"Organizador no CAPROQ: {organizador_nome}\n\n"
+            f"Motivo:\n{str(motivo_reuniao).strip()}\n\n"
+            f"Pauta:\n{str(pauta).strip()}"
+        )
+        if str(observacoes).strip():
+            descricao += f"\n\nObservações:\n{str(observacoes).strip()}"
+
+        evento = {
+            "summary": titulo,
+            "description": descricao,
+            "start": {
+                "dateTime": _datetime_google(data_agendamento, hora_inicio, fuso),
+                "timeZone": fuso,
+            },
+            "end": {
+                "dateTime": _datetime_google(data_agendamento, hora_fim, fuso),
+                "timeZone": fuso,
+            },
+            "attendees": [{"email": email} for email in emails_unicos(participantes)],
+            "reminders": {
+                "useDefault": False,
+                "overrides": [
+                    {"method": "email", "minutes": 1440},
+                    {"method": "popup", "minutes": 30},
+                ],
+            },
+            "extendedProperties": {
+                "private": {
+                    "caproq_id_chamado": str(id_chamado),
+                    "caproq_id_reuniao": str(id_reuniao),
+                }
+            },
+        }
+
+        if str(local_reuniao).strip():
+            evento["location"] = str(local_reuniao).strip()
+
+        criar_meet = str(modalidade).strip().lower() in {"google meet", "híbrida", "hibrida"}
+        parametros = {
+            "calendarId": "primary",
+            "body": evento,
+            "sendUpdates": "all",
+        }
+        if criar_meet:
+            evento["conferenceData"] = {
+                "createRequest": {
+                    "requestId": f"caproq-{id_reuniao}-{uuid.uuid4().hex[:10]}",
+                    "conferenceSolutionKey": {"type": "hangoutsMeet"},
+                }
+            }
+            parametros["conferenceDataVersion"] = 1
+
+        criado = service.events().insert(**parametros).execute()
+        meet_link = criado.get("hangoutLink", "")
+        if not meet_link:
+            for ponto in criado.get("conferenceData", {}).get("entryPoints", []):
+                if ponto.get("entryPointType") == "video":
+                    meet_link = ponto.get("uri", "")
+                    break
+
+        return True, {
+            "event_id": criado.get("id", ""),
+            "event_link": criado.get("htmlLink", ""),
+            "meet_link": meet_link,
+        }
+    except Exception as erro:
+        mensagem = str(erro)
+        if "insufficient" in mensagem.lower() or "scope" in mensagem.lower() or "403" in mensagem:
+            mensagem = (
+                "A conta ainda não autorizou o acesso ao Google Agenda. "
+                "Saia do CAPROQ, entre novamente e aceite a nova permissão de calendário."
+            )
+        return False, mensagem
+
+
+def vincular_evento_google_reuniao(
+    *,
+    id_reuniao: str,
+    credentials,
+    titulo_chamado: str = "",
+) -> tuple[bool, str]:
+    """Cria o evento para uma reunião já salva e grava os identificadores na planilha."""
+    reunioes = carregar_reunioes_caproq(forcar_atualizacao=True)
+    if reunioes.empty:
+        return False, "A reunião não foi localizada."
+    ids = reunioes["ID_Reuniao"].astype(str).str.strip()
+    indices = reunioes.index[ids.eq(str(id_reuniao).strip())].tolist()
+    if not indices:
+        return False, "A reunião não foi localizada."
+    indice = indices[0]
+    row = reunioes.loc[indice]
+    if _texto_limpo(row.get("Google_Event_ID", "")):
+        return False, "Esta reunião já possui um evento vinculado no Google Agenda."
+
+    try:
+        data = datetime.datetime.strptime(_texto_limpo(row.get("Data_Agendamento", "")), "%d/%m/%Y").date()
+        inicio = datetime.datetime.strptime(_texto_limpo(row.get("Hora_Inicio", "")), "%H:%M").time()
+        fim = datetime.datetime.strptime(_texto_limpo(row.get("Hora_Fim", "")), "%H:%M").time()
+    except Exception:
+        return False, "A data ou o horário da reunião estão inválidos."
+
+    participantes = _emails_texto_para_lista(_texto_limpo(row.get("Participantes_Convidados", "")))
+    ok, retorno = criar_evento_google_agenda(
+        credentials=credentials,
+        id_chamado=row.get("ID_Chamado", ""),
+        id_reuniao=id_reuniao,
+        titulo_chamado=titulo_chamado,
+        data_agendamento=data,
+        hora_inicio=inicio,
+        hora_fim=fim,
+        modalidade=_texto_limpo(row.get("Modalidade", "")),
+        local_reuniao=_texto_limpo(row.get("Local_Reuniao", "")),
+        participantes=participantes,
+        pauta=_texto_limpo(row.get("Pauta", "")),
+        motivo_reuniao=_texto_limpo(row.get("Motivo_Reuniao", "")),
+        observacoes=_texto_limpo(row.get("Observacoes_Agendamento", "")),
+        organizador_nome=_texto_limpo(row.get("Organizador_Nome", "")),
+    )
+    if not ok:
+        return False, str(retorno)
+
+    reunioes.at[indice, "Google_Event_ID"] = retorno.get("event_id", "")
+    reunioes.at[indice, "Google_Event_Link"] = retorno.get("event_link", "")
+    reunioes.at[indice, "Link_Google_Meet"] = retorno.get("meet_link", "")
+    reunioes.at[indice, "Data_Atualizacao"] = _data_hora_registro()
+    if not salvar_reunioes_caproq(reunioes):
+        return False, "O evento foi criado, mas não foi possível gravar o vínculo na planilha."
+    return True, "Convite criado e enviado aos participantes."
+
+
 def agendar_reuniao_caproq(
     *,
     id_chamado,
@@ -601,7 +770,10 @@ def agendar_reuniao_caproq(
     observacoes: str,
     organizador_nome: str,
     organizador_email: str,
-) -> tuple[bool, str]:
+    titulo_chamado: str = "",
+    criar_convite_google: bool = True,
+    credentials=None,
+) -> tuple[bool, dict | str]:
     """Cria uma reunião agendada e sincroniza os campos de controle do chamado."""
     if not str(motivo_reuniao).strip():
         return False, "Informe o motivo da reunião."
@@ -674,7 +846,22 @@ def agendar_reuniao_caproq(
         salvar_reunioes_caproq(reunioes)
         return False, "A reunião foi preparada, mas não foi possível atualizar o chamado. Nenhum registro foi mantido."
 
-    return True, str(registro["ID_Reuniao"])
+    resultado = {
+        "id_reuniao": str(registro["ID_Reuniao"]),
+        "calendar_ok": False,
+        "calendar_message": "O agendamento foi salvo somente no CAPROQ.",
+    }
+
+    if criar_convite_google:
+        ok_calendar, retorno_calendar = vincular_evento_google_reuniao(
+            id_reuniao=str(registro["ID_Reuniao"]),
+            credentials=credentials,
+            titulo_chamado=titulo_chamado,
+        )
+        resultado["calendar_ok"] = ok_calendar
+        resultado["calendar_message"] = str(retorno_calendar)
+
+    return True, resultado
 
 
 def chamado_requer_reuniao(row: pd.Series) -> bool:
@@ -1732,6 +1919,7 @@ if (
                 "https://www.googleapis.com/auth/userinfo.email",
                 "openid",
                 "https://www.googleapis.com/auth/drive.file",
+                "https://www.googleapis.com/auth/calendar.events",
             ],
             redirect_uri=st.secrets["GOOGLE_REDIRECT_URI"],
         )
@@ -1802,7 +1990,10 @@ if not st.session_state.connected:
         "%20https://www.googleapis.com/auth/userinfo.email"
         "%20openid"
         "%20https://www.googleapis.com/auth/drive.file"
-        "&prompt=select_account"
+        "%20https://www.googleapis.com/auth/calendar.events"
+        "&access_type=offline"
+        "&include_granted_scopes=true"
+        "&prompt=consent%20select_account"
     )
 
     erro_login = st.session_state.pop(
@@ -4551,6 +4742,15 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                     placeholder="Informações adicionais, documentos necessários ou orientações aos participantes.",
                                     key=f"observacoes_reuniao_{id_chamado_reuniao}",
                                 )
+                                criar_convite_google = st.checkbox(
+                                    "Criar evento no Google Agenda, enviar convites e gerar Google Meet quando aplicável.",
+                                    value=True,
+                                    help=(
+                                        "O evento será criado no calendário do administrador conectado. "
+                                        "Os participantes receberão o convite do Google Agenda."
+                                    ),
+                                    key=f"criar_convite_google_{id_chamado_reuniao}",
+                                )
                                 confirmar_agendamento = st.checkbox(
                                     "Confirmo os dados do agendamento.",
                                     key=f"confirmar_agendamento_{id_chamado_reuniao}",
@@ -4585,14 +4785,34 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                         observacoes=observacoes_reuniao,
                                         organizador_nome=user_name,
                                         organizador_email=user_email,
+                                        titulo_chamado=titulo_chamado,
+                                        criar_convite_google=criar_convite_google,
+                                        credentials=obter_credenciais_google(),
                                     )
                                     if sucesso_reuniao:
+                                        protocolo = retorno_reuniao.get("id_reuniao", "")
+                                        calendario_ok = retorno_reuniao.get("calendar_ok", False)
+                                        mensagem_calendario = retorno_reuniao.get("calendar_message", "")
                                         ui.render_feedback(
-                                            f"Reunião registrada com o protocolo {retorno_reuniao}.",
+                                            f"Reunião registrada com o protocolo {protocolo}.",
                                             kind="success",
                                             title="Agendamento salvo",
                                             icon="✅",
                                         )
+                                        if criar_convite_google and calendario_ok:
+                                            ui.render_feedback(
+                                                mensagem_calendario,
+                                                kind="success",
+                                                title="Google Agenda sincronizado",
+                                                icon="📅",
+                                            )
+                                        elif criar_convite_google:
+                                            ui.render_feedback(
+                                                mensagem_calendario,
+                                                kind="warning",
+                                                title="Agendamento salvo sem convite",
+                                                icon="⚠️",
+                                            )
                                         st.rerun()
                                     else:
                                         ui.render_feedback(
@@ -4635,9 +4855,43 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                             st.write(_texto_limpo(reuniao.get("Pauta", "Não informada")))
                             st.markdown("**Participantes convidados:**")
                             st.write(_texto_limpo(reuniao.get("Participantes_Convidados", "Não informados")))
-                            st.info(
-                                "A criação do convite no Google Agenda, o reagendamento e o cancelamento serão habilitados na Etapa 3."
-                            )
+                            event_id = _texto_limpo(reuniao.get("Google_Event_ID", ""))
+                            event_link = _texto_limpo(reuniao.get("Google_Event_Link", ""))
+                            meet_link = _texto_limpo(reuniao.get("Link_Google_Meet", ""))
+
+                            if event_id:
+                                st.success("Convite sincronizado com o Google Agenda.")
+                                col_agenda, col_meet = st.columns(2)
+                                if event_link:
+                                    col_agenda.link_button(
+                                        "Abrir no Google Agenda", event_link, use_container_width=True
+                                    )
+                                if meet_link:
+                                    col_meet.link_button(
+                                        "Entrar no Google Meet", meet_link, use_container_width=True
+                                    )
+                            else:
+                                st.warning(
+                                    "Esta reunião está salva no CAPROQ, mas ainda não possui convite no Google Agenda."
+                                )
+                                if st.button(
+                                    "Criar convite no Google Agenda",
+                                    key=f"criar_agenda_reuniao_{id_reuniao}",
+                                    use_container_width=True,
+                                ):
+                                    ok_agenda, msg_agenda = vincular_evento_google_reuniao(
+                                        id_reuniao=id_reuniao,
+                                        credentials=obter_credenciais_google(),
+                                    )
+                                    if ok_agenda:
+                                        ui.render_feedback(
+                                            msg_agenda, kind="success", title="Convite criado", icon="📅"
+                                        )
+                                        st.rerun()
+                                    else:
+                                        ui.render_feedback(
+                                            msg_agenda, kind="error", title="Não foi possível criar o convite", icon="⛔"
+                                        )
 
             with aba_historico:
                 if historico_tela.empty:
