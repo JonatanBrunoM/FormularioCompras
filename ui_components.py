@@ -1290,7 +1290,6 @@ def load_login_css() -> None:
                 padding-top: 1.2rem !important;
                 padding-bottom: 1rem !important;
             }
-        
         </style>
         """,
         unsafe_allow_html=True,
