@@ -28,8 +28,12 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak,
     KeepTogether, Image as RLImage
 )
+from reportlab.graphics.shapes import Drawing
+from reportlab.graphics.barcode.qr import QrCodeWidget
 import io
 import uuid
+import hashlib
+from urllib.parse import urlencode
 
 if "form_count" not in st.session_state:
     st.session_state["form_count"] = 0
@@ -189,6 +193,53 @@ def _pdf_logo_path():
     return None
 
 
+def _pdf_codigo_validacao(identificador, dados, status_final):
+    """Gera um código curto e reproduzível para rastreabilidade do relatório."""
+    base = "|".join([
+        _pdf_texto(identificador, ""),
+        _pdf_texto(status_final, ""),
+        _pdf_primeiro(dados, "Data_Homologacao_Final", "Data_Homologacao", padrao=""),
+        _pdf_primeiro(dados, "Responsavel_Homologacao_Final", "Admin_Responsavel", padrao=""),
+        _pdf_primeiro(dados, "Remetente_Email", "Endereço de e-mail", "Email", padrao=""),
+    ])
+    digest = hashlib.sha256(base.encode("utf-8")).hexdigest().upper()
+    return f"{digest[:4]}-{digest[4:8]}-{digest[8:12]}-{digest[12:16]}"
+
+
+def _pdf_url_verificacao(id_chamado, identificador, codigo_validacao):
+    """Monta o destino do QR Code. Usa URL configurada ou um texto de validação offline."""
+    base_url = os.getenv("CAPROQ_APP_URL", "").strip()
+    try:
+        base_url = str(st.secrets.get("CAPROQ_APP_URL", base_url)).strip()
+    except Exception:
+        pass
+
+    parametros = urlencode({
+        "chamado": _pdf_texto(id_chamado, ""),
+        "documento": identificador,
+        "validacao": codigo_validacao,
+    })
+
+    if base_url:
+        separador = "&" if "?" in base_url else "?"
+        return f"{base_url}{separador}{parametros}"
+
+    return (
+        f"Sistema CAPROQ | Documento: {identificador} | "
+        f"Chamado: {id_chamado} | Código: {codigo_validacao}"
+    )
+
+
+def _pdf_qr_drawing(conteudo, tamanho=28 * mm):
+    qr = QrCodeWidget(conteudo)
+    x1, y1, x2, y2 = qr.getBounds()
+    largura = x2 - x1
+    altura = y2 - y1
+    desenho = Drawing(tamanho, tamanho, transform=[tamanho / largura, 0, 0, tamanho / altura, 0, 0])
+    desenho.add(qr)
+    return desenho
+
+
 def _pdf_status_cor(status):
     status = _pdf_texto(status, "").lower()
     if "reprov" in status:
@@ -200,7 +251,7 @@ def _pdf_status_cor(status):
     return COR_CAPROQ
 
 
-def _pdf_cabecalho_rodape(canvas_doc, doc, identificador, status):
+def _pdf_cabecalho_rodape(canvas_doc, doc, identificador, status, codigo_validacao):
     canvas_doc.saveState()
     largura, altura = A4
 
@@ -216,7 +267,7 @@ def _pdf_cabecalho_rodape(canvas_doc, doc, identificador, status):
     canvas_doc.line(18 * mm, 14 * mm, largura - 18 * mm, 14 * mm)
     canvas_doc.setFillColor(COR_CINZA)
     canvas_doc.setFont("Helvetica", 7)
-    canvas_doc.drawString(18 * mm, 9 * mm, "Documento gerado automaticamente pelo Sistema CAPROQ")
+    canvas_doc.drawString(18 * mm, 9 * mm, f"Validação: {codigo_validacao}")
     canvas_doc.drawCentredString(largura / 2, 9 * mm, f"Status: {status}")
     canvas_doc.drawRightString(largura - 18 * mm, 9 * mm, f"Página {doc.page}")
     canvas_doc.restoreState()
@@ -229,6 +280,8 @@ def gerar_relatorio_oficial_caproq(dados, reunioes=None):
     ano = datetime.datetime.now().year
     identificador = f"CAPROQ-{ano}-{str(id_chamado).zfill(6)}"
     status_final = _pdf_primeiro(dados, "Status_Final", "Decisao_Final_Admin", padrao="Concluído")
+    codigo_validacao = _pdf_codigo_validacao(identificador, dados, status_final)
+    conteudo_qr = _pdf_url_verificacao(id_chamado, identificador, codigo_validacao)
 
     doc = SimpleDocTemplate(
         buffer,
@@ -326,7 +379,8 @@ def gerar_relatorio_oficial_caproq(dados, reunioes=None):
 
     resumo_topo = Table([
         [_pdf_paragrafo("IDENTIFICADOR", estilos["rotulo"]), _pdf_paragrafo("CHAMADO", estilos["rotulo"]), _pdf_paragrafo("STATUS FINAL", estilos["rotulo"]), _pdf_paragrafo("EMISSÃO", estilos["rotulo"])],
-        [_pdf_paragrafo(identificador, estilos["valor_bold"]), _pdf_paragrafo(f"#{id_chamado}", estilos["valor_bold"]), _pdf_paragrafo(status_final, estilos["valor_bold"]), _pdf_paragrafo(datetime.datetime.now().strftime("%d/%m/%Y %H:%M"), estilos["valor"])]
+        [_pdf_paragrafo(identificador, estilos["valor_bold"]), _pdf_paragrafo(f"#{id_chamado}", estilos["valor_bold"]), _pdf_paragrafo(status_final, estilos["valor_bold"]), _pdf_paragrafo(datetime.datetime.now().strftime("%d/%m/%Y %H:%M"), estilos["valor"])],
+        [_pdf_paragrafo("CÓDIGO DE VALIDAÇÃO", estilos["rotulo"]), _pdf_paragrafo(codigo_validacao, estilos["valor_bold"]), "", ""],
     ], colWidths=[52 * mm, 25 * mm, 53 * mm, 44 * mm])
     resumo_topo.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), COR_CAPROQ_CLARO),
@@ -334,6 +388,8 @@ def gerar_relatorio_oficial_caproq(dados, reunioes=None):
         ("INNERGRID", (0, 0), (-1, -1), 0.35, COR_BORDA),
         ("BACKGROUND", (2, 1), (2, 1), status_cor),
         ("TEXTCOLOR", (2, 1), (2, 1), colors.white),
+        ("SPAN", (1, 2), (3, 2)),
+        ("BACKGROUND", (0, 2), (0, 2), COR_FUNDO),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 6),
         ("RIGHTPADDING", (0, 0), (-1, -1), 6),
@@ -507,13 +563,47 @@ def gerar_relatorio_oficial_caproq(dados, reunioes=None):
             ["E-mail", _pdf_primeiro(dados, "Email_Responsavel_Homologacao", "Admin_Email"), "Identificador", identificador],
         ]),
         Spacer(1, 6 * mm),
-        caixa_texto("Validação eletrônica", f"Homologado eletronicamente no Sistema CAPROQ por {responsavel}, em {data_homologacao}. Este relatório consolida as informações registradas no fluxo digital do chamado #{id_chamado}."),
     ])
+
+    texto_validacao = (
+        f"Homologado eletronicamente no Sistema CAPROQ por {responsavel}, em {data_homologacao}. "
+        f"Este relatório consolida as informações registradas no fluxo digital do chamado #{id_chamado}. "
+        f"Código de validação: {codigo_validacao}."
+    )
+    bloco_validacao = Table([
+        [_pdf_qr_drawing(conteudo_qr, 30 * mm),
+         Table([
+             [_pdf_paragrafo("VALIDAÇÃO E RASTREABILIDADE", estilos["valor_bold"])],
+             [_pdf_paragrafo(texto_validacao, estilos["texto"])],
+             [_pdf_paragrafo(f"Documento: {identificador}", estilos["valor"])],
+             [_pdf_paragrafo(f"Código: {codigo_validacao}", estilos["valor_bold"])],
+             [_pdf_paragrafo(
+                 "Escaneie o QR Code para consultar o chamado quando a URL institucional estiver configurada.",
+                 estilos["pequeno"],
+             )],
+         ], colWidths=[128 * mm], style=TableStyle([
+             ("LEFTPADDING", (0, 0), (-1, -1), 0),
+             ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+             ("TOPPADDING", (0, 0), (-1, -1), 2),
+             ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+         ]))]
+    ], colWidths=[38 * mm, 136 * mm])
+    bloco_validacao.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), COR_CAPROQ_CLARO),
+        ("BOX", (0, 0), (-1, -1), 0.7, COR_CAPROQ),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (0, 0), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    historia.append(bloco_validacao)
 
     doc.build(
         historia,
-        onFirstPage=lambda c, d: _pdf_cabecalho_rodape(c, d, identificador, status_final),
-        onLaterPages=lambda c, d: _pdf_cabecalho_rodape(c, d, identificador, status_final),
+        onFirstPage=lambda c, d: _pdf_cabecalho_rodape(c, d, identificador, status_final, codigo_validacao),
+        onLaterPages=lambda c, d: _pdf_cabecalho_rodape(c, d, identificador, status_final, codigo_validacao),
     )
     buffer.seek(0)
     return buffer.getvalue()
