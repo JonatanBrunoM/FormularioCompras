@@ -7061,6 +7061,13 @@ else:
         # Cria um inicializador de versão para resetar os widgets de upload e chaves de input
         if "form_version" not in st.session_state:
             st.session_state["form_version"] = 0
+
+        # Controle persistente do envio. Evita perda dos dados em reruns e
+        # impede cliques duplicados enquanto Drive, planilha e e-mails são processados.
+        if "envio_solicitacao_em_andamento" not in st.session_state:
+            st.session_state["envio_solicitacao_em_andamento"] = False
+        if "envio_solicitacao_pendente" not in st.session_state:
+            st.session_state["envio_solicitacao_pendente"] = False
             
         v = st.session_state["form_version"]
     
@@ -7096,8 +7103,10 @@ else:
         respostas_formulario["Carimbo de data/hora"] = timestamp_criacao
         respostas_formulario["Endereço de e-mail"] = user_email
 
-        # 9.1. Formulário Base Obrigatório - clear_on_submit=True garante limpeza visual nativa
-        with st.form(key=f"form_requisicao_fixo_{v}", clear_on_submit=True):
+        # 9.1. Formulário Base Obrigatório
+        # Não limpar no submit: os campos só são resetados depois que o chamado
+        # for efetivamente gravado com sucesso.
+        with st.form(key=f"form_requisicao_fixo_{v}", clear_on_submit=False):
             
             st.markdown("""
             <div class="caproq-form-section">
@@ -7187,11 +7196,21 @@ else:
             </div>
             """, unsafe_allow_html=True)
             
-            # Botão de envio padrão - Aciona a validação em 1 clique
-            enviar_formulario = st.form_submit_button("Enviar solicitação para avaliação", use_container_width=True, type="primary")
-            
-        # Controle interno de salvamento final
-        executar_envio_final = False
+            # Para produto teste, o primeiro clique apenas valida e abre a etapa complementar.
+            texto_botao_envio = (
+                "Continuar para informações do produto de teste"
+                if valor_produto_teste == "SIM"
+                else "Enviar solicitação para avaliação"
+            )
+            enviar_formulario = st.form_submit_button(
+                texto_botao_envio,
+                use_container_width=True,
+                type="primary",
+                disabled=st.session_state["envio_solicitacao_em_andamento"],
+            )
+
+        if st.session_state["envio_solicitacao_em_andamento"]:
+            st.info("⏳ Enviando solicitação. Não feche nem atualize esta página.")
 
         # Dispara imediatamente após o primeiro clique
         if enviar_formulario:
@@ -7222,7 +7241,7 @@ else:
                 
                 # Se for um produto convencional (NÃO teste), encaminha para gravação direto
                 if valor_produto_teste == "NÃO":
-                    executar_envio_final = True
+                    st.session_state["envio_solicitacao_pendente"] = True
 
         # SEGUNDA ETAPA DINÂMICA: Aparece instantaneamente se for Produto de Teste
         if "dados_base_coletados" in st.session_state and st.session_state["dados_base_coletados"]["valor_produto_teste"] == "SIM":
@@ -7255,7 +7274,12 @@ else:
                 with c6: responsavel_area = st.text_input("Gerente ou coordenador da área: *", key=f"final_responsavel_area_{v}")
 
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Confirmar e concluir envio do produto teste", use_container_width=True, type="primary"):
+                if st.button(
+                    "Confirmar e concluir envio do produto teste",
+                    use_container_width=True,
+                    type="primary",
+                    disabled=st.session_state["envio_solicitacao_em_andamento"],
+                ):
                     if not all([motivo_teste, consumo_mes, qtd_teste, setores_teste, setor_solicitante, ramal_solicitante, responsavel_area]):
                         ui.render_feedback("Preencha todos os campos adicionais do Produto Teste antes de enviar a solicitação.", kind="error", title="Dados do Produto Teste incompletos", icon="🧪")
                     else:
@@ -7268,9 +7292,17 @@ else:
                             "Ramal_Solicitante": ramal_solicitante,
                             "Responsavel_Area": responsavel_area
                         })
-                        executar_envio_final = True
+                        st.session_state["envio_solicitacao_pendente"] = True
 
-        if executar_envio_final and "dados_base_coletados" in st.session_state:
+        if (
+            st.session_state.get("envio_solicitacao_pendente", False)
+            and not st.session_state.get("envio_solicitacao_em_andamento", False)
+            and "dados_base_coletados" in st.session_state
+        ):
+            # Consome o gatilho uma única vez e bloqueia novos cliques.
+            st.session_state["envio_solicitacao_pendente"] = False
+            st.session_state["envio_solicitacao_em_andamento"] = True
+
             cache = st.session_state["dados_base_coletados"]
             resp_form = cache["respostas"]
             v_prod_teste = cache["valor_produto_teste"]
@@ -7295,6 +7327,7 @@ else:
                 try:
                     pasta_chamado = criar_ou_obter_pasta_chamado(dados_pasta_novo_chamado)
                 except Exception as erro_pasta:
+                    st.session_state["envio_solicitacao_em_andamento"] = False
                     st.error(
                         "Não foi possível criar a pasta individual deste chamado no Google Drive. "
                         "A solicitação não foi gravada para evitar arquivos soltos. "
@@ -7498,6 +7531,8 @@ else:
                     )
 
                 st.session_state["form_version"] += 1
+                st.session_state["envio_solicitacao_em_andamento"] = False
+                st.session_state["envio_solicitacao_pendente"] = False
                 
                 if "dados_base_coletados" in st.session_state:
                     del st.session_state["dados_base_coletados"]
