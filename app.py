@@ -12,6 +12,7 @@ import extra_streamlit_components as stx
 from html import escape
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
 from streamlit_gsheets import GSheetsConnection
@@ -33,6 +34,7 @@ from reportlab.graphics.barcode.qr import QrCodeWidget
 import io
 import uuid
 import hashlib
+import re
 from urllib.parse import urlencode
 
 if "form_count" not in st.session_state:
@@ -109,6 +111,101 @@ def upload_para_google_drive(arquivo_streamlit, pasta_id=None):
     except Exception as e:
         st.error(f"Erro ao fazer upload para o Drive: {e}")
         return None
+
+
+def _drive_root_folder_id():
+    """Retorna a pasta principal do CAPROQ configurada nos secrets."""
+    padrao = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R"
+    try:
+        return str(st.secrets.get("CAPROQ_DRIVE_ROOT_FOLDER_ID", padrao)).strip() or padrao
+    except Exception:
+        return os.getenv("CAPROQ_DRIVE_ROOT_FOLDER_ID", padrao).strip() or padrao
+
+
+def _drive_nome_seguro(valor, limite=70):
+    texto = str(valor or "").strip()
+    texto = re.sub(r'[\\/:*?"<>|]+', '-', texto)
+    texto = re.sub(r'\s+', ' ', texto).strip(' .-_')
+    return (texto or "Produto_sem_descricao")[:limite]
+
+
+def criar_ou_obter_pasta_chamado(dados_chamado):
+    """Cria ou reutiliza a pasta individual de um chamado no Google Drive."""
+    pasta_existente = str(dados_chamado.get("Drive_Folder_ID", "") or "").strip()
+    nome_existente = str(dados_chamado.get("Drive_Folder_Name", "") or "").strip()
+    if pasta_existente and pasta_existente.lower() not in {"nan", "none"}:
+        return {
+            "id": pasta_existente,
+            "name": nome_existente,
+            "url": str(dados_chamado.get("Drive_Folder_URL", "") or f"https://drive.google.com/drive/folders/{pasta_existente}"),
+            "created": False,
+        }
+
+    credentials = obter_credenciais_google()
+    if credentials is None:
+        raise RuntimeError("Credenciais Google indisponíveis para criar a pasta do chamado.")
+
+    service = build("drive", "v3", credentials=credentials)
+    id_chamado = str(dados_chamado.get("ID", dados_chamado.get("ID_Chamado", "SEM-ID"))).strip()
+    descricao = (
+        dados_chamado.get("Descrição completa do produto")
+        or dados_chamado.get("Descrição do produto")
+        or dados_chamado.get("Descricao_Produto")
+        or "Produto sem descrição"
+    )
+    nome_pasta = f"{str(id_chamado).zfill(6)} - {_drive_nome_seguro(descricao)}"
+    raiz_id = _drive_root_folder_id()
+
+    # Evita duplicidade quando a planilha ainda não contém o ID, mas a pasta já existe.
+    consulta = (
+        f"name = '{nome_pasta.replace(chr(39), chr(92)+chr(39))}' and "
+        "mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    )
+    if raiz_id:
+        consulta += f" and '{raiz_id}' in parents"
+    encontrados = service.files().list(q=consulta, fields="files(id,name,webViewLink)", pageSize=10).execute().get("files", [])
+    if encontrados:
+        pasta = encontrados[0]
+        return {
+            "id": pasta["id"],
+            "name": pasta.get("name", nome_pasta),
+            "url": pasta.get("webViewLink") or f"https://drive.google.com/drive/folders/{pasta['id']}",
+            "created": False,
+        }
+
+    metadata = {
+        "name": nome_pasta,
+        "mimeType": "application/vnd.google-apps.folder",
+    }
+    if raiz_id:
+        metadata["parents"] = [raiz_id]
+    pasta = service.files().create(body=metadata, fields="id,name,webViewLink").execute()
+    return {
+        "id": pasta["id"],
+        "name": pasta.get("name", nome_pasta),
+        "url": pasta.get("webViewLink") or f"https://drive.google.com/drive/folders/{pasta['id']}",
+        "created": True,
+    }
+
+
+def upload_bytes_para_google_drive(conteudo, nome_arquivo, mime_type, pasta_id):
+    """Envia bytes diretamente ao Drive e devolve ID e URL do arquivo."""
+    credentials = obter_credenciais_google()
+    if credentials is None:
+        raise RuntimeError("Credenciais Google indisponíveis para enviar o relatório.")
+    service = build("drive", "v3", credentials=credentials)
+    media = MediaIoBaseUpload(io.BytesIO(conteudo), mimetype=mime_type, resumable=False)
+    metadata = {"name": nome_arquivo, "parents": [pasta_id]}
+    arquivo = service.files().create(
+        body=metadata,
+        media_body=media,
+        fields="id,name,webViewLink",
+    ).execute()
+    return {
+        "id": arquivo.get("id", ""),
+        "name": arquivo.get("name", nome_arquivo),
+        "url": arquivo.get("webViewLink", ""),
+    }
 
 
 # ------------------------------------------------------------------------------
@@ -274,7 +371,7 @@ def _pdf_cabecalho_rodape(canvas_doc, doc, identificador, status, codigo_validac
 
 
 def gerar_relatorio_oficial_caproq(dados, reunioes=None):
-    """Cria do zero o relatório institucional completo do processo CAPROQ."""
+    """Gera o Relatório Oficial CAPROQ em exatamente duas páginas compactas."""
     buffer = io.BytesIO()
     id_chamado = _pdf_primeiro(dados, "ID", "ID_Chamado", padrao="SEM-ID")
     ano = datetime.datetime.now().year
@@ -283,321 +380,184 @@ def gerar_relatorio_oficial_caproq(dados, reunioes=None):
     codigo_validacao = _pdf_codigo_validacao(identificador, dados, status_final)
     conteudo_qr = _pdf_url_verificacao(id_chamado, identificador, codigo_validacao)
 
+    def resumir(valor, limite=260, padrao="Não informado"):
+        texto = _pdf_texto(valor, padrao).replace("\r", " ").replace("\n", " ")
+        texto = " ".join(texto.split())
+        return texto if len(texto) <= limite else texto[: limite - 1].rstrip() + "…"
+
     doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=18 * mm,
-        leftMargin=18 * mm,
-        topMargin=22 * mm,
-        bottomMargin=20 * mm,
+        buffer, pagesize=A4,
+        rightMargin=12 * mm, leftMargin=12 * mm,
+        topMargin=18 * mm, bottomMargin=16 * mm,
         title=f"Relatório Oficial CAPROQ - Chamado {id_chamado}",
         author="Sistema CAPROQ - Hospital Moinhos de Vento",
-        subject="Avaliação, aprovação e homologação de produto químico",
     )
-
-    estilos_base = getSampleStyleSheet()
+    base = getSampleStyleSheet()
     estilos = {
-        "titulo": ParagraphStyle("caproq_titulo", parent=estilos_base["Title"], fontName="Helvetica-Bold", fontSize=17, leading=21, textColor=COR_CAPROQ_ESCURO, alignment=TA_LEFT, spaceAfter=4),
-        "subtitulo": ParagraphStyle("caproq_subtitulo", parent=estilos_base["Normal"], fontName="Helvetica", fontSize=9, leading=12, textColor=COR_CINZA, spaceAfter=10),
-        "secao": ParagraphStyle("caproq_secao", parent=estilos_base["Heading2"], fontName="Helvetica-Bold", fontSize=10.5, leading=13, textColor=colors.white, leftIndent=0, spaceBefore=8, spaceAfter=6),
-        "rotulo": ParagraphStyle("caproq_rotulo", parent=estilos_base["Normal"], fontName="Helvetica-Bold", fontSize=7.5, leading=9, textColor=COR_CINZA),
-        "valor": ParagraphStyle("caproq_valor", parent=estilos_base["Normal"], fontName="Helvetica", fontSize=8.3, leading=11, textColor=COR_TEXTO),
-        "valor_bold": ParagraphStyle("caproq_valor_bold", parent=estilos_base["Normal"], fontName="Helvetica-Bold", fontSize=8.5, leading=11, textColor=COR_TEXTO),
-        "texto": ParagraphStyle("caproq_texto", parent=estilos_base["BodyText"], fontName="Helvetica", fontSize=8.3, leading=12, textColor=COR_TEXTO, spaceAfter=3),
-        "pequeno": ParagraphStyle("caproq_pequeno", parent=estilos_base["Normal"], fontName="Helvetica", fontSize=7.3, leading=9, textColor=COR_CINZA),
-        "centro": ParagraphStyle("caproq_centro", parent=estilos_base["Normal"], fontName="Helvetica-Bold", fontSize=9, leading=11, alignment=TA_CENTER, textColor=colors.white),
+        "titulo": ParagraphStyle("c_titulo", parent=base["Title"], fontName="Helvetica-Bold", fontSize=13, leading=15, textColor=COR_CAPROQ_ESCURO, spaceAfter=1),
+        "sub": ParagraphStyle("c_sub", parent=base["Normal"], fontSize=7.2, leading=8.5, textColor=COR_CINZA),
+        "secao": ParagraphStyle("c_sec", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9, textColor=colors.white),
+        "rotulo": ParagraphStyle("c_rot", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=6.5, leading=7.5, textColor=COR_CINZA),
+        "valor": ParagraphStyle("c_val", parent=base["Normal"], fontSize=7.1, leading=8.3, textColor=COR_TEXTO),
+        "bold": ParagraphStyle("c_bold", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=7.2, leading=8.4, textColor=COR_TEXTO),
+        "mini": ParagraphStyle("c_mini", parent=base["Normal"], fontSize=6.2, leading=7.2, textColor=COR_CINZA),
+        "centro": ParagraphStyle("c_centro", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9, alignment=TA_CENTER, textColor=colors.white),
     }
 
-    def secao(titulo):
-        tabela = Table([[_pdf_paragrafo(titulo, estilos["secao"])]], colWidths=[174 * mm])
-        tabela.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), COR_CAPROQ),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 1),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-            ("BOX", (0, 0), (-1, -1), 0.5, COR_CAPROQ_ESCURO),
-        ]))
-        return tabela
+    largura_util = 186 * mm
 
-    def tabela_campos(linhas, larguras=None):
+    def secao(titulo):
+        t = Table([[_pdf_paragrafo(titulo, estilos["secao"])]], colWidths=[largura_util])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), COR_CAPROQ),
+            ("BOX", (0, 0), (-1, -1), .4, COR_CAPROQ_ESCURO),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5), ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        return t
+
+    def tabela_pares(linhas, larguras=None):
         conteudo = []
         for linha in linhas:
             conteudo.append([
-                _pdf_paragrafo(rotulo, estilos["rotulo"]) if i % 2 == 0 else _pdf_paragrafo(rotulo, estilos["valor"])
-                for i, rotulo in enumerate(linha)
+                _pdf_paragrafo(resumir(v, 180), estilos["rotulo"] if i % 2 == 0 else estilos["valor"])
+                for i, v in enumerate(linha)
             ])
-        tabela = Table(conteudo, colWidths=larguras or [35 * mm, 52 * mm, 35 * mm, 52 * mm], hAlign="LEFT")
-        tabela.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.35, COR_BORDA),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ("BACKGROUND", (0, 0), (0, -1), COR_FUNDO),
-            ("BACKGROUND", (2, 0), (2, -1), COR_FUNDO),
+        t = Table(conteudo, colWidths=larguras or [31*mm, 62*mm, 31*mm, 62*mm])
+        t.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), .25, COR_BORDA), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BACKGROUND", (0, 0), (0, -1), COR_FUNDO), ("BACKGROUND", (2, 0), (2, -1), COR_FUNDO),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ]))
-        return tabela
+        return t
 
-    def caixa_texto(titulo, valor):
-        dados_caixa = [[_pdf_paragrafo(titulo, estilos["rotulo"])], [_pdf_paragrafo(valor, estilos["texto"])]]
-        tabela = Table(dados_caixa, colWidths=[174 * mm])
-        tabela.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), COR_FUNDO),
-            ("BOX", (0, 0), (-1, -1), 0.45, COR_BORDA),
-            ("LINEBELOW", (0, 0), (-1, 0), 0.35, COR_BORDA),
-            ("LEFTPADDING", (0, 0), (-1, -1), 7),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 7),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    def caixa(titulo, valor, limite=420):
+        t = Table([
+            [_pdf_paragrafo(titulo, estilos["rotulo"])],
+            [_pdf_paragrafo(resumir(valor, limite), estilos["valor"])],
+        ], colWidths=[largura_util])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), COR_FUNDO), ("BOX", (0, 0), (-1, -1), .3, COR_BORDA),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5), ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ]))
-        return tabela
+        return t
 
     historia = []
     logo = _pdf_logo_path()
-    if logo:
-        marca = RLImage(logo, width=30 * mm, height=18 * mm, kind="proportional")
-    else:
-        marca = Paragraph("HOSPITAL<br/>MOINHOS DE VENTO", estilos["valor_bold"])
-
-    status_cor = _pdf_status_cor(status_final)
-    bloco_titulo = Table([
-        [marca, _pdf_paragrafo("RELATÓRIO OFICIAL CAPROQ", estilos["titulo"])],
-        ["", _pdf_paragrafo("Avaliação, aprovação e homologação de produtos químicos e similares", estilos["subtitulo"])],
-    ], colWidths=[38 * mm, 136 * mm])
-    bloco_titulo.setStyle(TableStyle([
-        ("SPAN", (0, 0), (0, 1)),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-    ]))
-    historia.extend([bloco_titulo, Spacer(1, 4 * mm)])
-
-    resumo_topo = Table([
-        [_pdf_paragrafo("IDENTIFICADOR", estilos["rotulo"]), _pdf_paragrafo("CHAMADO", estilos["rotulo"]), _pdf_paragrafo("STATUS FINAL", estilos["rotulo"]), _pdf_paragrafo("EMISSÃO", estilos["rotulo"])],
-        [_pdf_paragrafo(identificador, estilos["valor_bold"]), _pdf_paragrafo(f"#{id_chamado}", estilos["valor_bold"]), _pdf_paragrafo(status_final, estilos["valor_bold"]), _pdf_paragrafo(datetime.datetime.now().strftime("%d/%m/%Y %H:%M"), estilos["valor"])],
-        [_pdf_paragrafo("CÓDIGO DE VALIDAÇÃO", estilos["rotulo"]), _pdf_paragrafo(codigo_validacao, estilos["valor_bold"]), "", ""],
-    ], colWidths=[52 * mm, 25 * mm, 53 * mm, 44 * mm])
-    resumo_topo.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), COR_CAPROQ_CLARO),
-        ("BOX", (0, 0), (-1, -1), 0.6, COR_BORDA),
-        ("INNERGRID", (0, 0), (-1, -1), 0.35, COR_BORDA),
-        ("BACKGROUND", (2, 1), (2, 1), status_cor),
-        ("TEXTCOLOR", (2, 1), (2, 1), colors.white),
-        ("SPAN", (1, 2), (3, 2)),
-        ("BACKGROUND", (0, 2), (0, 2), COR_FUNDO),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-    ]))
-    historia.extend([resumo_topo, Spacer(1, 4 * mm)])
+    marca = RLImage(logo, width=25*mm, height=13*mm, kind="proportional") if logo else Paragraph("HOSPITAL<br/>MOINHOS DE VENTO", estilos["bold"])
+    topo = Table([
+        [marca, _pdf_paragrafo("RELATÓRIO OFICIAL CAPROQ", estilos["titulo"]), Paragraph(f"Chamado #{id_chamado}<br/>{identificador}", estilos["bold"])],
+        ["", _pdf_paragrafo("Síntese oficial da solicitação, avaliações e homologação", estilos["sub"]), _pdf_paragrafo(datetime.datetime.now().strftime("%d/%m/%Y %H:%M"), estilos["mini"])],
+    ], colWidths=[31*mm, 103*mm, 52*mm])
+    topo.setStyle(TableStyle([("SPAN", (0,0), (0,1)), ("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("ALIGN", (2,0), (2,-1), "RIGHT"), ("LEFTPADDING", (0,0), (-1,-1), 0), ("RIGHTPADDING", (0,0), (-1,-1), 2), ("TOPPADDING", (0,0), (-1,-1), 1), ("BOTTOMPADDING", (0,0), (-1,-1), 1)]))
+    historia.extend([topo, Spacer(1, 2*mm)])
 
     solicitante = _pdf_primeiro(dados, "Nome solicitante", "Nome", "Remetente_Nome")
     email = _pdf_primeiro(dados, "Endereço de e-mail", "Remetente_Email", "Email")
-    setor = _pdf_primeiro(dados, "Setor_Solicitante", "Setor")
-    data_solicitacao = _pdf_data(_pdf_primeiro(dados, "Carimbo de data/hora", "Data_Abertura", "Data da solicitação"))
-    tipo = _pdf_primeiro(dados, "Tipo_Solicitacao", padrao="Inclusão")
-    ramal = _pdf_primeiro(dados, "Ramal_Solicitante", "Fone/Ramal", "Telefone")
-
-    historia.extend([secao("1. DADOS DA SOLICITAÇÃO"), Spacer(1, 2 * mm)])
-    historia.append(tabela_campos([
-        ["Solicitante", solicitante, "Data da solicitação", data_solicitacao],
-        ["E-mail", email, "Setor", setor],
-        ["Tipo de solicitação", tipo, "Fone / ramal", ramal],
-    ]))
-    historia.append(Spacer(1, 4 * mm))
-
+    setor = _pdf_primeiro(dados, "Setor_Solicitante", "Setor", "Setor solicitante")
+    data_solic = _pdf_data(_pdf_primeiro(dados, "Carimbo de data/hora", "Data_Abertura", "Data da solicitação"), incluir_hora=True)
     descricao = _pdf_primeiro(dados, "Descrição completa do produto", "Descrição do produto", "Descricao_Produto")
     fabricante = _pdf_primeiro(dados, "Fabricante/fornecedor", "Fabricante", "Fornecedor")
-    apresentacao = _pdf_primeiro(dados, "Apresentação/volume", "Apresentacao")
-    categoria = _pdf_primeiro(dados, "Categoria", "Classificacao_Produto")
-    justificativa = _pdf_primeiro(dados, "Justificativa", "Justificativa da solicitação", "Motivo_Teste")
     area_uso = _pdf_primeiro(dados, "Área onde será utilizado e indicação detalhada de uso do produto", "Area_Uso")
+    justificativa = _pdf_primeiro(dados, "Justificativa", "Justificativa da solicitação", "Motivo_Teste")
+    produto_teste = _pdf_normalizar_resposta(_pdf_primeiro(dados, "Produto_Teste", "É produto teste?", padrao="NÃO"))
 
-    historia.extend([secao("2. PRODUTO SOLICITADO"), Spacer(1, 2 * mm)])
-    historia.append(tabela_campos([
-        ["Descrição", descricao, "Fabricante / fornecedor", fabricante],
-        ["Apresentação / volume", apresentacao, "Categoria", categoria],
+    historia.extend([secao("1. SOLICITAÇÃO E PRODUTO"), Spacer(1, 1*mm)])
+    historia.append(tabela_pares([
+        ["Solicitante", solicitante, "Data", data_solic],
+        ["E-mail", email, "Setor", setor],
+        ["Produto", resumir(descricao, 170), "Fabricante", resumir(fabricante, 100)],
+        ["Tipo", _pdf_primeiro(dados, "Tipo_Solicitacao", padrao="Inclusão"), "Produto teste", produto_teste],
     ]))
-    historia.extend([Spacer(1, 2 * mm), caixa_texto("Área de utilização e indicação de uso", area_uso), Spacer(1, 2 * mm), caixa_texto("Justificativa / motivo da solicitação", justificativa), Spacer(1, 4 * mm)])
+    historia.extend([Spacer(1, 1.3*mm), caixa("Área de utilização", area_uso, 280), Spacer(1, 1.3*mm), caixa("Justificativa", justificativa, 320), Spacer(1, 2*mm)])
 
-    produto_teste = _pdf_normalizar_resposta(_pdf_primeiro(dados, "Produto_Teste", "É produto teste?", "Produto de Teste", padrao="NÃO"))
-    historia.extend([secao("3. INFORMAÇÕES DO TESTE"), Spacer(1, 2 * mm)])
-    historia.append(tabela_campos([
-        ["Produto de teste / piloto", produto_teste, "Consumo estimado / mês", _pdf_primeiro(dados, "Consumo_Mes_Teste")],
-        ["Quantidade destinada ao teste", _pdf_primeiro(dados, "Quantidade_Teste"), "Setores participantes", _pdf_primeiro(dados, "Setor_Destino_Teste")],
-        ["Motivo do teste", _pdf_primeiro(dados, "Motivo_Teste"), "Prazo do teste", _pdf_primeiro(dados, "Prazo_Teste", "Periodo_Teste")],
-    ]))
-    historia.append(Spacer(1, 4 * mm))
-
-    historia.extend([secao("4. FLUXO DE APROVAÇÃO TÉCNICA"), Spacer(1, 2 * mm)])
-    linhas_aprovacao = [[_pdf_paragrafo("Área técnica", estilos["rotulo"]), _pdf_paragrafo("Decisão registrada", estilos["rotulo"]), _pdf_paragrafo("Parecer / observação", estilos["rotulo"])]]
+    historia.extend([secao("2. AVALIAÇÕES DAS ALÇADAS"), Spacer(1, 1*mm)])
     alcadas = globals().get("ALCADAS_INFO", {})
+    linhas = [[_pdf_paragrafo("Área", estilos["rotulo"]), _pdf_paragrafo("Resultado", estilos["rotulo"]), _pdf_paragrafo("Síntese do parecer", estilos["rotulo"])]]
     for info in alcadas.values():
         coluna = info.get("coluna_sheets", "")
-        decisao = _pdf_primeiro(dados, coluna, padrao="Pendente")
-        parecer = _pdf_primeiro(dados, f"Parecer_{coluna}", f"Observação {coluna}", f"Observacao_{coluna}", padrao="-")
-        linhas_aprovacao.append([
-            _pdf_paragrafo(info.get("label", coluna), estilos["valor_bold"]),
-            _pdf_paragrafo(decisao, estilos["valor"]),
-            _pdf_paragrafo(parecer, estilos["pequeno"]),
+        bruto = _pdf_primeiro(dados, coluna, padrao="Pendente")
+        decisao = bruto.split("(", 1)[0].strip() or bruto
+        linhas.append([
+            _pdf_paragrafo(resumir(info.get("label", "Área"), 55), estilos["valor"]),
+            _pdf_paragrafo(resumir(decisao, 38), estilos["bold"]),
+            _pdf_paragrafo(resumir(bruto, 150), estilos["mini"]),
         ])
-    if len(linhas_aprovacao) == 1:
-        linhas_aprovacao.append([_pdf_paragrafo("-", estilos["valor"]), _pdf_paragrafo("Sem registros", estilos["valor"]), _pdf_paragrafo("-", estilos["valor"])])
-    tabela_aprovacao = Table(linhas_aprovacao, colWidths=[55 * mm, 42 * mm, 77 * mm], repeatRows=1)
-    tabela_aprovacao.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), COR_CAPROQ_CLARO),
-        ("GRID", (0, 0), (-1, -1), 0.35, COR_BORDA),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    if len(linhas) == 1:
+        linhas.append([_pdf_paragrafo("Áreas técnicas", estilos["valor"]), _pdf_paragrafo("Não informado", estilos["bold"]), ""])
+    t_alc = Table(linhas, colWidths=[48*mm, 35*mm, 103*mm], repeatRows=1)
+    t_alc.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), COR_CAPROQ_CLARO), ("GRID", (0,0), (-1,-1), .25, COR_BORDA),
+        ("VALIGN", (0,0), (-1,-1), "TOP"), ("LEFTPADDING", (0,0), (-1,-1), 3), ("RIGHTPADDING", (0,0), (-1,-1), 3),
+        ("TOPPADDING", (0,0), (-1,-1), 2.5), ("BOTTOMPADDING", (0,0), (-1,-1), 2.5),
     ]))
-    historia.extend([tabela_aprovacao, Spacer(1, 4 * mm)])
+    historia.extend([t_alc, Spacer(1, 2*mm)])
 
-    if reunioes is not None and isinstance(reunioes, pd.DataFrame) and not reunioes.empty:
-        historia.extend([secao("5. REUNIÕES CAPROQ"), Spacer(1, 2 * mm)])
-        for _, reuniao in reunioes.iterrows():
-            numero = _pdf_primeiro(reuniao, "Numero_Reuniao_Chamado", padrao="-")
-            data = _pdf_data(_pdf_primeiro(reuniao, "Data_Realizacao", "Data_Agendamento"))
-            cab = Table([[
-                _pdf_paragrafo(f"Reunião {numero}", estilos["valor_bold"]),
-                _pdf_paragrafo(_pdf_primeiro(reuniao, "Status_Reuniao"), estilos["valor"]),
-                _pdf_paragrafo(data, estilos["valor"]),
-            ]], colWidths=[58 * mm, 58 * mm, 58 * mm])
-            cab.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, -1), COR_FUNDO),
-                ("BOX", (0, 0), (-1, -1), 0.4, COR_BORDA),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ("TOPPADDING", (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ]))
-            bloco_reuniao = [
-                cab,
-                caixa_texto("Motivo / pauta", _pdf_primeiro(reuniao, "Motivo_Reuniao", "Pauta")),
-                caixa_texto("Participantes presentes", _pdf_primeiro(reuniao, "Participantes_Presentes", "Participantes_Convidados")),
-                caixa_texto("Resumo da discussão / ata", _pdf_primeiro(reuniao, "Resumo_Discussao", "Ata_Texto")),
-                caixa_texto("Decisão e encaminhamento", f"{_pdf_primeiro(reuniao, 'Decisao_Reuniao', padrao='')} {_pdf_primeiro(reuniao, 'Encaminhamento_Chamado', padrao='')}".strip()),
-                Spacer(1, 3 * mm),
-            ]
-            historia.append(KeepTogether(bloco_reuniao))
-    else:
-        historia.extend([secao("5. REUNIÕES CAPROQ"), Spacer(1, 2 * mm), caixa_texto("Registro", "Não há reunião vinculada a este processo."), Spacer(1, 4 * mm)])
-
-    historia.extend([secao("6. HOMOLOGAÇÃO TÉCNICA"), Spacer(1, 2 * mm)])
-    possui_rms = _pdf_normalizar_resposta(_pdf_primeiro(dados, "Produto_Possui_RMS", padrao="NÃO"))
-    rms = _pdf_primeiro(dados, "RMS_Produto", padrao="Não se aplica" if possui_rms == "NÃO" else "Não informado")
-    validade = _pdf_data(_pdf_primeiro(dados, "Validade_RMS", padrao="")) if possui_rms != "NÃO" else "Não se aplica"
-    historia.append(tabela_campos([
-        ["Produto possui RMS", possui_rms, "Número do RMS", rms],
-        ["Validade do RMS", validade, "Pode ser rediluído", _pdf_normalizar_resposta(_pdf_primeiro(dados, "Pode_Ser_Rediluido"))],
-        ["Monitoramento ocupacional", _pdf_normalizar_resposta(_pdf_primeiro(dados, "Necessita_Monitoramento_Ocupacional")), "Resultado do teste", _pdf_primeiro(dados, "Resultado_Teste")],
-        ["Data do resultado", _pdf_data(_pdf_primeiro(dados, "Data_Resultado_Teste")), "Indicado para padronização", _pdf_normalizar_resposta(_pdf_primeiro(dados, "Indicado_Para_Padronizacao", "Indicado_Padronizacao"))],
-        ["Data da indicação", _pdf_data(_pdf_primeiro(dados, "Data_Indicacao_Padronizacao")), "Decisão administrativa", status_final],
+    historia.extend([secao("3. HOMOLOGAÇÃO TÉCNICA"), Spacer(1, 1*mm)])
+    possui_rms = _pdf_normalizar_resposta(_pdf_primeiro(dados, "Produto_Possui_RMS", padrao="NÃO INFORMADO"))
+    historia.append(tabela_pares([
+        ["Possui RMS", possui_rms, "Número RMS", _pdf_primeiro(dados, "RMS_Produto", "RMS do produto") if possui_rms == "SIM" else "Não se aplica"],
+        ["Validade RMS", _pdf_data(_pdf_primeiro(dados, "Validade_RMS", "Validade do RMS")) if possui_rms == "SIM" else "Não se aplica", "Rediluição", _pdf_primeiro(dados, "Pode_Ser_Rediluido", "Pode ser rediluído?")],
+        ["Monitoramento ocupacional", _pdf_primeiro(dados, "Necessita_Monitoramento_Ocupacional", "Necessário monitoramento ocupacional?"), "Resultado do teste", _pdf_primeiro(dados, "Resultado_Teste", "Resultado do teste")],
+        ["Indicado à padronização", _pdf_primeiro(dados, "Indicado_Padronizacao", "Indicado para padronização?"), "Data da indicação", _pdf_data(_pdf_primeiro(dados, "Data_Indicacao_Padronizacao", "Data da indicação"))],
     ]))
-    historia.extend([
-        Spacer(1, 2 * mm),
-        caixa_texto("Parecer do resultado do teste", _pdf_primeiro(dados, "Parecer_Resultado_Teste")),
-        Spacer(1, 2 * mm),
-        caixa_texto("Parecer da indicação para padronização", _pdf_primeiro(dados, "Parecer_Indicacao_Padronizacao")),
-        Spacer(1, 4 * mm),
-    ])
 
-    historia.extend([secao("7. HOMOLOGAÇÃO ADMINISTRATIVA"), Spacer(1, 2 * mm)])
-    perguntas_finais = [
-        "Padronização: o produto foi aprovado?",
-        "Padronização: o produto foi padronizado? Qual o cód.?",
-        "Solicitante: o produto foi comprado?",
-        "Segurança Ocupacional: o produto foi incluído no inventário de prod. perigosos? E inventário atualizado no PRG?",
-        "Segurança Ocupacional: a FISPQ já está no setor solicitante?",
-    ]
-    linhas_admin = [[_pdf_paragrafo("Item de verificação", estilos["rotulo"]), _pdf_paragrafo("Registro", estilos["rotulo"])]]
-    for pergunta in perguntas_finais:
-        linhas_admin.append([_pdf_paragrafo(pergunta, estilos["valor"]), _pdf_paragrafo(_pdf_primeiro(dados, pergunta), estilos["valor_bold"])])
-    tabela_admin = Table(linhas_admin, colWidths=[130 * mm, 44 * mm], repeatRows=1)
-    tabela_admin.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), COR_CAPROQ_CLARO),
-        ("GRID", (0, 0), (-1, -1), 0.35, COR_BORDA),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-    ]))
-    historia.extend([tabela_admin, Spacer(1, 4 * mm)])
-
-    historia.extend([
-        secao("8. CONSIDERAÇÕES FINAIS"), Spacer(1, 2 * mm),
-        caixa_texto("Deliberação registrada pelo administrador", _pdf_primeiro(dados, "Consideracoes_Finais_Homologacao", "Parecer_Final_Admin", "obs_admin")),
-        Spacer(1, 5 * mm),
-    ])
-
+    # Segunda página: conclusão e rastreabilidade.
     historia.append(PageBreak())
-    historia.extend([secao("9. DECISÃO FINAL DO CAPROQ"), Spacer(1, 8 * mm)])
-    decisao_box = Table([
-        [_pdf_paragrafo("DECISÃO FINAL", estilos["centro"])],
-        [Paragraph(_pdf_texto(status_final).upper(), ParagraphStyle("status_grande", parent=estilos["centro"], fontSize=22, leading=27, textColor=colors.white))],
-    ], colWidths=[174 * mm], rowHeights=[12 * mm, 28 * mm])
-    decisao_box.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), status_cor),
-        ("BOX", (0, 0), (-1, -1), 1, status_cor),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-    ]))
-    historia.extend([decisao_box, Spacer(1, 10 * mm)])
+    historia.extend([topo, Spacer(1, 2*mm), secao("4. HOMOLOGAÇÃO ADMINISTRATIVA"), Spacer(1, 1*mm)])
+    perguntas = [
+        ("Produto aprovado", "Padronização: o produto foi aprovado?"),
+        ("Produto padronizado / código", "Padronização: o produto foi padronizado? Qual o cód.?"),
+        ("Produto comprado", "Solicitante: o produto foi comprado?"),
+        ("Inventário/PGR atualizado", "Segurança Ocupacional: o produto foi incluído no inventário de prod. perigosos? E inventário atualizado no PRG?"),
+        ("FISPQ no setor", "Segurança Ocupacional: a FISPQ já está no setor solicitante?"),
+    ]
+    linhas_admin = [[_pdf_paragrafo("Verificação", estilos["rotulo"]), _pdf_paragrafo("Registro", estilos["rotulo"])]]
+    for rotulo, coluna in perguntas:
+        linhas_admin.append([_pdf_paragrafo(rotulo, estilos["valor"]), _pdf_paragrafo(resumir(_pdf_primeiro(dados, coluna), 180), estilos["bold"])])
+    t_admin = Table(linhas_admin, colWidths=[76*mm, 110*mm])
+    t_admin.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), COR_CAPROQ_CLARO), ("GRID", (0,0), (-1,-1), .25, COR_BORDA), ("VALIGN", (0,0), (-1,-1), "TOP"), ("LEFTPADDING", (0,0), (-1,-1), 4), ("RIGHTPADDING", (0,0), (-1,-1), 4), ("TOPPADDING", (0,0), (-1,-1), 3), ("BOTTOMPADDING", (0,0), (-1,-1), 3)]))
+    historia.extend([t_admin, Spacer(1, 2*mm)])
+
+    # Reuniões são resumidas em no máximo três linhas para preservar as duas páginas.
+    resumo_reunioes = "Não houve reunião vinculada ao chamado."
+    try:
+        if reunioes is not None and not reunioes.empty:
+            partes = []
+            for _, r in reunioes.tail(3).iterrows():
+                partes.append(f"{_pdf_primeiro(r, 'Data_Realizacao', 'Data_Agendamento', padrao='Data não informada')}: {_pdf_primeiro(r, 'Decisao_Reuniao', 'Encaminhamento_Chamado', padrao='Sem decisão registrada')}")
+            resumo_reunioes = " | ".join(partes)
+    except Exception:
+        pass
+    historia.extend([caixa("Resumo das reuniões", resumo_reunioes, 360), Spacer(1, 1.5*mm)])
+
+    consideracoes = _pdf_primeiro(dados, "Consideracoes_Finais_Homologacao", "Parecer_Final_Admin", "obs_admin")
+    historia.extend([caixa("Considerações finais", consideracoes, 620), Spacer(1, 2*mm)])
+
+    status_cor = _pdf_status_cor(status_final)
+    decisao = Table([
+        [_pdf_paragrafo("DECISÃO FINAL", estilos["centro"]), _pdf_paragrafo(_pdf_texto(status_final).upper(), ParagraphStyle("c_status", parent=estilos["centro"], fontSize=14, leading=16))]
+    ], colWidths=[48*mm, 138*mm], rowHeights=[14*mm])
+    decisao.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,-1), status_cor), ("BOX", (0,0), (-1,-1), .7, status_cor), ("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("ALIGN", (0,0), (-1,-1), "CENTER")]))
+    historia.extend([decisao, Spacer(1, 2*mm)])
 
     responsavel = _pdf_primeiro(dados, "Responsavel_Homologacao_Final", "Admin_Responsavel")
-    data_homologacao = _pdf_data(_pdf_primeiro(dados, "Data_Homologacao_Final", "Data_Homologacao"), incluir_hora=True)
-    historia.extend([
-        secao("10. RESPONSÁVEL PELA HOMOLOGAÇÃO"), Spacer(1, 2 * mm),
-        tabela_campos([
-            ["Responsável", responsavel, "Data e hora", data_homologacao],
-            ["E-mail", _pdf_primeiro(dados, "Email_Responsavel_Homologacao", "Admin_Email"), "Identificador", identificador],
-        ]),
-        Spacer(1, 6 * mm),
+    data_hom = _pdf_data(_pdf_primeiro(dados, "Data_Homologacao_Final", "Data_Homologacao"), incluir_hora=True)
+    info_resp = tabela_pares([
+        ["Responsável", responsavel, "Data e hora", data_hom],
+        ["Identificador", identificador, "Código de validação", codigo_validacao],
     ])
+    historia.extend([info_resp, Spacer(1, 2*mm)])
 
-    texto_validacao = (
-        f"Homologado eletronicamente no Sistema CAPROQ por {responsavel}, em {data_homologacao}. "
-        f"Este relatório consolida as informações registradas no fluxo digital do chamado #{id_chamado}. "
-        f"Código de validação: {codigo_validacao}."
-    )
     bloco_validacao = Table([
-        [_pdf_qr_drawing(conteudo_qr, 30 * mm),
-         Table([
-             [_pdf_paragrafo("VALIDAÇÃO E RASTREABILIDADE", estilos["valor_bold"])],
-             [_pdf_paragrafo(texto_validacao, estilos["texto"])],
-             [_pdf_paragrafo(f"Documento: {identificador}", estilos["valor"])],
-             [_pdf_paragrafo(f"Código: {codigo_validacao}", estilos["valor_bold"])],
-             [_pdf_paragrafo(
-                 "Escaneie o QR Code para consultar o chamado quando a URL institucional estiver configurada.",
-                 estilos["pequeno"],
-             )],
-         ], colWidths=[128 * mm], style=TableStyle([
-             ("LEFTPADDING", (0, 0), (-1, -1), 0),
-             ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-             ("TOPPADDING", (0, 0), (-1, -1), 2),
-             ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-         ]))]
-    ], colWidths=[38 * mm, 136 * mm])
-    bloco_validacao.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), COR_CAPROQ_CLARO),
-        ("BOX", (0, 0), (-1, -1), 0.7, COR_CAPROQ),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("ALIGN", (0, 0), (0, 0), "CENTER"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-    ]))
+        [_pdf_qr_drawing(conteudo_qr, 22*mm), _pdf_paragrafo(
+            f"Documento homologado eletronicamente no Sistema CAPROQ. O QR Code direciona ao endereço principal do aplicativo e permite conferir o chamado #{id_chamado} e o código {codigo_validacao}. O histórico detalhado permanece disponível no sistema.",
+            estilos["valor"],
+        )]
+    ], colWidths=[28*mm, 158*mm])
+    bloco_validacao.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,-1), COR_CAPROQ_CLARO), ("BOX", (0,0), (-1,-1), .45, COR_CAPROQ), ("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("ALIGN", (0,0), (0,0), "CENTER"), ("LEFTPADDING", (0,0), (-1,-1), 5), ("RIGHTPADDING", (0,0), (-1,-1), 5), ("TOPPADDING", (0,0), (-1,-1), 4), ("BOTTOMPADDING", (0,0), (-1,-1), 4)]))
     historia.append(bloco_validacao)
 
     doc.build(
@@ -2460,17 +2420,26 @@ ALCADAS_INFO = {
     }
 }
 
-def enviar_email(destinatario, assunto, corpo_html):
+def enviar_email(destinatario, assunto, corpo_html, anexos=None):
+    """Envia e-mail HTML e, opcionalmente, arquivos em memória."""
     remetente = st.secrets.get("SMTP_EMAIL", "")
     senha = st.secrets.get("SMTP_PASSWORD", "")
-    if not remetente or not senha: return False
+    if not remetente or not senha:
+        return False
     try:
         msg = MIMEMultipart()
-        msg['From'] = remetente
-        msg['To'] = destinatario
-        msg['Subject'] = assunto
-        msg.attach(MIMEText(corpo_html, 'html', 'utf-8'))
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        msg["From"] = remetente
+        msg["To"] = destinatario
+        msg["Subject"] = assunto
+        msg.attach(MIMEText(corpo_html, "html", "utf-8"))
+        for anexo in anexos or []:
+            conteudo = anexo.get("bytes", b"")
+            nome = anexo.get("nome", "anexo.bin")
+            subtipo = anexo.get("subtipo", "octet-stream")
+            parte = MIMEApplication(conteudo, _subtype=subtipo)
+            parte.add_header("Content-Disposition", "attachment", filename=nome)
+            msg.attach(parte)
+        server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
         server.login(remetente, senha)
         server.sendmail(remetente, destinatario, msg.as_string())
@@ -6890,14 +6859,50 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                         dados_pdf,
                                         reunioes=df_reunioes_pdf,
                                     )
+                                    nome_pdf = f"Relatorio_Oficial_CAPROQ_Chamado_{id_chamado}.pdf"
                                     st.session_state["pdf_homologacao_pronto"] = {
                                         "id": id_chamado,
                                         "bytes": pdf_bytes,
-                                        "nome": f"Relatorio_Oficial_CAPROQ_Chamado_{id_chamado}.pdf",
+                                        "nome": nome_pdf,
                                     }
 
+                                    # Cria/reutiliza a pasta individual e salva o PDF automaticamente.
+                                    pasta_chamado = criar_ou_obter_pasta_chamado(dados_pdf)
+                                    arquivo_relatorio = upload_bytes_para_google_drive(
+                                        pdf_bytes,
+                                        nome_pdf,
+                                        "application/pdf",
+                                        pasta_chamado["id"],
+                                    )
+                                    campos_drive = {
+                                        "Drive_Folder_ID": pasta_chamado["id"],
+                                        "Drive_Folder_URL": pasta_chamado["url"],
+                                        "Drive_Folder_Name": pasta_chamado["name"],
+                                        "Relatorio_Oficial_URL": arquivo_relatorio["url"],
+                                        "Relatorio_Oficial_ID": arquivo_relatorio["id"],
+                                        "Relatorio_Oficial_Data": timestamp_homologacao,
+                                    }
+                                    for coluna_drive, valor_drive in campos_drive.items():
+                                        if coluna_drive not in df_dados.columns:
+                                            df_dados[coluna_drive] = ""
+                                        df_dados[coluna_drive] = df_dados[coluna_drive].astype("object")
+                                        df_dados.loc[mascara_chamado, coluna_drive] = valor_drive
+                                    conn.update(data=df_dados)
+                                    st.session_state["df_dados_cache"] = df_dados.copy()
+                                    st.session_state["df_dados_cache_timestamp"] = time.time()
+
+                                    links_relatorio = (
+                                        f'<div style="margin-top:18px">'
+                                        f'<a href="{arquivo_relatorio["url"]}" target="_blank" style="display:inline-block;background:#005691;color:#fff;text-decoration:none;padding:11px 18px;border-radius:6px;font-weight:600;margin-right:8px">Abrir relatório no Drive</a>'
+                                        f'<a href="{pasta_chamado["url"]}" target="_blank" style="display:inline-block;background:#003D66;color:#fff;text-decoration:none;padding:11px 18px;border-radius:6px;font-weight:600">Abrir pasta do chamado</a>'
+                                        f'</div>'
+                                    )
+                                    html_encerramento_com_relatorio = html_encerramento.replace(
+                                        "</body>", links_relatorio + "</body>"
+                                    ) if "</body>" in html_encerramento else html_encerramento + links_relatorio
+
                                     destinatarios_resultado = emails_unicos(
-                                        [email_solicitante, todos_emails_aprovadores()]
+                                        [email_solicitante, todos_emails_aprovadores(), ADMINS]
                                     )
                                     for destinatario_resultado in destinatarios_resultado:
                                         enviar_email(
@@ -6906,7 +6911,12 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                                 f"CAPROQ: {status_final_texto} - "
                                                 f"Chamado #{id_chamado}"
                                             ),
-                                            corpo_html=html_encerramento,
+                                            corpo_html=html_encerramento_com_relatorio,
+                                            anexos=[{
+                                                "bytes": pdf_bytes,
+                                                "nome": nome_pdf,
+                                                "subtipo": "pdf",
+                                            }],
                                         )
 
                                     st.success(
@@ -7720,6 +7730,37 @@ else:
                                 if obs_admin_usuario:
                                     st.markdown("**Considerações finais da homologação**")
                                     st.write(obs_admin_usuario)
+
+
+                                st.markdown("#### 📄 Relatório Oficial CAPROQ")
+                                try:
+                                    df_reunioes_acomp = reunioes_do_chamado(
+                                        id_c,
+                                        df_reunioes=carregar_reunioes_caproq(),
+                                    )
+                                except Exception:
+                                    df_reunioes_acomp = pd.DataFrame()
+                                pdf_acomp = gerar_relatorio_oficial_caproq(
+                                    row.to_dict(),
+                                    reunioes=df_reunioes_acomp,
+                                )
+                                st.download_button(
+                                    "📥 Gerar / baixar relatório",
+                                    data=pdf_acomp,
+                                    file_name=f"Relatorio_Oficial_CAPROQ_Chamado_{id_c}.pdf",
+                                    mime="application/pdf",
+                                    key=f"download_relatorio_acomp_{id_c}",
+                                    use_container_width=True,
+                                )
+                                link_relatorio_usuario = str(row.get("Relatorio_Oficial_URL", "") or "").strip()
+                                link_pasta_usuario = str(row.get("Drive_Folder_URL", "") or "").strip()
+                                col_rel_1, col_rel_2 = st.columns(2)
+                                with col_rel_1:
+                                    if link_relatorio_usuario and link_relatorio_usuario.lower() not in {"nan", "none"}:
+                                        st.link_button("🔗 Abrir relatório no Drive", link_relatorio_usuario, use_container_width=True)
+                                with col_rel_2:
+                                    if link_pasta_usuario and link_pasta_usuario.lower() not in {"nan", "none"}:
+                                        st.link_button("📁 Abrir pasta do chamado", link_pasta_usuario, use_container_width=True)
         else:
             st.markdown("""
             <div class="caproq-empty-state">
