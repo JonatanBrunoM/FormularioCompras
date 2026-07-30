@@ -7062,13 +7062,10 @@ else:
         if "form_version" not in st.session_state:
             st.session_state["form_version"] = 0
 
-        # Controle persistente do envio. Evita perda dos dados em reruns e
-        # impede cliques duplicados enquanto Drive, planilha e e-mails são processados.
-        if "envio_solicitacao_em_andamento" not in st.session_state:
-            st.session_state["envio_solicitacao_em_andamento"] = False
-        if "envio_solicitacao_pendente" not in st.session_state:
-            st.session_state["envio_solicitacao_pendente"] = False
-            
+        # Gatilho local do envio. O processamento ocorre no mesmo ciclo do clique,
+        # evitando depender de reruns ou de flags persistentes que podem travar o botão.
+        executar_envio_agora = False
+        
         v = st.session_state["form_version"]
     
         CONFIG_CAMPOS = [
@@ -7206,11 +7203,7 @@ else:
                 texto_botao_envio,
                 use_container_width=True,
                 type="primary",
-                disabled=st.session_state["envio_solicitacao_em_andamento"],
             )
-
-        if st.session_state["envio_solicitacao_em_andamento"]:
-            st.info("⏳ Enviando solicitação. Não feche nem atualize esta página.")
 
         # Dispara imediatamente após o primeiro clique
         if enviar_formulario:
@@ -7241,7 +7234,7 @@ else:
                 
                 # Se for um produto convencional (NÃO teste), encaminha para gravação direto
                 if valor_produto_teste == "NÃO":
-                    st.session_state["envio_solicitacao_pendente"] = True
+                    executar_envio_agora = True
 
         # SEGUNDA ETAPA DINÂMICA: Aparece instantaneamente se for Produto de Teste
         if "dados_base_coletados" in st.session_state and st.session_state["dados_base_coletados"]["valor_produto_teste"] == "SIM":
@@ -7278,7 +7271,6 @@ else:
                     "Confirmar e concluir envio do produto teste",
                     use_container_width=True,
                     type="primary",
-                    disabled=st.session_state["envio_solicitacao_em_andamento"],
                 ):
                     if not all([motivo_teste, consumo_mes, qtd_teste, setores_teste, setor_solicitante, ramal_solicitante, responsavel_area]):
                         ui.render_feedback("Preencha todos os campos adicionais do Produto Teste antes de enviar a solicitação.", kind="error", title="Dados do Produto Teste incompletos", icon="🧪")
@@ -7292,16 +7284,10 @@ else:
                             "Ramal_Solicitante": ramal_solicitante,
                             "Responsavel_Area": responsavel_area
                         })
-                        st.session_state["envio_solicitacao_pendente"] = True
+                        executar_envio_agora = True
 
-        if (
-            st.session_state.get("envio_solicitacao_pendente", False)
-            and not st.session_state.get("envio_solicitacao_em_andamento", False)
-            and "dados_base_coletados" in st.session_state
-        ):
-            # Consome o gatilho uma única vez e bloqueia novos cliques.
-            st.session_state["envio_solicitacao_pendente"] = False
-            st.session_state["envio_solicitacao_em_andamento"] = True
+        if executar_envio_agora and "dados_base_coletados" in st.session_state:
+            st.info("⏳ Enviando solicitação. Não feche nem atualize esta página.")
 
             cache = st.session_state["dados_base_coletados"]
             resp_form = cache["respostas"]
@@ -7327,7 +7313,6 @@ else:
                 try:
                     pasta_chamado = criar_ou_obter_pasta_chamado(dados_pasta_novo_chamado)
                 except Exception as erro_pasta:
-                    st.session_state["envio_solicitacao_em_andamento"] = False
                     st.error(
                         "Não foi possível criar a pasta individual deste chamado no Google Drive. "
                         "A solicitação não foi gravada para evitar arquivos soltos. "
@@ -7531,8 +7516,6 @@ else:
                     )
 
                 st.session_state["form_version"] += 1
-                st.session_state["envio_solicitacao_em_andamento"] = False
-                st.session_state["envio_solicitacao_pendente"] = False
                 
                 if "dados_base_coletados" in st.session_state:
                     del st.session_state["dados_base_coletados"]
