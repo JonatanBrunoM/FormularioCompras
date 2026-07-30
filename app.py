@@ -7062,9 +7062,15 @@ else:
         if "form_version" not in st.session_state:
             st.session_state["form_version"] = 0
 
-        # Gatilho local do envio. O processamento ocorre no mesmo ciclo do clique,
-        # evitando depender de reruns ou de flags persistentes que podem travar o botão.
+        # Gatilho local do envio. O processamento ocorre no mesmo ciclo do clique.
         executar_envio_agora = False
+
+        def _produto_teste_selecionado(valor) -> bool:
+            """Normaliza a resposta para evitar falhas por acento, caixa ou espaços."""
+            import unicodedata
+            texto = unicodedata.normalize("NFKD", str(valor or ""))
+            texto = "".join(c for c in texto if not unicodedata.combining(c))
+            return texto.strip().upper() == "SIM"
         
         v = st.session_state["form_version"]
     
@@ -7196,7 +7202,7 @@ else:
             # Para produto teste, o primeiro clique apenas valida e abre a etapa complementar.
             texto_botao_envio = (
                 "Continuar para informações do produto de teste"
-                if valor_produto_teste == "SIM"
+                if _produto_teste_selecionado(valor_produto_teste)
                 else "Enviar solicitação para avaliação"
             )
             enviar_formulario = st.form_submit_button(
@@ -7207,6 +7213,7 @@ else:
 
         # Dispara imediatamente após o primeiro clique
         if enviar_formulario:
+            st.caption("Processando validação do formulário...")
             # Validação dos campos padrões obrigatórios
             campos_vazios = [campo["label"] for campo in CONFIG_CAMPOS if campo["obrigatorio"] and not respostas_formulario.get(campo["label"])]
             
@@ -7232,12 +7239,19 @@ else:
                     "valor_produto_teste": valor_produto_teste
                 }
                 
-                # Se for um produto convencional (NÃO teste), encaminha para gravação direto
-                if valor_produto_teste == "NÃO":
+                # Produto convencional deve seguir imediatamente para a gravação.
+                # Não comparar literalmente com "NÃO", pois o componente pode devolver
+                # variações de acento/caixa conforme a versão do Streamlit.
+                if not _produto_teste_selecionado(valor_produto_teste):
                     executar_envio_agora = True
 
         # SEGUNDA ETAPA DINÂMICA: Aparece instantaneamente se for Produto de Teste
-        if "dados_base_coletados" in st.session_state and st.session_state["dados_base_coletados"]["valor_produto_teste"] == "SIM":
+        if (
+            "dados_base_coletados" in st.session_state
+            and _produto_teste_selecionado(
+                st.session_state["dados_base_coletados"].get("valor_produto_teste")
+            )
+        ):
             st.markdown("<br>", unsafe_allow_html=True)
             with st.container(border=True):
                 st.markdown("""
