@@ -7057,7 +7057,6 @@ else:
     with tab_novo:
         st.markdown("<div class='caproq-required-note'>Os campos identificados com <b>*</b> são obrigatórios.</div>", unsafe_allow_html=True)
         
-        PASTA_DRIVE_ID = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R"
         
         # Cria um inicializador de versão para resetar os widgets de upload e chaves de input
         if "form_version" not in st.session_state:
@@ -7277,23 +7276,58 @@ else:
             v_prod_teste = cache["valor_produto_teste"]
             resp_estudos = cache["resposta_estudos"]
             
-            with st.spinner("Processando anexos e enviando para o Google Drive..."):
+            with st.spinner("Criando a pasta do chamado e enviando os anexos para o Google Drive..."):
                 proximo_id = int(df_dados["ID"].max() + 1) if not df_dados.empty and "ID" in df_dados.columns else 1
-                
-                link_fds = upload_para_google_drive(cache["fds_obrigatorio"], pasta_id=PASTA_DRIVE_ID)
+
+                # A pasta individual precisa ser criada no momento da abertura do chamado,
+                # antes de qualquer upload. Assim nenhum documento novo fica solto na raiz.
+                dados_pasta_novo_chamado = {
+                    "ID": proximo_id,
+                    "Descrição completa do produto": resp_form.get(
+                        "Descrição completa do produto",
+                        resp_form.get("Descrição do produto", "Produto sem descrição"),
+                    ),
+                    "Drive_Folder_ID": "",
+                    "Drive_Folder_URL": "",
+                    "Drive_Folder_Name": "",
+                }
+
+                try:
+                    pasta_chamado = criar_ou_obter_pasta_chamado(dados_pasta_novo_chamado)
+                except Exception as erro_pasta:
+                    st.error(
+                        "Não foi possível criar a pasta individual deste chamado no Google Drive. "
+                        "A solicitação não foi gravada para evitar arquivos soltos. "
+                        f"Detalhes: {erro_pasta}"
+                    )
+                    st.stop()
+
+                pasta_chamado_id = pasta_chamado["id"]
+                pasta_chamado_url = pasta_chamado["url"]
+
+                link_fds = upload_para_google_drive(
+                    cache["fds_obrigatorio"],
+                    pasta_id=pasta_chamado_id,
+                )
                 if not link_fds:
-                    link_fds = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
-                    
+                    link_fds = pasta_chamado_url
+
                 link_estudos = "Não aplicável"
                 if resp_estudos == "Sim" and cache["arquivo_estudos"]:
-                    link_estudos = upload_para_google_drive(cache["arquivo_estudos"], pasta_id=PASTA_DRIVE_ID)
+                    link_estudos = upload_para_google_drive(
+                        cache["arquivo_estudos"],
+                        pasta_id=pasta_chamado_id,
+                    )
                     if not link_estudos:
-                        link_estudos = f"https://drive.google.com/drive/folders/{PASTA_DRIVE_ID}"
-                
+                        link_estudos = pasta_chamado_url
+
                 links_gerais = []
                 if cache["arquivos_gerais"]:
                     for arq in cache["arquivos_gerais"]:
-                        lnk = upload_para_google_drive(arq, pasta_id=PASTA_DRIVE_ID)
+                        lnk = upload_para_google_drive(
+                            arq,
+                            pasta_id=pasta_chamado_id,
+                        )
                         if lnk:
                             links_gerais.append(lnk)
                 link_gerais_str = ", ".join(links_gerais) if links_gerais else "Nenhum arquivo adicional"
@@ -7315,7 +7349,10 @@ else:
                     "Setor_Destino_Teste": resp_form.get("Setores_Teste", ""),
                     "Setor_Solicitante": resp_form.get("Setor_Solicitante", ""),
                     "Ramal_Solicitante": resp_form.get("Ramal_Solicitante", ""),
-                    "Responsavel_Area": resp_form.get("Responsavel_Area", "")
+                    "Responsavel_Area": resp_form.get("Responsavel_Area", ""),
+                    "Drive_Folder_ID": pasta_chamado["id"],
+                    "Drive_Folder_URL": pasta_chamado["url"],
+                    "Drive_Folder_Name": pasta_chamado["name"],
                 }
                 
                 for info in ALCADAS_INFO.values():
