@@ -563,6 +563,7 @@ def gerar_relatorio_oficial_caproq(dados, reunioes=None):
     historia.append(tabela_pares([
         ["Possui RMS", possui_rms, "Número RMS", _pdf_primeiro(dados, "RMS_Produto", "RMS do produto") if possui_rms == "SIM" else "Não se aplica"],
         ["Validade RMS", _pdf_data(_pdf_primeiro(dados, "Validade_RMS", "Validade do RMS")) if possui_rms == "SIM" else "Não se aplica", "Rediluição", _pdf_primeiro(dados, "Pode_Ser_Rediluido", "Pode ser rediluído?")],
+        ["Possui código no MV", _pdf_primeiro(dados, "Produto_Possui_Codigo_MV", padrao="Não informado"), "Código MV", _pdf_primeiro(dados, "Codigo_MV", padrao="Não se aplica")],
         ["Monitoramento ocupacional", _pdf_primeiro(dados, "Necessita_Monitoramento_Ocupacional", "Necessário monitoramento ocupacional?"), "Resultado do teste", _pdf_primeiro(dados, "Resultado_Teste", "Resultado do teste")],
         ["Indicado à padronização", _pdf_primeiro(dados, "Indicado_Padronizacao", "Indicado para padronização?"), "Data da indicação", _pdf_data(_pdf_primeiro(dados, "Data_Indicacao_Padronizacao", "Data da indicação"))],
     ]))
@@ -1735,7 +1736,7 @@ def extrair_decisao_e_parecer_registrado(valor_registrado) -> tuple[str, str]:
     if not texto or texto.lower() in {"nan", "none", "pendente"}:
         return "Pendente", ""
 
-    decisoes = ["Aprovar com ressalva", "Reprovar", "Aprovar"]
+    decisoes = ["Não corresponde à área", "Aprovar com ressalva", "Reprovar", "Aprovar"]
     decisao = next(
         (opcao for opcao in decisoes if texto.lower().startswith(opcao.lower())),
         texto.split("(", 1)[0].strip(),
@@ -1986,6 +1987,8 @@ def _normalizar_decisao_planilha(decisao: str) -> str:
         "aprovado com ressalva": "Aprovar com ressalva",
         "reprovar": "Reprovar",
         "reprovado": "Reprovar",
+        "não corresponde à área": "Não corresponde à área",
+        "nao corresponde a area": "Não corresponde à área",
     }
     return mapa.get(valor, str(decisao or "").strip())
 
@@ -2181,6 +2184,8 @@ def carregar_dados(forcar_atualizacao=False):
             "Indicado_Para_Padronizacao",
             "Data_Indicacao_Padronizacao",
             "Parecer_Indicacao_Padronizacao",
+            "Produto_Possui_Codigo_MV",
+            "Codigo_MV",
         ]
 
         for coluna in colunas_textuais:
@@ -3459,7 +3464,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                 pendentes = df_dados[condicao_pendente]
                 
                 condicao_historico = df_dados[colunas_validas].apply(
-                    lambda col: col.astype(str).str.startswith(("Aprovar", "Reprovar"), na=False)
+                    lambda col: col.astype(str).str.startswith(("Aprovar", "Reprovar", "Não corresponde à área"), na=False)
                 ).any(axis=1)
                 
                 historico_aprovador = df_dados[condicao_historico]
@@ -3585,7 +3590,11 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                 ).strip()
                                 voto_minusculo = voto_placar.lower()
 
-                                if voto_placar.startswith("Reprovar"):
+                                if voto_placar.startswith("Não corresponde à área"):
+                                    classe_status = "pendente"
+                                    texto_status = "Não corresponde à área"
+                                    icone_status = "−"
+                                elif voto_placar.startswith("Reprovar"):
                                     classe_status = "reprovado"
                                     texto_status = "Reprovado"
                                     icone_status = "✕"
@@ -3793,15 +3802,23 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                         
                                         voto_opcao = escolha_padronizada(
                                             "Decisão da Alçada:",
-                                            ["Aprovar", "Aprovar com ressalva", "Reprovar"],
+                                            ["Aprovar", "Aprovar com ressalva", "Reprovar", "Não corresponde à área"],
                                             key=key_voto,
                                             valor_padrao=None,
-                                            format_func=lambda x: "👍 Aprovar" if x == "Aprovar" else "⚠️ Aprovar com ressalva" if x == "Aprovar com ressalva" else "👎 Reprovar",
+                                            format_func=lambda x: (
+                                                "👍 Aprovar" if x == "Aprovar"
+                                                else "⚠️ Aprovar com ressalva" if x == "Aprovar com ressalva"
+                                                else "👎 Reprovar" if x == "Reprovar"
+                                                else "➖ Não corresponde à área"
+                                            ),
                                         )
                                         
                                         if voto_opcao:
                                             parecer_obrigatorio = voto_opcao in ["Aprovar com ressalva", "Reprovar"]
-                                            label_parecer = f"Parecer técnico para {info['label']} (Obrigatório):" if parecer_obrigatorio else f"Parecer técnico para {info['label']} (Opcional):"
+                                            if voto_opcao == "Não corresponde à área":
+                                                label_parecer = f"Justificativa para {info['label']} (Opcional):"
+                                            else:
+                                                label_parecer = f"Parecer técnico para {info['label']} (Obrigatório):" if parecer_obrigatorio else f"Parecer técnico para {info['label']} (Opcional):"
                                             
                                             parecer_texto = st.text_area(label_parecer, key=key_parecer)
                                             
@@ -3829,7 +3846,11 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                                     todos_votos_valores = [str(linha_atualizada[inf["coluna_sheets"]]) for inf in ALCADAS_INFO.values() if inf["coluna_sheets"] in df_dados.columns]
                                                     
                                                     reprovados_count = sum(1 for v in todos_votos_valores if v.startswith("Reprovar"))
-                                                    votos_total_emitidos = sum(1 for v in todos_votos_valores if v.startswith(("Aprovar", "Reprovar")))
+                                                    votos_total_emitidos = sum(
+                                                        1
+                                                        for v in todos_votos_valores
+                                                        if v.startswith(("Aprovar", "Reprovar", "Não corresponde à área"))
+                                                    )
 
                                                     if "Status_Aprovadores" not in df_dados.columns:
                                                         df_dados["Status_Aprovadores"] = ""
@@ -3847,6 +3868,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                                     cor_parecer = (
                                                         "#D93025" if voto_opcao == "Reprovar"
                                                         else "#E6A23C" if voto_opcao == "Aprovar com ressalva"
+                                                        else "#607D8B" if voto_opcao == "Não corresponde à área"
                                                         else "#008D4C"
                                                     )
                                                     detalhes_parecer = f"""
@@ -4320,14 +4342,19 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                                 with st.form(chave_revisao, clear_on_submit=False):
                                                     nova_decisao = escolha_padronizada(
                                                         "Nova decisão proposta *",
-                                                        ["Aprovar", "Aprovar com ressalva", "Reprovar"],
+                                                        ["Aprovar", "Aprovar com ressalva", "Reprovar", "Não corresponde à área"],
                                                         key=f"nova_decisao_{chave_revisao}",
                                                         valor_padrao=(
                                                             decisao_atual_revisao
-                                                            if decisao_atual_revisao in ["Aprovar", "Aprovar com ressalva", "Reprovar"]
+                                                            if decisao_atual_revisao in ["Aprovar", "Aprovar com ressalva", "Reprovar", "Não corresponde à área"]
                                                             else "Aprovar"
                                                         ),
-                                                        format_func=lambda x: "👍 Aprovar" if x == "Aprovar" else "⚠️ Aprovar com ressalva" if x == "Aprovar com ressalva" else "👎 Reprovar",
+                                                        format_func=lambda x: (
+                                                            "👍 Aprovar" if x == "Aprovar"
+                                                            else "⚠️ Aprovar com ressalva" if x == "Aprovar com ressalva"
+                                                            else "👎 Reprovar" if x == "Reprovar"
+                                                            else "➖ Não corresponde à área"
+                                                        ),
                                                     )
                                                     novo_parecer = st.text_area(
                                                         "Novo parecer técnico",
@@ -5257,7 +5284,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                         coluna_voto = info_area["coluna_sheets"]
                         if coluna_voto in df_filtrado.columns:
                             votos = df_filtrado[coluna_voto].fillna("Pendente").astype(str).str.strip()
-                            concluidos = int(votos.str.startswith(("Aprovar", "Reprovar")).sum())
+                            concluidos = int(votos.str.startswith(("Aprovar", "Reprovar", "Não corresponde à área")).sum())
                             pendentes_area = int((votos == "Pendente").sum())
                             total_area = concluidos + pendentes_area
                             percentual_conclusao = (concluidos / total_area * 100) if total_area else 0
@@ -6331,7 +6358,10 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                         for _, info in ALCADAS_INFO.items():
                             voto_atual = str(row.get(info["coluna_sheets"], "Pendente"))
                             voto_lower = voto_atual.lower()
-                            if "aprovar" in voto_lower and "ressalva" not in voto_lower:
+                            if "não corresponde à área" in voto_lower or "nao corresponde a area" in voto_lower:
+                                rotulo_voto, icone_voto = "Não corresponde à área", "−"
+                                fundo_voto, borda_voto = "rgba(96,125,139,.10)", "rgba(96,125,139,.30)"
+                            elif "aprovar" in voto_lower and "ressalva" not in voto_lower:
                                 rotulo_voto, icone_voto = "Aprovado", "●"
                                 fundo_voto, borda_voto = "rgba(0,141,76,.11)", "rgba(0,141,76,.32)"
                             elif "ressalva" in voto_lower:
@@ -6491,6 +6521,37 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                 )
 
                         st.markdown(
+                            '<div class="caproq-section-title">🏥 Cadastro do produto no MV</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                        possui_codigo_mv_atual = _texto_limpo(
+                            row.get("Produto_Possui_Codigo_MV", "")
+                        ).upper()
+                        if possui_codigo_mv_atual not in {"SIM", "NÃO"}:
+                            possui_codigo_mv_atual = (
+                                "SIM" if _texto_limpo(row.get("Codigo_MV", "")) else None
+                            )
+
+                        produto_possui_codigo_mv = escolha_padronizada(
+                            "O produto possui código no MV?",
+                            ["SIM", "NÃO"],
+                            key=f"produto_possui_codigo_mv_{id_chamado}",
+                            valor_padrao=possui_codigo_mv_atual,
+                        )
+
+                        codigo_mv = ""
+                        if produto_possui_codigo_mv == "SIM":
+                            codigo_mv = st.text_input(
+                                "Código do produto no MV",
+                                value=_texto_limpo(row.get("Codigo_MV", "")),
+                                placeholder="Informe o código cadastrado no MV",
+                                key=f"codigo_mv_{id_chamado}",
+                            )
+                        elif produto_possui_codigo_mv == "NÃO":
+                            st.caption("O código no MV não se aplica ou ainda não foi cadastrado para este produto.")
+
+                        st.markdown(
                             '<div class="caproq-section-title">✅ Validações de encerramento</div>',
                             unsafe_allow_html=True,
                         )
@@ -6588,6 +6649,7 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                 produto_comprado is not None,
                                 inventario_perigosos is not None,
                                 fispq_setor is not None,
+                                produto_possui_codigo_mv is not None,
                                 decisao_final_admin is not None,
                             ]
                         )
@@ -6595,6 +6657,11 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                         codigo_padronizacao_valido = (
                             produto_padronizado != "SIM"
                             or bool(str(codigo_padronizacao).strip())
+                        )
+
+                        codigo_mv_valido = (
+                            produto_possui_codigo_mv != "SIM"
+                            or bool(str(codigo_mv).strip())
                         )
 
                         campos_teste_preenchidos = True
@@ -6682,6 +6749,12 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
 
                         dados_homologacao_padrao = {
                             "Decisao_Final_Admin": decisao_final_admin or "",
+                            "Produto_Possui_Codigo_MV": produto_possui_codigo_mv or "",
+                            "Codigo_MV": (
+                                str(codigo_mv).strip()
+                                if produto_possui_codigo_mv == "SIM"
+                                else ""
+                            ),
                             "Padronização: o produto foi aprovado?": (
                                 produto_aprovado or ""
                             ),
@@ -6717,6 +6790,10 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                             elif not codigo_padronizacao_valido:
                                 st.error(
                                     "❌ Informe o código do produto padronizado."
+                                )
+                            elif not codigo_mv_valido:
+                                st.error(
+                                    "❌ Informe o código do produto no MV."
                                 )
                             elif (
                                 eh_produto_teste
