@@ -114,12 +114,18 @@ def upload_para_google_drive(arquivo_streamlit, pasta_id=None):
 
 
 def _drive_root_folder_id():
-    """Retorna a pasta principal do CAPROQ configurada nos secrets."""
-    padrao = "1YM8-vbxx0nMKD_5b0xZ8plr_iw7I9k7R"
+    """Retorna a pasta principal do CAPROQ, exigindo configuração explícita."""
     try:
-        return str(st.secrets.get("CAPROQ_DRIVE_ROOT_FOLDER_ID", padrao)).strip() or padrao
+        pasta_id = str(st.secrets.get("CAPROQ_DRIVE_ROOT_FOLDER_ID", "")).strip()
     except Exception:
-        return os.getenv("CAPROQ_DRIVE_ROOT_FOLDER_ID", padrao).strip() or padrao
+        pasta_id = str(os.getenv("CAPROQ_DRIVE_ROOT_FOLDER_ID", "")).strip()
+
+    if not pasta_id:
+        raise RuntimeError(
+            "A configuração CAPROQ_DRIVE_ROOT_FOLDER_ID não foi encontrada. "
+            "Informe nos Secrets somente o ID da pasta principal do CAPROQ."
+        )
+    return pasta_id
 
 
 def _drive_nome_seguro(valor, limite=70):
@@ -188,13 +194,69 @@ def criar_ou_obter_pasta_chamado(dados_chamado):
     }
 
 
-def upload_bytes_para_google_drive(conteudo, nome_arquivo, mime_type, pasta_id):
-    """Envia bytes diretamente ao Drive e devolve ID e URL do arquivo."""
+def upload_bytes_para_google_drive(
+    conteudo,
+    nome_arquivo,
+    mime_type,
+    pasta_id,
+    arquivo_id_existente="",
+):
+    """Cria ou atualiza um arquivo no Drive, evitando relatórios duplicados."""
     credentials = obter_credenciais_google()
     if credentials is None:
         raise RuntimeError("Credenciais Google indisponíveis para enviar o relatório.")
+
     service = build("drive", "v3", credentials=credentials)
     media = MediaIoBaseUpload(io.BytesIO(conteudo), mimetype=mime_type, resumable=False)
+    arquivo_id = str(arquivo_id_existente or "").strip()
+
+    # Primeiro tenta atualizar o arquivo já vinculado na planilha.
+    if arquivo_id and arquivo_id.lower() not in {"nan", "none"}:
+        try:
+            arquivo = service.files().update(
+                fileId=arquivo_id,
+                body={"name": nome_arquivo},
+                media_body=media,
+                fields="id,name,webViewLink",
+            ).execute()
+            return {
+                "id": arquivo.get("id", arquivo_id),
+                "name": arquivo.get("name", nome_arquivo),
+                "url": arquivo.get("webViewLink", ""),
+                "updated": True,
+            }
+        except Exception:
+            # Caso o arquivo tenha sido removido ou o vínculo esteja inválido,
+            # procura pelo nome antes de criar outro.
+            media = MediaIoBaseUpload(io.BytesIO(conteudo), mimetype=mime_type, resumable=False)
+
+    nome_consulta = nome_arquivo.replace("'", "\'")
+    consulta = (
+        f"name = '{nome_consulta}' and '{pasta_id}' in parents "
+        "and trashed = false"
+    )
+    encontrados = service.files().list(
+        q=consulta,
+        fields="files(id,name,webViewLink)",
+        pageSize=10,
+    ).execute().get("files", [])
+
+    if encontrados:
+        arquivo_id = encontrados[0]["id"]
+        media = MediaIoBaseUpload(io.BytesIO(conteudo), mimetype=mime_type, resumable=False)
+        arquivo = service.files().update(
+            fileId=arquivo_id,
+            body={"name": nome_arquivo},
+            media_body=media,
+            fields="id,name,webViewLink",
+        ).execute()
+        return {
+            "id": arquivo.get("id", arquivo_id),
+            "name": arquivo.get("name", nome_arquivo),
+            "url": arquivo.get("webViewLink", ""),
+            "updated": True,
+        }
+
     metadata = {"name": nome_arquivo, "parents": [pasta_id]}
     arquivo = service.files().create(
         body=metadata,
@@ -205,6 +267,7 @@ def upload_bytes_para_google_drive(conteudo, nome_arquivo, mime_type, pasta_id):
         "id": arquivo.get("id", ""),
         "name": arquivo.get("name", nome_arquivo),
         "url": arquivo.get("webViewLink", ""),
+        "updated": False,
     }
 
 
@@ -6840,96 +6903,148 @@ if is_aprovador and st.session_state.get("pagina_atual") != "solicitacoes":
                                     destaque=cor_resultado,
                                 )
 
+                                # 1) Salva primeiro a homologação. Falhas posteriores não anulam a decisão.
                                 try:
                                     conn.update(data=df_dados)
-
                                     st.session_state["df_dados_cache"] = df_dados.copy()
                                     st.session_state["df_dados_cache_timestamp"] = time.time()
-
-                                    # Gera o Relatório Oficial CAPROQ com os dados já homologados.
-                                    dados_pdf = df_dados.loc[mascara_chamado].iloc[0].to_dict()
-                                    try:
-                                        df_reunioes_pdf = reunioes_do_chamado(
-                                            id_chamado,
-                                            df_reunioes=carregar_reunioes_caproq(),
-                                        )
-                                    except Exception:
-                                        df_reunioes_pdf = pd.DataFrame()
-                                    pdf_bytes = gerar_relatorio_oficial_caproq(
-                                        dados_pdf,
-                                        reunioes=df_reunioes_pdf,
+                                except Exception as erro_planilha:
+                                    st.error(
+                                        "❌ A homologação não foi salva na planilha. "
+                                        f"Nenhuma etapa posterior foi executada: {erro_planilha}"
                                     )
+                                else:
+                                    avisos_pos_homologacao = []
+                                    pdf_bytes = None
                                     nome_pdf = f"Relatorio_Oficial_CAPROQ_Chamado_{id_chamado}.pdf"
-                                    st.session_state["pdf_homologacao_pronto"] = {
-                                        "id": id_chamado,
-                                        "bytes": pdf_bytes,
-                                        "nome": nome_pdf,
-                                    }
+                                    pasta_chamado = None
+                                    arquivo_relatorio = None
 
-                                    # Cria/reutiliza a pasta individual e salva o PDF automaticamente.
-                                    pasta_chamado = criar_ou_obter_pasta_chamado(dados_pdf)
-                                    arquivo_relatorio = upload_bytes_para_google_drive(
-                                        pdf_bytes,
-                                        nome_pdf,
-                                        "application/pdf",
-                                        pasta_chamado["id"],
-                                    )
-                                    campos_drive = {
-                                        "Drive_Folder_ID": pasta_chamado["id"],
-                                        "Drive_Folder_URL": pasta_chamado["url"],
-                                        "Drive_Folder_Name": pasta_chamado["name"],
-                                        "Relatorio_Oficial_URL": arquivo_relatorio["url"],
-                                        "Relatorio_Oficial_ID": arquivo_relatorio["id"],
-                                        "Relatorio_Oficial_Data": timestamp_homologacao,
-                                    }
-                                    for coluna_drive, valor_drive in campos_drive.items():
-                                        if coluna_drive not in df_dados.columns:
-                                            df_dados[coluna_drive] = ""
-                                        df_dados[coluna_drive] = df_dados[coluna_drive].astype("object")
-                                        df_dados.loc[mascara_chamado, coluna_drive] = valor_drive
-                                    conn.update(data=df_dados)
-                                    st.session_state["df_dados_cache"] = df_dados.copy()
-                                    st.session_state["df_dados_cache_timestamp"] = time.time()
+                                    # 2) Gera o PDF independentemente do Drive e do e-mail.
+                                    try:
+                                        dados_pdf = df_dados.loc[mascara_chamado].iloc[0].to_dict()
+                                        try:
+                                            df_reunioes_pdf = reunioes_do_chamado(
+                                                id_chamado,
+                                                df_reunioes=carregar_reunioes_caproq(),
+                                            )
+                                        except Exception:
+                                            df_reunioes_pdf = pd.DataFrame()
 
-                                    links_relatorio = (
-                                        f'<div style="margin-top:18px">'
-                                        f'<a href="{arquivo_relatorio["url"]}" target="_blank" style="display:inline-block;background:#005691;color:#fff;text-decoration:none;padding:11px 18px;border-radius:6px;font-weight:600;margin-right:8px">Abrir relatório no Drive</a>'
-                                        f'<a href="{pasta_chamado["url"]}" target="_blank" style="display:inline-block;background:#003D66;color:#fff;text-decoration:none;padding:11px 18px;border-radius:6px;font-weight:600">Abrir pasta do chamado</a>'
-                                        f'</div>'
-                                    )
-                                    html_encerramento_com_relatorio = html_encerramento.replace(
-                                        "</body>", links_relatorio + "</body>"
-                                    ) if "</body>" in html_encerramento else html_encerramento + links_relatorio
-
-                                    destinatarios_resultado = emails_unicos(
-                                        [email_solicitante, todos_emails_aprovadores(), ADMINS]
-                                    )
-                                    for destinatario_resultado in destinatarios_resultado:
-                                        enviar_email(
-                                            destinatario=destinatario_resultado,
-                                            assunto=(
-                                                f"CAPROQ: {status_final_texto} - "
-                                                f"Chamado #{id_chamado}"
-                                            ),
-                                            corpo_html=html_encerramento_com_relatorio,
-                                            anexos=[{
-                                                "bytes": pdf_bytes,
-                                                "nome": nome_pdf,
-                                                "subtipo": "pdf",
-                                            }],
+                                        pdf_bytes = gerar_relatorio_oficial_caproq(
+                                            dados_pdf,
+                                            reunioes=df_reunioes_pdf,
                                         )
+                                        st.session_state["pdf_homologacao_pronto"] = {
+                                            "id": id_chamado,
+                                            "bytes": pdf_bytes,
+                                            "nome": nome_pdf,
+                                        }
+                                    except Exception as erro_pdf:
+                                        avisos_pos_homologacao.append(
+                                            f"Relatório não gerado: {erro_pdf}"
+                                        )
+
+                                    # 3) Cria/reutiliza a pasta e cria ou atualiza o relatório no Drive.
+                                    if pdf_bytes is not None:
+                                        try:
+                                            dados_pdf = df_dados.loc[mascara_chamado].iloc[0].to_dict()
+                                            pasta_chamado = criar_ou_obter_pasta_chamado(dados_pdf)
+                                            arquivo_relatorio = upload_bytes_para_google_drive(
+                                                pdf_bytes,
+                                                nome_pdf,
+                                                "application/pdf",
+                                                pasta_chamado["id"],
+                                                arquivo_id_existente=dados_pdf.get(
+                                                    "Relatorio_Oficial_ID", ""
+                                                ),
+                                            )
+                                            campos_drive = {
+                                                "Drive_Folder_ID": pasta_chamado["id"],
+                                                "Drive_Folder_URL": pasta_chamado["url"],
+                                                "Drive_Folder_Name": pasta_chamado["name"],
+                                                "Relatorio_Oficial_URL": arquivo_relatorio["url"],
+                                                "Relatorio_Oficial_ID": arquivo_relatorio["id"],
+                                                "Relatorio_Oficial_Data": timestamp_homologacao,
+                                            }
+                                            for coluna_drive, valor_drive in campos_drive.items():
+                                                if coluna_drive not in df_dados.columns:
+                                                    df_dados[coluna_drive] = ""
+                                                df_dados[coluna_drive] = df_dados[coluna_drive].astype("object")
+                                                df_dados.loc[mascara_chamado, coluna_drive] = valor_drive
+                                            conn.update(data=df_dados)
+                                            st.session_state["df_dados_cache"] = df_dados.copy()
+                                            st.session_state["df_dados_cache_timestamp"] = time.time()
+                                        except Exception as erro_drive:
+                                            avisos_pos_homologacao.append(
+                                                f"Homologação salva, mas o Drive não foi atualizado: {erro_drive}"
+                                            )
+
+                                    # 4) Envia o PDF por e-mail mesmo que o Drive esteja temporariamente indisponível.
+                                    if pdf_bytes is not None:
+                                        links_relatorio = ""
+                                        if arquivo_relatorio and pasta_chamado:
+                                            links_relatorio = (
+                                                '<div style="margin-top:18px">'
+                                                f'<a href="{arquivo_relatorio["url"]}" target="_blank" style="display:inline-block;background:#005691;color:#fff;text-decoration:none;padding:11px 18px;border-radius:6px;font-weight:600;margin-right:8px">Abrir relatório no Drive</a>'
+                                                f'<a href="{pasta_chamado["url"]}" target="_blank" style="display:inline-block;background:#003D66;color:#fff;text-decoration:none;padding:11px 18px;border-radius:6px;font-weight:600">Abrir pasta do chamado</a>'
+                                                '</div>'
+                                            )
+
+                                        html_encerramento_com_relatorio = (
+                                            html_encerramento.replace(
+                                                "</body>", links_relatorio + "</body>"
+                                            )
+                                            if "</body>" in html_encerramento
+                                            else html_encerramento + links_relatorio
+                                        )
+                                        destinatarios_resultado = emails_unicos(
+                                            [email_solicitante, todos_emails_aprovadores(), ADMINS]
+                                        )
+                                        enviados = 0
+                                        falhas_email = []
+                                        for destinatario_resultado in destinatarios_resultado:
+                                            enviado = enviar_email(
+                                                destinatario=destinatario_resultado,
+                                                assunto=(
+                                                    f"CAPROQ: {status_final_texto} - "
+                                                    f"Chamado #{id_chamado}"
+                                                ),
+                                                corpo_html=html_encerramento_com_relatorio,
+                                                anexos=[{
+                                                    "bytes": pdf_bytes,
+                                                    "nome": nome_pdf,
+                                                    "subtipo": "pdf",
+                                                }],
+                                            )
+                                            if enviado:
+                                                enviados += 1
+                                            else:
+                                                falhas_email.append(destinatario_resultado)
+
+                                        if falhas_email:
+                                            avisos_pos_homologacao.append(
+                                                f"E-mail enviado para {enviados} destinatário(s), "
+                                                f"com falha para {len(falhas_email)}: "
+                                                + ", ".join(falhas_email)
+                                            )
 
                                     st.success(
-                                        f"🎉 Chamado #{id_chamado} deliberado "
-                                        "e encerrado com sucesso!"
+                                        f"🎉 Chamado #{id_chamado} homologado e encerrado com sucesso."
                                     )
-                                    time.sleep(1.5)
+                                    if arquivo_relatorio:
+                                        acao_drive = "atualizado" if arquivo_relatorio.get("updated") else "criado"
+                                        st.success(
+                                            f"📁 Relatório {acao_drive} no Google Drive sem duplicidade."
+                                        )
+                                    if not avisos_pos_homologacao:
+                                        st.success("✉️ Relatório enviado aos envolvidos por e-mail.")
+                                    else:
+                                        for aviso in avisos_pos_homologacao:
+                                            st.warning(f"⚠️ {aviso}")
+
+                                    time.sleep(2.0)
                                     st.rerun()
-                                except Exception as e:
-                                    st.error(
-                                        "❌ Erro ao salvar a deliberação final "
-                                        f"na planilha: {e}"
-                                    )
 
 else:
 
@@ -7658,7 +7773,7 @@ else:
                                 st.write(area_uso_usuario)
 
                             st.markdown("#### 🧭 Progresso das alçadas técnicas")
-                            placar_html_usuario = '<div class="caproq-my-scoreboard">'
+                            cards_score_usuario = []
                             for info_alcada, voto_usuario in votos_usuario:
                                 voto_lower_usuario = voto_usuario.lower()
                                 if voto_usuario == "Pendente":
@@ -7678,13 +7793,17 @@ else:
                                     status_score_usuario = voto_usuario
 
                                 label_score_usuario = info_alcada["label"]
-                                placar_html_usuario += f"""
-                                <div class="caproq-my-score {classe_score_usuario}">
-                                    <div class="caproq-my-score-label">{escape(label_score_usuario)}</div>
-                                    <div class="caproq-my-score-status">{escape(status_score_usuario)}</div>
-                                </div>
-                                """
-                            placar_html_usuario += "</div>"
+                                cards_score_usuario.append(
+                                    f'<div class="caproq-my-score {classe_score_usuario}">'
+                                    f'<div class="caproq-my-score-label">{escape(label_score_usuario)}</div>'
+                                    f'<div class="caproq-my-score-status">{escape(status_score_usuario)}</div>'
+                                    '</div>'
+                                )
+                            placar_html_usuario = (
+                                '<div class="caproq-my-scoreboard">'
+                                + "".join(cards_score_usuario)
+                                + '</div>'
+                            )
                             st.markdown(placar_html_usuario, unsafe_allow_html=True)
 
                             logs_solicitante = []
